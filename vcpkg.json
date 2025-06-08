@@ -1,7 +1,7 @@
- 
 {
   "name": "snakeai-mlops",
   "version": "0.1.0",
+  "builtin-baseline": "984f9232b2fe0eb94f5e9f161d6c632c581fff0c",
   "dependencies": [
     "sfml",
     "nlohmann-json",
