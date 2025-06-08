@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# Ignore vcpkg directories and build outputs
+vcpkg/
+out/
+#build/
+#*.exe
