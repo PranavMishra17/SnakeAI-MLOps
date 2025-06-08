@@ -1,0 +1,17 @@
+{
+  "configurations": [
+    {
+      "name": "Windows",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "E:/vcpkg/installed/x64-windows/include"  // ⬅️ adjust if SFML is elsewhere
+      ],
+      "defines": [],
+      "compilerPath": "C:/Program Files/CMake/bin",   // ⬅️ or your MSVC path
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "windows-gcc-x64"
+    }
+  ],
+  "version": 4
+}

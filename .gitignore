@@ -36,3 +36,4 @@ vcpkg/
 out/
 #build/
 #*.exe
+/assets/fonts

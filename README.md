@@ -42,6 +42,141 @@ cmake --build out/build/windows-default
 .\out\build\windows-default\SnakeAI-MLOps.exe
 ```
 
+## Project File Structure
+
+```
+SnakeAI-MLOps/
+├── src/
+│   ├── main.cpp              # Entry point with logging setup
+│   ├── Game.hpp              # Main game class header
+│   ├── Game.cpp              # Game loop, state management, rendering
+│   ├── GameState.hpp         # Enums and state structures
+│   ├── Grid.hpp              # Grid system header
+│   ├── Grid.cpp              # Grid rendering and coordinate conversion
+│   ├── Snake.hpp             # Snake entity header
+│   ├── Snake.cpp             # Snake movement, collision, rendering
+│   ├── Apple.hpp             # Apple/food header
+│   ├── Apple.cpp             # Apple spawning and rendering
+│   ├── Menu.hpp              # Main menu header
+│   ├── Menu.cpp              # Menu navigation and mode selection
+│   ├── QLearningAgent.hpp    # Q-Learning AI header
+│   ├── QLearningAgent.cpp    # Q-table management, action selection
+│   ├── DataCollector.hpp     # Data collection header
+│   ├── DataCollector.cpp     # Episode tracking, metrics logging
+│   ├── InputManager.hpp      # Input handling header
+│   └── InputManager.cpp      # Keyboard/mouse input processing
+├── assets/
+│   ├── head.jpg              # Snake head texture (required)
+│   ├── skin.jpg              # Snake body texture (required)
+│   └── fonts/
+│       └── arial.ttf         # UI font (required)
+├── models/                   # Saved ML models
+│   └── qtable.json          # Q-Learning table (auto-generated)
+├── data/                     # Training logs and metrics
+│   ├── training_data.json   # Episode history (auto-generated)
+│   └── training_summary.json # Performance statistics (auto-generated)
+├── logs/                     # Application logs
+│   └── game.log             # Runtime logs (auto-generated)
+├── tests/                    # Unit and integration tests
+├── docker/                   # Docker configuration
+│   └── Dockerfile           # Container setup
+├── .github/workflows/        # CI/CD pipelines
+│   └── ci.yml              # GitHub Actions workflow
+├── CMakeLists.txt           # Build configuration
+├── CMakePresets.json        # Build presets
+├── vcpkg.json              # Dependencies
+├── KT.md                   # Knowledge transfer document
+└── README.md               # This file
+```
+
+## Index
+
+### Quick Navigation
+- [Setup & Installation](#quick-start)
+- [Project File Structure](#project-file-structure)
+- [Game Modes](#game-modes)
+  - [Single Player](#1-single-player)
+  - [Agent vs Player](#2-agent-vs-player)
+  - [Agent vs System](#3-agent-vs-system)
+- [Controls](#controls)
+- [Q-Learning Implementation](#q-learning-implementation)
+  - [State Representation](#state-representation)
+  - [Reward System](#reward-system)
+  - [Training Process](#training-process)
+- [Development](#development)
+  - [Build Commands](#build-commands)
+  - [Required Assets](#required-assets)
+- [Docker](#docker)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [MLOps Features](#mlops-features)
+- [Data Collection](#data-collection)
+  - [Episode Data](#episode-data)
+  - [Training Files](#training-files)
+  - [Metrics Tracked](#metrics-tracked)
+- [Troubleshooting](#troubleshooting)
+  - [vcpkg Issues](#vcpkg-issues)
+  - [CMake Issues](#cmake-issues)
+  - [Docker Issues](#docker-issues)
+  - [Game Issues](#game-issues)
+- [Contributing](#contributing)
+
+## Game Modes
+
+### 1. Single Player
+- Human controls snake with arrow keys (↑↓←→) or WASD
+- System spawns apples randomly
+- Classic snake gameplay
+
+### 2. Agent vs Player
+- ML agent controls snake automatically
+- Human places apples with mouse clicks
+- Click empty cell to place apple
+- Red preview shows next apple placement
+
+### 3. Agent vs System
+- ML agent controls snake
+- System spawns apples randomly
+- Training mode for Q-Learning
+
+## Controls
+
+### Menu Navigation
+- **↑/↓**: Select game mode
+- **Enter**: Start game
+- **ESC**: Return to menu
+
+### In-Game Controls
+- **Arrow Keys/WASD**: Move snake (Single Player only)
+- **Mouse Click**: Place apple (Agent vs Player only)
+- **+/-**: Increase/decrease speed (0.5-3.0 blocks/sec)
+- **ESC**: Pause/unpause game
+
+## Q-Learning Implementation
+
+### State Representation
+The agent perceives 8 features:
+1. Danger straight ahead
+2. Danger to the left
+3. Danger to the right
+4. Current direction
+5. Food is left
+6. Food is right
+7. Food is up
+8. Food is down
+
+### Reward System
+- Eat food: +10 points
+- Hit wall/self: -10 points
+- Move toward food: +1 point
+- Move away from food: -1 point
+
+### Training Process
+1. Agent starts with empty Q-table
+2. Uses epsilon-greedy strategy (explores vs exploits)
+3. Updates Q-values after each action
+4. Epsilon decays each episode (more exploitation over time)
+5. Q-table auto-saves to `models/qtable.json`
+
 ## Development
 
 ### Project Structure
@@ -72,6 +207,12 @@ cmake --build out/build/windows-default --config Release
 # Run tests
 ctest --test-dir out/build/windows-default
 ```
+
+### Required Assets
+Before running, ensure these files exist:
+- `assets/head.jpg` - Snake head texture
+- `assets/skin.jpg` - Snake body texture
+- `assets/fonts/arial.ttf` - UI font
 
 ### Docker
 
@@ -154,6 +295,30 @@ git push origin main
 - Performance regression testing
 - Automated model deployment
 
+## Data Collection
+
+### Episode Data
+Each game episode records:
+- Episode number
+- Steps taken
+- Final score
+- Total reward accumulated
+- Death status
+- Duration in milliseconds
+- Epsilon value
+
+### Training Files
+- `data/training_data.json`: Complete episode history
+- `data/training_summary.json`: Aggregated statistics
+- `logs/game.log`: Runtime events and errors
+
+### Metrics Tracked
+- Average score per episode
+- Average steps per episode
+- Maximum score achieved
+- Success rate (non-death episodes)
+- Q-table convergence
+
 ## Verification Checklist
 
 ### ✅ Local Development
@@ -214,16 +379,29 @@ docker run hello-world
 docker system prune -a
 ```
 
+### Game Issues
+- **Snake won't move**: Check if game is paused (ESC key)
+- **No textures**: Ensure `assets/head.jpg` and `assets/skin.jpg` exist
+- **Font error**: Add `arial.ttf` to `assets/fonts/`
+- **Q-table not saving**: Check write permissions for `models/` directory
+
 ## Contributing
 
 ### Next Development Phase
 ```cpp
 // Immediate tasks (Week 1-2):
-1. Grid system implementation
-2. Snake class with movement
-3. Mouse-click apple placement  
-4. Basic collision detection
-5. Q-Learning agent foundation
+1. Grid system implementation ✅
+2. Snake class with movement ✅
+3. Mouse-click apple placement ✅
+4. Basic collision detection ✅
+5. Q-Learning agent foundation ✅
+
+// Next phase (Week 3-4):
+1. Deep Q-Network (DQN) implementation
+2. Performance visualization dashboard
+3. Multi-agent scenarios
+4. Advanced reward shaping
+5. Curriculum learning
 ```
 
 1. Fork repository
