@@ -1,11 +1,7 @@
- 
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
-# Install vcpkg and dependencies
-# (This will be expanded later)
-
+# This is a placeholder - Windows GUI apps don't work in containers
 WORKDIR /app
 COPY . .
 
-# Build and run commands will go here
-CMD ["SnakeAI-MLOps.exe"]
+CMD ["echo", "SnakeAI-MLOps Docker container - GUI apps require host system"]

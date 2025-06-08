@@ -18,7 +18,7 @@ jobs:
       with:
         vcpkgJsonGlob: 'vcpkg.json'
     
-    - name: Configure CMake
+    - name: Configure and Build
       uses: lukka/run-cmake@v10
       with:
         configurePreset: 'windows-default'
