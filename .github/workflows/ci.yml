@@ -3,8 +3,6 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   build:
@@ -18,8 +16,10 @@ jobs:
       with:
         vcpkgJsonGlob: 'vcpkg.json'
     
-    - name: Configure and Build
+    - name: Configure CMake
       uses: lukka/run-cmake@v10
       with:
         configurePreset: 'windows-default'
-        buildPreset: 'windows-default'
+    
+    - name: Build
+      run: cmake --build out/build/windows-default --config Debug
