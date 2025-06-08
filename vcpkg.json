@@ -1,0 +1,11 @@
+ 
+{
+  "name": "snakeai-mlops",
+  "version": "0.1.0",
+  "dependencies": [
+    "sfml",
+    "nlohmann-json",
+    "spdlog",
+    "fmt"
+  ]
+}
