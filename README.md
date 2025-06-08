@@ -2,7 +2,7 @@
 
 Reinforcement Learning Snake Game with Production MLOps Pipeline
 
-[![CI/CD Pipeline](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml/badge.svg)](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml)
+[![CI/CD Pipeline](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml/badge.svg)](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml) ✅ **PASSING**
 
 ## Quick Start
 
@@ -75,17 +75,28 @@ ctest --test-dir out/build/windows-default
 
 ### Docker
 
-#### Build Container
+#### Build Container ✅ VERIFIED
 ```bash
 docker build -f docker/Dockerfile -t snakeai-mlops .
 ```
 
-#### Run Container
+#### Verify Container
 ```bash
-# Development
-docker run -it --rm -v ${PWD}:/workspace snakeai-mlops
+# Check image
+docker images snakeai-mlops
 
-# Production
+# Test run
+docker run --rm snakeai-mlops
+
+# Explore interactively
+docker run -it --rm snakeai-mlops /bin/bash
+
+# Verify project files
+docker run --rm snakeai-mlops find /app -name "*.cpp"
+```
+
+#### Production
+```bash
 docker run -p 8080:8080 snakeai-mlops
 ```
 
@@ -204,6 +215,16 @@ docker system prune -a
 ```
 
 ## Contributing
+
+### Next Development Phase
+```cpp
+// Immediate tasks (Week 1-2):
+1. Grid system implementation
+2. Snake class with movement
+3. Mouse-click apple placement  
+4. Basic collision detection
+5. Q-Learning agent foundation
+```
 
 1. Fork repository
 2. Create feature branch: `git checkout -b feature/amazing-feature`
