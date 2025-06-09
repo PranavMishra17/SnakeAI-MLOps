@@ -1,16 +1,26 @@
 {
   "configurations": [
     {
-      "name": "Windows",
+      "name": "Win32",
       "includePath": [
         "${workspaceFolder}/**",
-        "E:/vcpkg/installed/x64-windows/include"  // ⬅️ adjust if SFML is elsewhere
+        "${workspaceFolder}/src",
+        "E:/vcpkg/installed/x64-windows/include"
       ],
-      "defines": [],
-      "compilerPath": "C:/Program Files/CMake/bin",   // ⬅️ or your MSVC path
-      "cStandard": "c11",
+      "defines": [
+        "_DEBUG",
+        "UNICODE",
+        "_UNICODE",
+        "WIN32",
+        "_WIN32",
+        "_WIN64"
+      ],
+      "windowsSdkVersion": "10.0.22621.0",
+      "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.36.32532/bin/Hostx64/x64/cl.exe",
+      "cStandard": "c17",
       "cppStandard": "c++17",
-      "intelliSenseMode": "windows-gcc-x64"
+      "intelliSenseMode": "windows-msvc-x64",
+      "configurationProvider": "ms-vscode.cmake-tools"
     }
   ],
   "version": 4

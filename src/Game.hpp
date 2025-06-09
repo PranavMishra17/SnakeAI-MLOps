@@ -21,6 +21,7 @@ private:
     void processEvents();
     void update(float deltaTime);
     void render();
+    void renderUI();
     void handleMenuSelection(GameMode mode);
     void startGame();
     void resetGame();

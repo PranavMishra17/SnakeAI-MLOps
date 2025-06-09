@@ -1,4 +1,3 @@
- 
 #include "Apple.hpp"
 #include "Grid.hpp"
 #include "Snake.hpp"
@@ -11,7 +10,7 @@ Apple::Apple(Grid* grid)
     float cellSize = m_grid->getCellSize();
     m_shape.setRadius(cellSize / 2.0f * 0.8f);
     m_shape.setFillColor(sf::Color::Red);
-    m_shape.setOrigin(m_shape.getRadius(), m_shape.getRadius());
+    m_shape.setOrigin(sf::Vector2f(m_shape.getRadius(), m_shape.getRadius()));
 }
 
 void Apple::reset() {
@@ -36,8 +35,8 @@ void Apple::setPosition(sf::Vector2i pos) {
 void Apple::render(sf::RenderWindow& window) {
     if (m_active) {
         auto screenPos = m_grid->gridToScreen(m_position);
-        m_shape.setPosition(screenPos.x + m_grid->getCellSize() / 2,
-                           screenPos.y + m_grid->getCellSize() / 2);
+        m_shape.setPosition(sf::Vector2f(screenPos.x + m_grid->getCellSize() / 2,
+                                        screenPos.y + m_grid->getCellSize() / 2));
         window.draw(m_shape);
     }
 }

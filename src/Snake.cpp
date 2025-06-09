@@ -8,29 +8,18 @@ Snake::Snake(Grid* grid)
     , m_nextDirection(Direction::RIGHT)
     , m_hasGrown(false)
 {
-    // Load textures
-    if (!m_headTexture.loadFromFile("assets/head.jpg")) {
-        spdlog::error("Failed to load head.jpg");
-    }
-    if (!m_bodyTexture.loadFromFile("assets/skin.jpg")) {
-        spdlog::error("Failed to load skin.jpg");
-    }
-
-    // Initialize sprites after textures are loaded
-    m_headSprite.setTexture(m_headTexture);
-    m_bodySprite.setTexture(m_bodyTexture);
-
+    spdlog::info("Snake: Initializing snake...");
+    
     float cellSize = m_grid->getCellSize();
-    m_headSprite.setScale(sf::Vector2f(cellSize / m_headTexture.getSize().x,
-                                       cellSize / m_headTexture.getSize().y));
-    m_bodySprite.setScale(sf::Vector2f(cellSize / m_bodyTexture.getSize().x,
-                                       cellSize / m_bodyTexture.getSize().y));
-
+    m_segmentShape.setSize(sf::Vector2f(cellSize * 0.9f, cellSize * 0.9f));
+    m_segmentShape.setFillColor(sf::Color(144, 238, 144)); // Light green
+    
+    spdlog::info("Snake: Snake initialized successfully");
     reset();
 }
 
-
 void Snake::reset() {
+    spdlog::info("Snake: Resetting snake position");
     m_body.clear();
     int center = m_grid->getSize() / 2;
     m_body.push_back(sf::Vector2i(center, center));
@@ -38,7 +27,7 @@ void Snake::reset() {
     m_direction = Direction::RIGHT;
     m_nextDirection = Direction::RIGHT;
     m_hasGrown = false;
-    
+    spdlog::info("Snake: Reset complete, body size: {}", m_body.size());
 }
 
 void Snake::move() {
@@ -65,6 +54,7 @@ void Snake::move() {
 
 void Snake::grow() {
     m_hasGrown = true;
+    spdlog::info("Snake: Growing! New length will be: {}", m_body.size() + 1);
 }
 
 void Snake::setDirection(Direction dir) {
@@ -84,6 +74,7 @@ bool Snake::checkSelfCollision() const {
     auto head = m_body.front();
     for (size_t i = 1; i < m_body.size(); ++i) {
         if (m_body[i] == head) {
+            spdlog::warn("Snake: Self collision detected!");
             return true;
         }
     }
@@ -92,7 +83,11 @@ bool Snake::checkSelfCollision() const {
 
 bool Snake::checkWallCollision() const {
     auto head = m_body.front();
-    return !m_grid->isValidPosition(head);
+    bool collision = !m_grid->isValidPosition(head);
+    if (collision) {
+        spdlog::warn("Snake: Wall collision detected at ({}, {})", head.x, head.y);
+    }
+    return collision;
 }
 
 bool Snake::isPositionOnSnake(sf::Vector2i pos) const {
@@ -108,27 +103,14 @@ void Snake::render(sf::RenderWindow& window) {
     for (size_t i = 0; i < m_body.size(); ++i) {
         auto screenPos = m_grid->gridToScreen(m_body[i]);
         
+        // Different color for head
         if (i == 0) {
-            m_headSprite.setPosition(screenPos);
-            
-            // Rotate head based on direction
-            float rotation = 0.0f;
-            switch (m_direction) {
-                case Direction::UP:    rotation = -90.0f; break;
-                case Direction::DOWN:  rotation = 90.0f; break;
-                case Direction::LEFT:  rotation = 180.0f; break;
-                case Direction::RIGHT: rotation = 0.0f; break;
-            }
-            m_headSprite.setRotation(sf::degrees(rotation));
-            m_headSprite.setOrigin(sf::Vector2f(m_headTexture.getSize().x / 2.0f,
-                                               m_headTexture.getSize().y / 2.0f));
-            m_headSprite.move(sf::Vector2f(m_grid->getCellSize() / 2, 
-                                          m_grid->getCellSize() / 2));
-            
-            window.draw(m_headSprite);
+            m_segmentShape.setFillColor(sf::Color(34, 139, 34)); // Darker green for head
         } else {
-            m_bodySprite.setPosition(screenPos);
-            window.draw(m_bodySprite);
+            m_segmentShape.setFillColor(sf::Color(144, 238, 144)); // Light green for body
         }
+        
+        m_segmentShape.setPosition(screenPos);
+        window.draw(m_segmentShape);
     }
 }

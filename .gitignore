@@ -37,3 +37,7 @@ out/
 #build/
 #*.exe
 /assets/fonts
+/logs
+/data
+/models
+qtable.json

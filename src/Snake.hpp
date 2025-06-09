@@ -1,4 +1,4 @@
- #pragma once
+#pragma once
 #include <SFML/Graphics.hpp>
 #include <deque>
 #include "GameState.hpp"
@@ -31,9 +31,5 @@ private:
     Direction m_nextDirection;
     bool m_hasGrown;
     
-    sf::Texture m_headTexture;
-    sf::Texture m_bodyTexture;
-    sf::Sprite m_headSprite;
-    sf::Sprite m_bodySprite;
-
+    sf::RectangleShape m_segmentShape;
 };

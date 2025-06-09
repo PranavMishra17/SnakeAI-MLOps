@@ -1,4 +1,3 @@
- 
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <vector>
@@ -8,8 +7,10 @@
 struct MenuItem {
     std::string text;
     GameMode mode;
-    sf::Text displayText;
+    std::unique_ptr<sf::Text> displayText;
     bool selected;
+    
+    MenuItem(const std::string& t, GameMode m) : text(t), mode(m), selected(false) {}
 };
 
 class Menu {
@@ -26,8 +27,8 @@ private:
     std::vector<MenuItem> m_items;
     int m_selectedIndex;
     sf::Font m_font;
-    sf::Text m_title;
-    sf::Text m_instructions;
+    std::unique_ptr<sf::Text> m_title;
+    std::unique_ptr<sf::Text> m_instructions;
     sf::RectangleShape m_background;
     
     std::function<void(GameMode)> m_selectionCallback;

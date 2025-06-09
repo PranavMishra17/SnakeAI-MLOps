@@ -1,4 +1,3 @@
- 
 #include "Game.hpp"
 #include <filesystem>
 
@@ -12,40 +11,76 @@ Game::Game()
     , m_gameOver(false)
     , m_hasNextApple(false) {
     
-    spdlog::info("Initializing SnakeAI-MLOps Game");
+    spdlog::info("Game: Starting initialization...");
     
-    // Create fullscreen window
-    auto videoMode = sf::VideoMode::getDesktopMode();
-    m_window = std::make_unique<sf::RenderWindow>(videoMode, "SnakeAI-MLOps", sf::Style::Fullscreen);
-    m_window->setFramerateLimit(60);
-    
-    // Calculate grid size to fit screen (square grid)
-    int screenMin = std::min(videoMode.width, videoMode.height);
-    int gridCells = 20; // 20x20 grid
-    
-    // Initialize components
-    m_grid = std::make_unique<Grid>(gridCells);
-    m_grid->initialize(*m_window);
-    
-    m_snake = std::make_unique<Snake>(m_grid.get());
-    m_apple = std::make_unique<Apple>(m_grid.get());
-    m_menu = std::make_unique<Menu>();
-    m_menu->initialize(*m_window);
-    
-    m_agent = std::make_unique<QLearningAgent>();
-    m_dataCollector = std::make_unique<DataCollector>();
-    m_inputManager = std::make_unique<InputManager>();
-    
-    // Load Q-table if exists
-    if (std::filesystem::exists("models/qtable.json")) {
-        m_agent->loadQTable("models/qtable.json");
-        spdlog::info("Loaded existing Q-table");
+    try {
+        // Create fullscreen window
+        spdlog::info("Game: Getting desktop video mode...");
+        auto videoMode = sf::VideoMode::getDesktopMode();
+        spdlog::info("Game: Desktop mode: {}x{}", videoMode.size.x, videoMode.size.y);
+        
+        spdlog::info("Game: Creating window...");
+        m_window = std::make_unique<sf::RenderWindow>(videoMode, "SnakeAI-MLOps", sf::Style::Default);
+        m_window->setFramerateLimit(60);
+        spdlog::info("Game: Window created successfully");
+        
+        // Calculate grid size to fit screen (square grid)
+        int screenMin = std::min(static_cast<int>(videoMode.size.x), static_cast<int>(videoMode.size.y));
+        int gridCells = 20; // 20x20 grid
+        spdlog::info("Game: Using grid size: {}", gridCells);
+        
+        // Initialize components
+        spdlog::info("Game: Creating grid...");
+        m_grid = std::make_unique<Grid>(gridCells);
+        m_grid->initialize(*m_window);
+        spdlog::info("Game: Grid created");
+        
+        spdlog::info("Game: Creating snake...");
+        m_snake = std::make_unique<Snake>(m_grid.get());
+        spdlog::info("Game: Snake created");
+        
+        spdlog::info("Game: Creating apple...");
+        m_apple = std::make_unique<Apple>(m_grid.get());
+        spdlog::info("Game: Apple created");
+        
+        spdlog::info("Game: Creating menu...");
+        m_menu = std::make_unique<Menu>();
+        m_menu->initialize(*m_window);
+        spdlog::info("Game: Menu created");
+        
+        spdlog::info("Game: Creating AI agent...");
+        m_agent = std::make_unique<QLearningAgent>();
+        spdlog::info("Game: AI agent created");
+        
+        spdlog::info("Game: Creating data collector...");
+        m_dataCollector = std::make_unique<DataCollector>();
+        spdlog::info("Game: Data collector created");
+        
+        spdlog::info("Game: Creating input manager...");
+        m_inputManager = std::make_unique<InputManager>();
+        spdlog::info("Game: Input manager created");
+        
+        // Load Q-table if exists
+        spdlog::info("Game: Checking for existing Q-table...");
+        if (std::filesystem::exists("models/qtable.json")) {
+            m_agent->loadQTable("models/qtable.json");
+            spdlog::info("Game: Loaded existing Q-table");
+        } else {
+            spdlog::info("Game: No existing Q-table found");
+        }
+        
+        // Set menu callback
+        spdlog::info("Game: Setting menu callback...");
+        m_menu->setSelectionCallback([this](GameMode mode) {
+            handleMenuSelection(mode);
+        });
+        
+        spdlog::info("Game: Initialization complete!");
+        
+    } catch (const std::exception& e) {
+        spdlog::error("Game: Exception during initialization: {}", e.what());
+        throw;
     }
-    
-    // Set menu callback
-    m_menu->setSelectionCallback([this](GameMode mode) {
-        handleMenuSelection(mode);
-    });
 }
 
 Game::~Game() {
@@ -116,10 +151,10 @@ void Game::processEvents() {
                 
                 // Speed adjustment
                 if (auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
-                    if (keyPressed->code == sf::Keyboard::Key::Add) {
+                    if (keyPressed->code == sf::Keyboard::Key::Equal) { // + key
                         m_moveSpeed = std::min(m_maxSpeed, m_moveSpeed + 0.5f);
                         spdlog::info("Speed increased to {} blocks/sec", m_moveSpeed);
-                    } else if (keyPressed->code == sf::Keyboard::Key::Subtract) {
+                    } else if (keyPressed->code == sf::Keyboard::Key::Hyphen) { // - key
                         m_moveSpeed = std::max(m_minSpeed, m_moveSpeed - 0.5f);
                         spdlog::info("Speed decreased to {} blocks/sec", m_moveSpeed);
                     }
@@ -248,35 +283,51 @@ void Game::render() {
 
 void Game::renderUI() {
     // Create UI background
-    sf::RectangleShape uiPanel(sf::Vector2f(300, 200));
-    uiPanel.setPosition(10, 10);
+    sf::RectangleShape uiPanel(sf::Vector2f(300.0f, 200.0f));
+    uiPanel.setPosition(sf::Vector2f(10.0f, 10.0f));
     uiPanel.setFillColor(sf::Color(0, 0, 0, 180));
     m_window->draw(uiPanel);
     
     // Render stats
     sf::Font font;
-    if (font.loadFromFile("assets/fonts/arial.ttf")) {
-        sf::Text scoreText("Score: " + std::to_string(m_score), font, 20);
-        scoreText.setPosition(20, 20);
+    if (font.openFromFile("assets/fonts/arial.ttf")) {
+        sf::Text scoreText(font);
+        scoreText.setFont(font);
+        scoreText.setString("Score: " + std::to_string(m_score));
+        scoreText.setCharacterSize(20);
+        scoreText.setPosition(sf::Vector2f(20.0f, 20.0f));
         m_window->draw(scoreText);
         
-        sf::Text episodeText("Episode: " + std::to_string(m_episode), font, 20);
-        episodeText.setPosition(20, 50);
+        sf::Text episodeText(font);
+        episodeText.setFont(font);
+        episodeText.setString("Episode: " + std::to_string(m_episode));
+        episodeText.setCharacterSize(20);
+        episodeText.setPosition(sf::Vector2f(20.0f, 50.0f));
         m_window->draw(episodeText);
         
-        sf::Text speedText("Speed: " + std::to_string(m_moveSpeed) + " blocks/sec", font, 20);
-        speedText.setPosition(20, 80);
+        sf::Text speedText(font);
+        speedText.setFont(font);
+        speedText.setString("Speed: " + std::to_string(m_moveSpeed) + " blocks/sec");
+        speedText.setCharacterSize(20);
+        speedText.setPosition(sf::Vector2f(20.0f, 80.0f));
         m_window->draw(speedText);
         
         if (m_gameMode != GameMode::SINGLE_PLAYER) {
-            sf::Text epsilonText("Epsilon: " + std::to_string(m_agent->getEpsilon()), font, 20);
-            epsilonText.setPosition(20, 110);
+            sf::Text epsilonText(font);
+            epsilonText.setFont(font);
+            epsilonText.setString("Epsilon: " + std::to_string(m_agent->getEpsilon()));
+            epsilonText.setCharacterSize(20);
+            epsilonText.setPosition(sf::Vector2f(20.0f, 110.0f));
             m_window->draw(epsilonText);
         }
         
         if (m_currentState == GameState::GAME_OVER) {
-            sf::Text gameOverText("GAME OVER - Press ESC for menu", font, 30);
-            gameOverText.setPosition(m_window->getSize().x / 2 - 250, m_window->getSize().y / 2);
+            sf::Text gameOverText(font);
+            gameOverText.setFont(font);
+            gameOverText.setString("GAME OVER - Press ESC for menu");
+            gameOverText.setCharacterSize(30);
+            gameOverText.setPosition(sf::Vector2f(m_window->getSize().x / 2.0f - 250.0f, 
+                                                  m_window->getSize().y / 2.0f));
             gameOverText.setFillColor(sf::Color::Red);
             m_window->draw(gameOverText);
         }
