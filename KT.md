@@ -1,417 +1,303 @@
-# SnakeAI-MLOps Project Knowledge Transfer Document
+# SnakeAI-MLOps Knowledge Transfer Document
 
-## Executive Summary
+## Project Overview
 
-**Project:** SnakeAI-MLOps  
-**Objective:** Reinforcement Learning Snake Game with Production MLOps Pipeline  
-**Status:** Development Setup Complete - Ready for Game Logic Implementation  
-**Technology Stack:** C++ (SFML), vcpkg, CMake, Docker, GitHub Actions  
+**Status**: ✅ **FUNCTIONAL** - All core systems operational  
+**Language**: C++17 with CMake build system  
+**Framework**: SFML 3.x for graphics and input  
+**Dependencies**: vcpkg for package management  
 
-## Project Architecture
+This is a reinforcement learning Snake game with 3 gameplay modes, Q-Learning AI agent, and production MLOps data collection pipeline.
 
-### High-Level Design
+## Current Working Features
+
+### ✅ Completed & Functional
+- **Basic Snake Game Logic**: Movement, growth, collision detection
+- **Visual System**: Colored rectangles (no textures needed)
+- **Three Game Modes**: All operational
+- **Q-Learning Agent**: Functional AI with state representation
+- **Data Collection**: Episode tracking, metrics logging
+- **Build System**: CMake + vcpkg + SFML 3.x integration
+- **Menu System**: Basic navigation between modes
+
+### 🎮 Game Modes (All Working)
+1. **Single Player**: Human controls snake, system spawns apples
+2. **Agent vs Player**: AI controls snake, human places apples with mouse
+3. **Agent vs System**: AI controls snake, system spawns apples (training mode)
+
+## File Structure & Architecture
+
+### 🔴 **CRITICAL - DO NOT MODIFY** (Build Configuration)
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Game Engine   │    │   RL Agent      │    │   MLOps         │
-│   (SFML + C++)  │◄──►│   (Q-Learning)  │◄──►│   (Docker/CI)   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-### Technology Choices & Rationale
-
-#### **Game Framework: SFML**
-- **Why:** Lightweight, C++ native, excellent for 2D games
-- **Alternatives considered:** SDL2, Raylib
-- **Version:** 3.0.0 (latest with modern C++ API)
-
-#### **Build System: CMake + vcpkg**
-- **Why:** Industry standard, excellent dependency management
-- **vcpkg advantages:** Precompiled binaries, consistent versioning
-- **Version:** CMake 4.0.2, vcpkg latest
-
-#### **Dependencies Management**
-```json
-{
-  "sfml": "Graphics, Window, System components",
-  "nlohmann-json": "Configuration and data serialization", 
-  "spdlog": "Structured logging",
-  "fmt": "String formatting (dependency of spdlog)"
-}
+.vscode/
+├── c_cpp_properties.json          # IntelliSense configuration - VCPKG paths
+├── settings.json                  # VS Code C++ associations
+CMakePresets.json                  # Build presets with VCPKG_ROOT path
+CMakeLists.txt                     # Main build configuration
+vcpkg.json                         # Package dependencies
 ```
 
-## Development Environment Setup
+**⚠️ Warning**: These files contain hardcoded paths to `E:/vcpkg/`. Only modify if vcpkg installation path changes.
+
+### 🟢 **SAFE TO MODIFY** (Source Code)
+```
+src/
+├── main.cpp                       # Entry point with debug logging
+├── Game.{hpp,cpp}                 # Main game controller & state management
+├── GameState.hpp                  # Enums, structs, constants
+├── Grid.{hpp,cpp}                 # Grid rendering (light brown background)
+├── Snake.{hpp,cpp}                # Snake entity (light green rectangles)
+├── Apple.{hpp,cpp}                # Apple spawning (red circles)
+├── Menu.{hpp,cpp}                 # Basic menu navigation
+├── QLearningAgent.{hpp,cpp}       # Q-Learning implementation
+├── DataCollector.{hpp,cpp}        # MLOps data collection
+└── InputManager.{hpp,cpp}         # Keyboard/mouse input handling
+```
+
+### 📁 Runtime Directories (Auto-created)
+```
+models/          # Q-table saves (qtable.json)
+data/           # Training episodes & metrics  
+logs/           # Debug logs (debug.log)
+out/            # Build output - can be deleted for clean builds
+```
+
+## Core Architecture
+
+### Game Flow
+```
+main.cpp → Game() constructor → Game::run() loop
+         ↓
+    Menu System → Mode Selection → Game Logic → Data Collection
+```
+
+### Key Classes
+- **Game**: Central controller, manages all subsystems
+- **Snake**: Entity with collision detection, uses colored rectangles
+- **Grid**: Coordinate system, visual grid rendering
+- **QLearningAgent**: AI brain with state/action/reward logic
+- **DataCollector**: MLOps metrics tracking
+
+### State Management
+```cpp
+enum class GameState { MENU, PLAYING, PAUSED, GAME_OVER };
+enum class GameMode { SINGLE_PLAYER, AGENT_VS_PLAYER, AGENT_VS_SYSTEM };
+```
+
+## Visual Design (No Assets Required)
+
+### Color Scheme
+- **Snake Head**: Dark green `sf::Color(34, 139, 34)`
+- **Snake Body**: Light green `sf::Color(144, 238, 144)`
+- **Grid Background**: Light brown `sf::Color(222, 184, 135)`
+- **Grid Lines**: Dark grey `sf::Color(105, 105, 105)`
+- **Apples**: Red circles `sf::Color::Red`
+
+### Rendering System
+- Uses `sf::RectangleShape` for snake segments
+- Uses `sf::CircleShape` for apples
+- No texture loading - eliminates asset dependencies
+- 20x20 grid, auto-scaled to screen size
+
+## Q-Learning Implementation
+
+### State Representation (8 features)
+```cpp
+struct AgentState {
+    bool dangerStraight, dangerLeft, dangerRight;  // Collision detection
+    Direction currentDirection;                     // Current heading
+    bool foodLeft, foodRight, foodUp, foodDown;    // Food direction
+};
+```
+
+### Reward System
+```cpp
+EAT_FOOD = +10.0f
+DEATH = -10.0f  
+MOVE_TOWARDS_FOOD = +1.0f
+MOVE_AWAY_FROM_FOOD = -1.0f
+```
+
+### Training Process
+- Epsilon-greedy exploration (starts high, decays each episode)
+- Q-table auto-saves to `models/qtable.json`
+- Episode data logged to `data/training_data.json`
+
+## Controls & Input
+
+### Menu Navigation
+- **↑/↓**: Select mode
+- **Enter**: Start game
+- **ESC**: Return to menu
+
+### In-Game Controls
+- **WASD/Arrow Keys**: Snake movement (Single Player only)
+- **Mouse Click**: Place apple (Agent vs Player mode)
+- **+/-**: Speed adjustment (0.5-3.0 blocks/sec)
+- **ESC**: Return to menu (⚠️ No pause yet - see Next Steps)
+
+## Build System
 
 ### Prerequisites
-- **Visual Studio 2022 Community** (Free, excellent C++ tooling)
-- **vcpkg** (Package manager, installed at `E:\vcpkg`)
-- **Git** (Version control)
-- **Docker Desktop** (Containerization)
+- Visual Studio 2022 Community
+- vcpkg installed at `E:/vcpkg/` (or update paths in config files)
+- VCPKG_ROOT environment variable set
 
-### Directory Structure
-```
-C:\Users\prana\Desktop\SnakeAI-MLOps\
-├── src/
-│   ├── main.cpp              # Entry point
-│   ├── game/                 # Game logic (future)
-│   ├── rl/                   # RL algorithms (future)
-│   └── mlops/                # Metrics & logging (future)
-├── assets/                   # Game assets (images, etc.)
-├── models/                   # Saved ML models
-├── data/                     # Training logs
-├── tests/                    # Unit tests
-├── docker/                   # Docker configuration
-├── .github/workflows/        # CI/CD pipelines
-├── out/build/windows-default/ # Build output
-├── CMakeLists.txt            # Build configuration
-├── CMakePresets.json         # Build presets
-├── vcpkg.json               # Dependencies
-└── README.md                # Project documentation
-```
-
-### Build Process & Commands
-
-#### **Initial Setup (One-time)**
+### Build Commands
 ```bash
-# 1. Clone repository
-git clone https://github.com/PranavMishra17/SnakeAI-MLOps.git
-cd SnakeAI-MLOps
-
-# 2. Install vcpkg (separate location)
-cd E:\
-git clone https://github.com/Microsoft/vcpkg.git
-cd vcpkg
-.\bootstrap-vcpkg.bat
-.\vcpkg integrate install
-setx VCPKG_ROOT "E:\vcpkg"
-
-# 3. Install dependencies
-.\vcpkg install sfml:x64-windows nlohmann-json:x64-windows spdlog:x64-windows
-```
-
-#### **Development Workflow**
-```bash
-# Configure (creates build files)
+# Clean build
+rm -rf out/
 cmake --preset windows-default
-
-# Build (compiles code)
 cmake --build out/build/windows-default
 
-# Run executable
+# Incremental build
+cmake --build out/build/windows-default
+
+# Run (from project root)
 .\out\build\windows-default\Debug\SnakeAI-MLOps.exe
 ```
 
-#### **Critical Answer: Do Changes Require Rebuilding?**
+### SFML 3.x Compatibility Notes
+- Uses `sf::Text` and `sf::Sprite` with separate property setting
+- No default constructors - uses `std::unique_ptr` where needed
+- `loadFromFile()` for textures, `openFromFile()` for fonts
 
-**YES** - Any source code changes require rebuilding:
+## Debugging & Logging
 
-| Change Type | Rebuild Required | Command |
-|-------------|------------------|---------|
-| **C++ source files** (.cpp) | **YES** | `cmake --build out/build/windows-default` |
-| **Header files** (.hpp) | **YES** | `cmake --build out/build/windows-default` |
-| **CMakeLists.txt** | **YES** | `cmake --preset windows-default` then build |
-| **vcpkg.json** | **YES** | Full reconfigure + build |
-| **Assets** (images, etc.) | **NO** | Just copy to build directory |
+### Debug Output
+- **Console**: Real-time logging during execution
+- **File**: `logs/debug.log` with full history
+- **Level**: Set to `debug` in `main.cpp`
 
-**Build Process Explanation:**
-1. **CMake Configure:** Generates Visual Studio project files
-2. **MSBuild Compile:** Compiles C++ to executable
-3. **Link:** Combines with SFML/other libraries
-4. **Output:** Creates .exe in `out/build/windows-default/Debug/`
-
-## Current Implementation Status
-
-### ✅ Completed Components
-
-#### **1. Development Environment**
-- Visual Studio 2022 integration
-- vcpkg dependency management
-- CMake build system
-- SFML 3.0 integration with modern C++ API
-
-#### **2. Basic Application Framework**
+### Key Debug Points
 ```cpp
-// Current main.cpp capabilities:
-- SFML window creation (800x600)
-- Event handling (close window)
-- PNG image loading and display
-- Structured logging with spdlog
-- JSON configuration support (ready)
+spdlog::info("Game: Creating snake...");      // Component initialization
+spdlog::info("Snake: Growing! New length: {}", size);  // Game events
+spdlog::warn("Snake: Wall collision detected");        // Error conditions
 ```
 
-#### **3. CI/CD Pipeline** ✅ VERIFIED
-- GitHub Actions workflow **PASSING**
-- Automated building on Windows
-- vcpkg dependency caching
-- Error reporting and logs
-- Build artifacts generated successfully
+### Crash Debugging
+- Run from project root directory
+- Check `logs/debug.log` for last logged operation
+- Console shows real-time progress during startup
 
-#### **4. Docker Containerization** ✅ VERIFIED
-- Linux container build working (320MB)
-- All project files included
-- Portable deployment ready
-- Container verified with interactive shell
+## Data & MLOps
 
-#### **5. Project Infrastructure**
-- Git repository with proper .gitignore
-- README with setup instructions
-- CMake presets for consistent builds
-- Environment variable configuration
+### Files Generated
+```
+data/training_data.json      # Complete episode history
+data/training_summary.json   # Aggregated statistics  
+models/qtable.json          # Q-Learning state-action values
+logs/debug.log              # Application logs
+```
 
-### 🎯 Immediate Development Phase (Week 1-2)
+### Metrics Tracked
+- Episodes played, steps taken, scores achieved
+- Q-table convergence, epsilon decay
+- Success/failure rates, average performance
 
-#### **High Priority Tasks:**
+## Next Development Steps
+
+### 🎯 **Priority 1: Enhanced Menu System**
+**Goal**: Descriptive menu with mode explanations
+
+**Current State**: Basic text menu with mode names  
+**Needed**: 
+- Mode descriptions explaining what each does
+- Visual indicators for selected mode
+- Instructions display (controls, objectives)
+- Maybe add mode icons/graphics
+
+**Files to Modify**: `Menu.{hpp,cpp}`
+
+### 🎯 **Priority 2: Pause Functionality** 
+**Goal**: ESC pauses game instead of returning to menu
+
+**Current State**: ESC exits to menu immediately  
+**Needed**:
+- Pause state management
+- Pause overlay/UI
+- Resume functionality
+- Pause during gameplay only (not menu)
+
+**Files to Modify**: `Game.cpp` (event handling), `GameState.hpp`
+
+### 🎯 **Priority 3: Settings System**
+**Goal**: Configurable game parameters
+
+**Needed**:
+- Settings menu/overlay
+- Speed adjustment UI (currently +/- keys only)
+- Grid size options
+- AI parameters (epsilon, learning rate)
+- Save/load settings
+
+**Files to Modify**: New `Settings.{hpp,cpp}`, `Game.cpp`
+
+### 🎯 **Priority 4: Enhanced Visuals**
+**Goal**: Better visual feedback and polish
+
+**Ideas**:
+- Snake movement animations
+- Apple spawn effects  
+- Score display improvements
+- Training progress visualization
+- Performance graphs
+
+### 🎯 **Priority 5: Advanced AI Features**
+**Goal**: More sophisticated learning
+
+**Ideas**:
+- Deep Q-Network (DQN) implementation
+- Multiple AI agents comparison
+- Curriculum learning
+- Advanced reward shaping
+
+## Common Issues & Solutions
+
+### Build Problems
+- **vcpkg not found**: Check `VCPKG_ROOT` environment variable
+- **SFML errors**: Ensure using SFML 3.x compatible code
+- **Linker errors**: Verify all source files in `CMakeLists.txt`
+
+### Runtime Issues  
+- **Immediate crash**: Run from project root where `logs/` directory exists
+- **No window**: Check debug logs for SFML initialization errors
+- **Missing assets**: Not needed anymore - uses colored shapes
+
+### Development Tips
+- Always run from project root directory
+- Check `logs/debug.log` for detailed operation history
+- Use incremental builds for faster iteration
+- Q-table persists between runs for AI training continuity
+
+## Code Quality Guidelines
+
+### Logging Standards
 ```cpp
-// 1. Grid System Foundation
-class Grid {
-    static const int WIDTH = 15;
-    static const int HEIGHT = 15;
-    static const int CELL_SIZE = 30;
-    void render(sf::RenderWindow& window);
-    Vec2 screenToGrid(sf::Vector2i mousePos);
-};
-
-// 2. Snake Entity
-class Snake {
-    std::vector<Vec2> body;
-    Direction direction;
-    void move();
-    bool checkCollision();
-    void render(sf::RenderWindow& window);
-};
-
-// 3. Interactive Apple Placement
-void handleMouseClick(sf::Event& event) {
-    if (event->is<sf::Event::MouseButtonPressed>()) {
-        Vec2 gridPos = grid.screenToGrid(mousePosition);
-        apple.setPosition(gridPos);
-    }
-}
-
-// 4. Basic Q-Learning Agent
-class QLearningAgent {
-    std::map<State, std::array<double, 4>> qTable;
-    double epsilon = 0.1, alpha = 0.1, gamma = 0.9;
-    Action selectAction(const State& state);
-    void updateQ(State state, Action action, double reward, State nextState);
-};
+spdlog::info("Component: Action description");      // Normal operations
+spdlog::warn("Component: Warning condition");       // Recoverable issues  
+spdlog::error("Component: Error details");          // Serious problems
 ```
 
-#### **Implementation Order:**
-1. **Grid rendering system** (2-3 days)
-2. **Snake movement mechanics** (2-3 days)  
-3. **Mouse interaction** (1-2 days)
-4. **Collision detection** (1-2 days)
-5. **Basic RL agent** (3-4 days)
-
-### 🔄 In Progress → Next Steps
-
-#### **Current Status:**
-- ✅ PNG display working in main.cpp
-- ✅ All infrastructure ready for game logic
-- ✅ CI/CD and Docker verified
-
-#### **Week 1 Goals:**
-- Replace PNG display with grid system
-- Implement basic Snake entity
-- Add mouse-click apple placement
-- Create game loop structure
-
-## MLOps Integration Strategy
-
-### Experiment Tracking
+### SFML 3.x Patterns
 ```cpp
-// Planned logging structure:
-{
-  "episode": 1,
-  "steps": 45,
-  "reward": 10.5,
-  "epsilon": 0.8,
-  "timestamp": "2025-01-07T10:30:00Z"
-}
+// Text creation
+auto text = std::make_unique<sf::Text>(font);
+text->setString("content");
+text->setCharacterSize(size);
+
+// Shape positioning  
+shape.setPosition(sf::Vector2f(x, y));  // Always use Vector2f
 ```
 
-### Model Management
-```
-models/
-├── checkpoints/
-│   ├── episode_100.bin
-│   ├── episode_500.bin
-│   └── best_model.bin
-└── metadata/
-    ├── training_config.json
-    └── performance_metrics.json
-```
-
-### CI/CD Pipeline Features
-- **Automated Testing:** Unit tests for game logic and RL algorithms
-- **Performance Regression:** Check agent performance doesn't degrade
-- **Model Validation:** Automated model quality checks
-- **Docker Deployment:** Containerized training and inference
-
-## Common Issues & Troubleshooting
-
-### Build Issues
-
-#### **"cannot open source file SFML/Graphics.hpp"**
-**Solution:**
-```bash
-# Reinstall vcpkg integration
-cd E:\vcpkg
-.\vcpkg integrate install
-
-# Verify packages installed
-.\vcpkg list | grep sfml
-```
-
-#### **"vcpkg install failed"**
-**Solution:**
-```bash
-# Update vcpkg baseline in vcpkg.json
-"builtin-baseline": "984f9232b2fe0eb94f5e9f161d6c632c581fff0c"
-
-# Update vcpkg itself
-cd E:\vcpkg
-git pull
-.\bootstrap-vcpkg.bat
-```
-
-#### **CMake preset not found**
-**Solution:**
-```bash
-# Ensure VCPKG_ROOT environment variable set
-setx VCPKG_ROOT "E:\vcpkg"
-
-# Restart command prompt and try again
-cmake --preset windows-default
-```
-
-### Runtime Issues
-
-#### **"Failed to load assets/test.png"**
-**Solutions:**
-1. Create `assets/` directory in project root
-2. Add any PNG file as `test.png`
-3. Ensure working directory is correct when running
-
-#### **Window doesn't respond**
-**Solution:** Event loop is working correctly, this is expected behavior
-
-### GitHub Actions Issues
-
-#### **vcpkg baseline errors**
-**Solution:** Use latest commit SHA in `vcpkg.json`, not date strings
-
-## Development Guidelines
-
-### Code Standards
-```cpp
-// Naming conventions:
-class SnakeGame {};        // PascalCase for classes
-void updateGame() {};      // camelCase for functions
-int gridWidth = 15;        // camelCase for variables
-const int GRID_SIZE = 30;  // UPPER_CASE for constants
-```
-
-### Git Workflow
-```bash
-# Feature development
-git checkout -b feature/game-logic
-git add .
-git commit -m "Add basic snake movement"
-git push origin feature/game-logic
-
-# Pull request → main branch
-```
-
-### Testing Strategy
-```cpp
-// Unit tests planned:
-TEST(SnakeTest, InitialPosition) {
-    Snake snake;
-    EXPECT_EQ(snake.getPosition(), Vec2(7, 7));
-}
-
-TEST(QLearningTest, ActionSelection) {
-    QLearningAgent agent;
-    Action action = agent.selectAction(state);
-    EXPECT_NE(action, Action::INVALID);
-}
-```
-
-## Performance Considerations
-
-### Current Performance
-- **Build time:** ~30 seconds (clean build)
-- **Runtime:** 60 FPS target with SFML
-- **Memory usage:** <50MB for basic application
-
-### Scalability Plans
-- **Training parallelization:** Multiple agent instances
-- **GPU acceleration:** CUDA for neural networks (future)
-- **Distributed training:** Docker Swarm/Kubernetes (future)
-
-## Security & Best Practices
-
-### Secrets Management
-```yaml
-# GitHub Actions - no hardcoded secrets
-# Use GitHub secrets for:
-- Docker registry credentials
-- Model deployment keys
-- Cloud storage access
-```
-
-### Code Quality
-- **Static analysis:** Planned integration with SonarQube
-- **Memory safety:** Modern C++ practices, smart pointers
-- **Error handling:** Comprehensive logging with spdlog
-
-## Knowledge Gaps & Learning Resources
-
-### Immediate Learning Needs
-1. **SFML 3.0 API changes** - Official documentation
-2. **Q-Learning implementation** - Sutton & Barto textbook
-3. **CMake advanced features** - Professional CMake guide
-
-### Recommended Resources
-- **SFML:** https://www.sfml-dev.org/tutorials/
-- **Reinforcement Learning:** OpenAI Spinning Up
-- **MLOps:** "Building Machine Learning Powered Applications"
-
-## Project Roadmap
-
-### Short-term (2-4 weeks)
-- [ ] Complete basic Snake game mechanics
-- [ ] Implement mouse-based apple placement
-- [ ] Add simple Q-learning agent
-- [ ] Basic experiment logging
-
-### Medium-term (1-2 months)
-- [ ] Advanced RL algorithms (DQN, PPO)
-- [ ] Comprehensive MLOps pipeline
-- [ ] Performance optimization
-- [ ] Model comparison framework
-
-### Long-term (3+ months)
-- [ ] Multi-agent scenarios
-- [ ] Cloud deployment
-- [ ] Real-time training dashboard
-- [ ] Academic paper/publication
-
-## Contact & Support
-
-### Key Personnel
-- **Developer:** Pranav Mishra
-- **Repository:** https://github.com/PranavMishra17/SnakeAI-MLOps
-
-### Getting Help
-1. **Build issues:** Check GitHub Actions logs
-2. **Runtime errors:** Check application logs in console
-3. **vcpkg problems:** Consult vcpkg documentation
-4. **RL questions:** Refer to OpenAI Gym documentation
+### Memory Management
+- Use `std::unique_ptr` for SFML objects without default constructors
+- RAII principles throughout
+- No manual memory management needed
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** January 7, 2025  
-**Next Review:** January 14, 2025
+**Last Updated**: December 2024  
+**Project Status**: Core functionality complete, ready for enhancements  
+**Build Status**: ✅ Functional on Windows with VS2022 + vcpkg
