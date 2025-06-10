@@ -29,7 +29,11 @@ jobs:
     
     - name: Configure CMake
       run: |
-        cmake --preset windows-default
+        cmake -B out/build/windows-default `
+          -G "Visual Studio 17 2022" `
+          -A x64 `
+          -DCMAKE_BUILD_TYPE=Debug `
+          -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
     
@@ -206,10 +210,11 @@ jobs:
     - name: Push to registry
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
-        docker tag snakeai-mlops:latest ghcr.io/${{ github.repository_owner }}/snakeai-mlops:latest
-        docker tag snakeai-mlops:latest ghcr.io/${{ github.repository_owner }}/snakeai-mlops:${{ github.sha }}
-        docker push ghcr.io/${{ github.repository_owner }}/snakeai-mlops:latest
-        docker push ghcr.io/${{ github.repository_owner }}/snakeai-mlops:${{ github.sha }}
+        REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+        docker tag snakeai-mlops:latest ghcr.io/${REPO_LOWER}:latest
+        docker tag snakeai-mlops:latest ghcr.io/${REPO_LOWER}:${{ github.sha }}
+        docker push ghcr.io/${REPO_LOWER}:latest
+        docker push ghcr.io/${REPO_LOWER}:${{ github.sha }}
 
   release:
     runs-on: ubuntu-latest
