@@ -2,24 +2,276 @@ name: CI/CD Pipeline
 
 on:
   push:
+    branches: [ main, develop ]
+  pull_request:
     branches: [ main ]
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
     
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgJsonGlob: 'vcpkg.json'
+        runVcpkgInstall: true
+    
+    - name: Setup Visual Studio
+      uses: microsoft/setup-msbuild@v1.3
+      with:
+        vs-version: '17.0'
     
     - name: Configure CMake
-      uses: lukka/run-cmake@v10
+      run: |
+        cmake --preset windows-default
+      env:
+        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+    
+    - name: Build Debug
+      run: |
+        cmake --build out/build/windows-default --config Debug
+    
+    - name: Build Release
+      run: |
+        cmake --build out/build/windows-default --config Release
+    
+    - name: Create assets
+      run: |
+        mkdir -p out/build/windows-default/Debug/assets/fonts
+        mkdir -p out/build/windows-default/Release/assets/fonts
+        echo "Font placeholder" > out/build/windows-default/Debug/assets/fonts/arial.ttf
+        echo "Font placeholder" > out/build/windows-default/Release/assets/fonts/arial.ttf
+    
+    - name: Test Debug Build
+      run: |
+        if (Test-Path "out/build/windows-default/Debug/SnakeAI-MLOps.exe") {
+          Write-Host "✅ Debug executable found"
+        } else {
+          Write-Host "❌ Debug executable missing"
+          exit 1
+        }
+      shell: powershell
+    
+    - name: Test Release Build
+      run: |
+        if (Test-Path "out/build/windows-default/Release/SnakeAI-MLOps.exe") {
+          Write-Host "✅ Release executable found"
+        } else {
+          Write-Host "❌ Release executable missing"
+          exit 1
+        }
+      shell: powershell
+    
+    - name: Upload Debug Artifacts
+      uses: actions/upload-artifact@v4
       with:
-        configurePreset: 'windows-default'
+        name: SnakeAI-MLOps-Debug-Windows
+        path: |
+          out/build/windows-default/Debug/SnakeAI-MLOps.exe
+          out/build/windows-default/Debug/*.dll
+          assets/
+        retention-days: 30
+    
+    - name: Upload Release Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: SnakeAI-MLOps-Release-Windows
+        path: |
+          out/build/windows-default/Release/SnakeAI-MLOps.exe
+          out/build/windows-default/Release/*.dll
+          assets/
+        retention-days: 90
+
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          pkg-config \
+          libx11-dev \
+          libxrandr-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libxi-dev \
+          libgl1-mesa-dev \
+          libudev-dev \
+          libfreetype6-dev \
+          libopenal-dev \
+          libflac-dev \
+          libvorbis-dev
+    
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgJsonGlob: 'vcpkg.json'
+        runVcpkgInstall: true
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      env:
+        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
     
     - name: Build
-      run: cmake --build out/build/windows-default --config Debug
+      run: |
+        cmake --build build --config Release -j$(nproc)
+    
+    - name: Test Build
+      run: |
+        if [ -f "build/SnakeAI-MLOps" ]; then
+          echo "✅ Linux executable found"
+        else
+          echo "❌ Linux executable missing"
+          exit 1
+        fi
+    
+    - name: Upload Linux Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: SnakeAI-MLOps-Linux
+        path: |
+          build/SnakeAI-MLOps
+          assets/
+        retention-days: 30
+
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Run clang-format check
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format
+        find src/ -name "*.cpp" -o -name "*.hpp" | xargs clang-format --dry-run --Werror
+      continue-on-error: true
+    
+    - name: Count lines of code
+      run: |
+        echo "## Code Statistics" >> $GITHUB_STEP_SUMMARY
+        echo "| Language | Files | Lines |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| C++ | $(find src/ -name "*.cpp" -o -name "*.hpp" | wc -l) | $(find src/ -name "*.cpp" -o -name "*.hpp" -exec cat {} \; | wc -l) |" >> $GITHUB_STEP_SUMMARY
+        echo "| CMake | $(find . -name "CMakeLists.txt" -o -name "*.cmake" | wc -l) | $(find . -name "CMakeLists.txt" -o -name "*.cmake" -exec cat {} \; | wc -l) |" >> $GITHUB_STEP_SUMMARY
+        echo "| JSON | $(find . -name "*.json" | wc -l) | $(find . -name "*.json" -exec cat {} \; | wc -l) |" >> $GITHUB_STEP_SUMMARY
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [build-linux]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build -f docker/Dockerfile -t snakeai-mlops:latest .
+    
+    - name: Test Docker image
+      run: |
+        docker run --rm snakeai-mlops:latest
+    
+    - name: Login to GitHub Container Registry
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Push to registry
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        docker tag snakeai-mlops:latest ghcr.io/${{ github.repository_owner }}/snakeai-mlops:latest
+        docker tag snakeai-mlops:latest ghcr.io/${{ github.repository_owner }}/snakeai-mlops:${{ github.sha }}
+        docker push ghcr.io/${{ github.repository_owner }}/snakeai-mlops:latest
+        docker push ghcr.io/${{ github.repository_owner }}/snakeai-mlops:${{ github.sha }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-linux, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Download Windows artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: SnakeAI-MLOps-Release-Windows
+        path: ./windows-release
+    
+    - name: Download Linux artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: SnakeAI-MLOps-Linux
+        path: ./linux-release
+    
+    - name: Create release archives
+      run: |
+        cd windows-release && zip -r ../SnakeAI-MLOps-Windows.zip . && cd ..
+        cd linux-release && tar -czf ../SnakeAI-MLOps-Linux.tar.gz . && cd ..
+    
+    - name: Generate changelog
+      run: |
+        echo "## Changes in this release" > CHANGELOG.md
+        echo "- Latest build from commit ${{ github.sha }}" >> CHANGELOG.md
+        echo "- Built on $(date)" >> CHANGELOG.md
+        git log --oneline -10 >> CHANGELOG.md
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: build-${{ github.run_number }}
+        release_name: SnakeAI-MLOps Build ${{ github.run_number }}
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: true
+      id: create_release
+    
+    - name: Upload Windows Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./SnakeAI-MLOps-Windows.zip
+        asset_name: SnakeAI-MLOps-Windows.zip
+        asset_content_type: application/zip
+    
+    - name: Upload Linux Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./SnakeAI-MLOps-Linux.tar.gz
+        asset_name: SnakeAI-MLOps-Linux.tar.gz
+        asset_content_type: application/gzip

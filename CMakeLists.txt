@@ -15,7 +15,11 @@ add_executable(${PROJECT_NAME}
     src/Apple.cpp
     src/Grid.cpp
     src/Menu.cpp
+    src/PauseMenu.cpp
+    src/AgentSelection.cpp
+    src/Leaderboard.cpp
     src/QLearningAgent.cpp
+    src/MLAgents.cpp
     src/DataCollector.cpp
     src/InputManager.cpp
 )

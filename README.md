@@ -1,6 +1,6 @@
 # SnakeAI-MLOps
 
-Reinforcement Learning Snake Game with Production MLOps Pipeline
+Advanced Reinforcement Learning Snake Game with Production MLOps Pipeline & Multiple AI Agents
 
 [![CI/CD Pipeline](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml/badge.svg)](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml) ✅ **PASSING**
 
@@ -49,43 +49,41 @@ SnakeAI-MLOps/
 ├── src/
 │   ├── main.cpp              # Entry point with logging setup
 │   ├── Game.hpp              # Main game class header
-│   ├── Game.cpp              # Game loop, state management, rendering
-│   ├── GameState.hpp         # Enums and state structures
-│   ├── Grid.hpp              # Grid system header
-│   ├── Grid.cpp              # Grid rendering and coordinate conversion
-│   ├── Snake.hpp             # Snake entity header
-│   ├── Snake.cpp             # Snake movement, collision, rendering
-│   ├── Apple.hpp             # Apple/food header
-│   ├── Apple.cpp             # Apple spawning and rendering
-│   ├── Menu.hpp              # Main menu header
-│   ├── Menu.cpp              # Menu navigation and mode selection
-│   ├── QLearningAgent.hpp    # Q-Learning AI header
-│   ├── QLearningAgent.cpp    # Q-table management, action selection
-│   ├── DataCollector.hpp     # Data collection header
-│   ├── DataCollector.cpp     # Episode tracking, metrics logging
-│   ├── InputManager.hpp      # Input handling header
-│   └── InputManager.cpp      # Keyboard/mouse input processing
+│   ├── Game.cpp              # Enhanced game loop with all features
+│   ├── GameState.hpp         # Extended enums and state structures
+│   ├── Grid.hpp/.cpp         # Grid rendering and coordinate conversion
+│   ├── Snake.hpp/.cpp        # Snake movement, collision, rendering
+│   ├── Apple.hpp/.cpp        # Apple spawning and rendering
+│   ├── Menu.hpp/.cpp         # Main menu navigation and mode selection
+│   ├── PauseMenu.hpp/.cpp    # NEW: Enhanced pause functionality
+│   ├── AgentSelection.hpp/.cpp # NEW: AI agent selection system
+│   ├── Leaderboard.hpp/.cpp  # NEW: Score tracking and username entry
+│   ├── QLearningAgent.hpp/.cpp # Original Q-Learning implementation
+│   ├── MLAgents.hpp/.cpp     # NEW: Multiple AI agent framework
+│   ├── DataCollector.hpp/.cpp # Episode tracking, metrics logging
+│   └── InputManager.hpp/.cpp # Keyboard/mouse input processing
 ├── assets/
-│   ├── head.jpg              # Snake head texture (required)
-│   ├── skin.jpg              # Snake body texture (required)
 │   └── fonts/
 │       └── arial.ttf         # UI font (required)
 ├── models/                   # Saved ML models
-│   └── qtable.json          # Q-Learning table (auto-generated)
+│   ├── qtable.json          # Q-Learning table (auto-generated)
+│   ├── dqn_model.bin        # DQN weights (placeholder)
+│   ├── policy_model.bin     # Policy Gradient model (placeholder)
+│   └── actor_critic.bin     # Actor-Critic model (placeholder)
 ├── data/                     # Training logs and metrics
 │   ├── training_data.json   # Episode history (auto-generated)
 │   └── training_summary.json # Performance statistics (auto-generated)
 ├── logs/                     # Application logs
-│   └── game.log             # Runtime logs (auto-generated)
+│   └── debug.log            # Runtime logs (auto-generated)
+├── leaderboard.json         # Persistent high scores (auto-generated)
 ├── tests/                    # Unit and integration tests
 ├── docker/                   # Docker configuration
-│   └── Dockerfile           # Container setup
 ├── .github/workflows/        # CI/CD pipelines
-│   └── ci.yml              # GitHub Actions workflow
-├── CMakeLists.txt           # Build configuration
+├── CMakeLists.txt           # Enhanced build configuration
 ├── CMakePresets.json        # Build presets
 ├── vcpkg.json              # Dependencies
 ├── KT.md                   # Knowledge transfer document
+├── ML.md                   # Machine learning implementation guide
 └── README.md               # This file
 ```
 
@@ -93,106 +91,193 @@ SnakeAI-MLOps/
 
 ### Quick Navigation
 - [Setup & Installation](#quick-start)
-- [Project File Structure](#project-file-structure)
+- [New Features](#new-features-v20)
 - [Game Modes](#game-modes)
-  - [Single Player](#1-single-player)
-  - [Agent vs Player](#2-agent-vs-player)
-  - [Agent vs System](#3-agent-vs-system)
+- [AI Agents](#ai-agents)
+  - [Q-Learning Agent](#q-learning-agent)
+  - [Deep Q-Network](#deep-q-network-dqn)
+  - [Policy Gradient](#policy-gradient)
+  - [Actor-Critic](#actor-critic)
+  - [Genetic Algorithm](#genetic-algorithm)
 - [Controls](#controls)
-- [Q-Learning Implementation](#q-learning-implementation)
-  - [State Representation](#state-representation)
-  - [Reward System](#reward-system)
-  - [Training Process](#training-process)
+  - [Menu Navigation](#menu-navigation)
+  - [In-Game Controls](#in-game-controls)
+  - [Pause Menu](#pause-menu)
+  - [Agent Selection](#agent-selection)
+- [Leaderboard System](#leaderboard-system)
+- [State Representation](#state-representation)
 - [Development](#development)
-  - [Build Commands](#build-commands)
-  - [Required Assets](#required-assets)
 - [Docker](#docker)
-- [CI/CD Pipeline](#cicd-pipeline)
 - [MLOps Features](#mlops-features)
-- [Data Collection](#data-collection)
-  - [Episode Data](#episode-data)
-  - [Training Files](#training-files)
-  - [Metrics Tracked](#metrics-tracked)
 - [Troubleshooting](#troubleshooting)
-  - [vcpkg Issues](#vcpkg-issues)
-  - [CMake Issues](#cmake-issues)
-  - [Docker Issues](#docker-issues)
-  - [Game Issues](#game-issues)
 - [Contributing](#contributing)
+
+## New Features (v2.0)
+
+### 🎮 Enhanced Gameplay
+- **Pause Menu**: Full pause functionality with speed control and game stats
+- **Agent Selection**: Choose from 5 different AI agents before playing
+- **Leaderboard**: Persistent high score tracking with player names and agent types
+- **Improved UI**: Enhanced menus, better visual feedback, and comprehensive game stats
+
+### 🤖 Multiple AI Agents
+- **Q-Learning**: Enhanced tabular RL with better state representation (✅ Implemented)
+- **Deep Q-Network**: Neural network-based Q-learning (🔄 Framework ready)
+- **Policy Gradient**: Direct policy optimization (🔄 Framework ready)
+- **Actor-Critic**: Combined value and policy learning (🔄 Framework ready)
+- **Genetic Algorithm**: Evolution-based approach (🔄 Framework ready)
+
+### 📊 Advanced Analytics
+- **Enhanced State Features**: 20-dimensional state vector for neural networks
+- **Performance Tracking**: Efficiency metrics and comparative analysis
+- **Real-time Agent Info**: Live display of learning parameters and performance
 
 ## Game Modes
 
 ### 1. Single Player
-- Human controls snake with arrow keys (↑↓←→) or WASD
-- System spawns apples randomly
-- Classic snake gameplay
+- **Control**: Human controls snake with arrow keys (↑↓←→) or WASD
+- **Objective**: System spawns apples randomly, achieve highest score
+- **Features**: Classic snake gameplay with modern enhancements
 
 ### 2. Agent vs Player
-- ML agent controls snake automatically
-- Human places apples with mouse clicks
-- Click empty cell to place apple
-- Red preview shows next apple placement
+- **Control**: AI agent controls snake automatically
+- **Interaction**: Human places apples with mouse clicks
+- **Strategy**: Test AI behavior by controlling food placement
+- **Visual**: Red preview shows next apple placement location
 
 ### 3. Agent vs System
-- ML agent controls snake
-- System spawns apples randomly
-- Training mode for Q-Learning
+- **Control**: AI agent controls snake automatically
+- **Objective**: System spawns apples randomly
+- **Purpose**: Pure AI training mode for reinforcement learning
+- **Analytics**: Full data collection and performance tracking
+
+## AI Agents
+
+### Q-Learning Agent
+**Status**: ✅ Fully Implemented
+- **Method**: Tabular reinforcement learning with epsilon-greedy exploration
+- **State Space**: 8-dimensional discrete features (danger detection + food direction)
+- **Action Space**: 4 directions (Up, Down, Left, Right)
+- **Features**: Experience replay, model persistence, adaptive exploration
+- **Performance**: Achieves consistent scores of 10-20 after training
+
+### Deep Q-Network (DQN)
+**Status**: 🔄 Framework Ready
+- **Method**: Neural network approximation of Q-values
+- **Architecture**: 3 hidden layers, 128 neurons each
+- **Input**: 20-dimensional enhanced state vector
+- **Features**: Target network, experience replay buffer
+- **Implementation**: Placeholder with extensible neural network structure
+
+### Policy Gradient
+**Status**: 🔄 Framework Ready
+- **Method**: Direct policy optimization using REINFORCE algorithm
+- **Network**: Policy network outputting action probabilities
+- **Features**: Episode-based learning, natural exploration
+- **Advantages**: Better for continuous action spaces (future expansion)
+
+### Actor-Critic
+**Status**: 🔄 Framework Ready
+- **Method**: Combines value function estimation with policy gradient
+- **Networks**: Separate actor (policy) and critic (value) networks
+- **Features**: Lower variance than pure policy gradient
+- **Benefits**: More stable training than policy gradient alone
+
+### Genetic Algorithm
+**Status**: 🔄 Framework Ready
+- **Method**: Evolution-based approach with neural network population
+- **Process**: Mutation, crossover, and selection of best performers
+- **Features**: Population-based training, no gradient computation required
+- **Use Case**: Alternative approach when gradient-based methods struggle
 
 ## Controls
 
 ### Menu Navigation
-- **↑/↓**: Select game mode
-- **Enter**: Start game
-- **ESC**: Return to menu
+- **↑/↓**: Navigate menu options
+- **Enter**: Select current option
+- **ESC**: Return to previous menu
 
 ### In-Game Controls
-- **Arrow Keys/WASD**: Move snake (Single Player only)
-- **Mouse Click**: Place apple (Agent vs Player only)
-- **+/-**: Increase/decrease speed (0.5-3.0 blocks/sec)
-- **ESC**: Pause/unpause game
+- **Arrow Keys/WASD**: Move snake (Single Player mode only)
+- **Mouse Click**: Place apple (Agent vs Player mode)
+- **ESC**: Open pause menu
+- **+/-**: Adjust game speed (0.5-3.0 blocks/sec)
+- **F1**: Open leaderboard
+- **F2**: Change AI agent (AI modes only)
 
-## Q-Learning Implementation
+### Pause Menu
+- **↑/↓**: Navigate pause options
+- **Enter**: Select option
+- **Resume Game**: Continue playing
+- **Speed Settings**: Adjust game speed with +/- keys
+- **Agent Info**: View current AI agent details
+- **Restart Episode**: Reset current game
+- **Main Menu**: Return to main menu
 
-### State Representation
-The agent perceives 8 features:
-1. Danger straight ahead
-2. Danger to the left
-3. Danger to the right
-4. Current direction
-5. Food is left
-6. Food is right
-7. Food is up
-8. Food is down
+### Agent Selection
+- **↑/↓**: Browse available AI agents
+- **Enter**: Select agent (if implemented)
+- **ESC**: Return to main menu
+- **Agent Status**: Green "READY" or Yellow "COMING SOON"
+
+## Leaderboard System
+
+### Features
+- **Persistent Storage**: Scores saved to `leaderboard.json`
+- **Player Names**: Custom username entry for human players
+- **Agent Tags**: Automatic tagging by AI agent type
+- **Sorting**: Ranked by score, then by efficiency (score/episode ratio)
+- **Display**: Top 10 scores with timestamps and performance metrics
+
+### Entry Process
+1. Achieve qualifying score (>5 points or human player)
+2. Enter custom username (human players only)
+3. AI agents get automatic names (Q-Agent, DQN-Agent, etc.)
+4. Score recorded with agent type, episode count, and efficiency
+
+### Leaderboard Format
+```
+Rank  Player Name              Agent Type      Score  Episode  Efficiency
+#1    AlphaGamer               Human          25     1        25.00
+#2    Q-Agent                  Q-Learning     22     15       1.47
+#3    Sarah_M                  Human          18     1        18.00
+```
+
+## State Representation
+
+### Basic State (8 dimensions) - Q-Learning
+```cpp
+struct AgentState {
+    bool dangerStraight, dangerLeft, dangerRight;  // Collision detection
+    Direction currentDirection;                     // Current heading
+    bool foodLeft, foodRight, foodUp, foodDown;    // Food direction
+};
+```
+
+### Enhanced State (20 dimensions) - Neural Networks
+```cpp
+struct EnhancedState {
+    AgentState basic;                    // Original 8 features
+    float distanceToFood;                // Euclidean distance to apple
+    float distanceToWall[4];            // Distance to walls (up/down/left/right)
+    float bodyDensity[4];               // Snake density by quadrant
+    int snakeLength;                    // Current snake size
+    int emptySpaces;                    // Available grid spaces
+    float pathToFood;                   // A* pathfinding distance
+};
+```
 
 ### Reward System
-- Eat food: +10 points
-- Hit wall/self: -10 points
-- Move toward food: +1 point
-- Move away from food: -1 point
-
-### Training Process
-1. Agent starts with empty Q-table
-2. Uses epsilon-greedy strategy (explores vs exploits)
-3. Updates Q-values after each action
-4. Epsilon decays each episode (more exploitation over time)
-5. Q-table auto-saves to `models/qtable.json`
+```cpp
+EAT_FOOD = +10.0f           // Successfully eat apple
+DEATH = -10.0f              // Collision with wall/self
+MOVE_TOWARDS_FOOD = +1.0f   // Move closer to apple
+MOVE_AWAY_FROM_FOOD = -1.0f // Move farther from apple
+MOVE_PENALTY = -0.1f        // Small penalty per move
+EFFICIENCY_BONUS = +2.0f    // Bonus for optimal path
+```
 
 ## Development
-
-### Project Structure
-```
-src/
-├── game/          # SFML game logic
-├── rl/            # RL agent implementation  
-├── mlops/         # Logging, metrics, model management
-└── main.cpp       # Entry point
-
-models/            # Saved ML models
-data/              # Training logs and metrics
-tests/             # Unit and integration tests
-docker/            # Docker configuration
-.github/workflows/ # CI/CD pipelines
-```
 
 ### Build Commands
 ```bash
@@ -204,212 +289,190 @@ cmake --build out/build/windows-default
 cmake --preset windows-default -DCMAKE_BUILD_TYPE=Release
 cmake --build out/build/windows-default --config Release
 
-# Run tests
-ctest --test-dir out/build/windows-default
+# Clean rebuild
+rm -rf out/
+cmake --preset windows-default
+cmake --build out/build/windows-default
 ```
 
 ### Required Assets
-Before running, ensure these files exist:
-- `assets/head.jpg` - Snake head texture
-- `assets/skin.jpg` - Snake body texture
-- `assets/fonts/arial.ttf` - UI font
+- `assets/fonts/arial.ttf` - UI font for menus and text display
 
-### Docker
+### Adding New AI Agents
+1. **Implement IAgent Interface**: Create new agent class inheriting from `IAgent`
+2. **Register in AgentFactory**: Add case in `createAgent()` method
+3. **Update AgentSelection**: Add to `initializeAgents()` with description
+4. **Set Implementation Status**: Mark `isImplemented = true` when ready
+5. **Test Integration**: Verify agent works in all game modes
 
-#### Build Container ✅ VERIFIED
+### Project Architecture
+```
+Game.cpp (Main Controller)
+├── Menu System
+│   ├── MainMenu
+│   ├── AgentSelection
+│   ├── PauseMenu
+│   └── Leaderboard
+├── Game Engine
+│   ├── Snake Logic
+│   ├── Apple Management
+│   ├── Collision Detection
+│   └── State Generation
+├── AI Framework
+│   ├── Agent Interface
+│   ├── Multiple Implementations
+│   ├── Model Persistence
+│   └── Performance Tracking
+└── Data Pipeline
+    ├── Episode Recording
+    ├── Metrics Collection
+    ├── Leaderboard Management
+    └── Model Checkpointing
+```
+
+## Docker
+
+### Build Container
 ```bash
 docker build -f docker/Dockerfile -t snakeai-mlops .
 ```
 
-#### Verify Container
+### Run Container
 ```bash
-# Check image
-docker images snakeai-mlops
-
-# Test run
+# Standard run
 docker run --rm snakeai-mlops
 
-# Explore interactively
+# Interactive mode
 docker run -it --rm snakeai-mlops /bin/bash
 
-# Verify project files
-docker run --rm snakeai-mlops find /app -name "*.cpp"
-```
-
-#### Production
-```bash
+# With port mapping (if web interface added)
 docker run -p 8080:8080 snakeai-mlops
-```
-
-#### Docker Compose (Full Stack)
-```bash
-# Start all services (game + monitoring)
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
-## CI/CD Pipeline
-
-### Automated Checks
-- **Build Verification**: CMake + vcpkg build
-- **Unit Tests**: Game logic and RL algorithms
-- **Code Quality**: Static analysis
-- **Docker Build**: Container image creation
-
-### Manual Verification
-```bash
-# Check build status
-git push origin main
-# Monitor: https://github.com/PranavMishra17/SnakeAI-MLOps/actions
-
-# Local CI simulation
-.\scripts\run-local-ci.bat
 ```
 
 ## MLOps Features
 
 ### Experiment Tracking
-- Training metrics logged to `data/experiments/`
-- Model checkpoints saved to `models/`
-- Performance dashboards via Docker containers
+- **Training Metrics**: Episode rewards, scores, exploration rates
+- **Model Checkpoints**: Automatic saving of best-performing agents
+- **Performance Dashboards**: Real-time training visualization
+- **Comparative Analysis**: Multi-agent performance comparison
 
 ### Model Management
 ```bash
-# Train new model
-.\SnakeAI-MLOps.exe --train --episodes 1000
+# Train new model (example for future CLI)
+.\SnakeAI-MLOps.exe --train --agent qlearning --episodes 1000
 
-# Evaluate model
-.\SnakeAI-MLOps.exe --evaluate --model models/best_model.bin
+# Evaluate model performance
+.\SnakeAI-MLOps.exe --evaluate --model models/qtable.json
 
-# Compare models
-.\SnakeAI-MLOps.exe --compare --models models/v1.bin,models/v2.bin
+# Compare multiple agents
+.\SnakeAI-MLOps.exe --compare --agents qlearning,dqn,policy
 ```
 
-### Monitoring
-- Real-time training visualization
-- Performance regression testing
-- Automated model deployment
-
-## Data Collection
-
-### Episode Data
-Each game episode records:
-- Episode number
-- Steps taken
-- Final score
-- Total reward accumulated
-- Death status
-- Duration in milliseconds
-- Epsilon value
-
-### Training Files
-- `data/training_data.json`: Complete episode history
-- `data/training_summary.json`: Aggregated statistics
-- `logs/game.log`: Runtime events and errors
-
-### Metrics Tracked
-- Average score per episode
-- Average steps per episode
-- Maximum score achieved
-- Success rate (non-death episodes)
-- Q-table convergence
+### Data Pipeline
+- **Episode Data**: Complete game state transitions and rewards
+- **Performance Metrics**: Score trends, learning curves, efficiency
+- **Model Artifacts**: Serialized agent parameters and configurations
+- **Leaderboard Analytics**: Player performance and agent effectiveness
 
 ## Verification Checklist
 
-### ✅ Local Development
-- [ ] Game window opens and renders
-- [ ] Mouse clicks place apples
-- [ ] Snake AI moves and learns
-- [ ] Models save/load correctly
+### ✅ Core Gameplay
+- [x] Snake movement and growth mechanics
+- [x] Apple spawning and collection
+- [x] Collision detection (walls and self)
+- [x] Score tracking and display
 
-### ✅ Build System
-- [ ] CMake configures without errors
-- [ ] All dependencies found via vcpkg
-- [ ] Release build optimization works
-- [ ] Tests pass locally
+### ✅ AI Agents
+- [x] Q-Learning agent with model persistence
+- [x] Agent selection interface
+- [x] Multiple agent framework
+- [x] State representation for neural networks
 
-### ✅ Docker
-- [ ] Container builds successfully
-- [ ] Game runs inside container
-- [ ] Port forwarding works
-- [ ] Volume mounts preserve data
+### ✅ User Interface
+- [x] Enhanced main menu
+- [x] Pause menu with speed control
+- [x] Leaderboard with username entry
+- [x] Real-time game statistics
 
-### ✅ CI/CD
-- [ ] GitHub Actions build passes
-- [ ] Tests run automatically
-- [ ] Docker image publishes
-- [ ] No credential leaks
+### ✅ Data & Analytics
+- [x] Episode data collection
+- [x] Training metrics logging
+- [x] Performance tracking
+- [x] Model checkpoint system
+
+### 🔄 Future Enhancements
+- [ ] Neural network agent implementations
+- [ ] Web-based training dashboard
+- [ ] Multi-agent tournaments
+- [ ] Advanced visualization tools
 
 ## Troubleshooting
 
-### vcpkg Issues
+### Build Issues
 ```bash
-# Reinstall integration
+# vcpkg integration problems
 .\vcpkg integrate install
-
-# Check installed packages
 .\vcpkg list
 
-# Update packages
-.\vcpkg update
-```
-
-### CMake Issues
-```bash
-# Clear cache
+# CMake cache issues
 rm -rf out/
 cmake --preset windows-default
 
-# Verbose build
-cmake --build out/build/windows-default --verbose
+# Missing dependencies
+.\vcpkg install sfml:x64-windows nlohmann-json:x64-windows spdlog:x64-windows
 ```
 
-### Docker Issues
-```bash
-# Check Docker status
-docker --version
-docker run hello-world
-
-# Clean build cache
-docker system prune -a
-```
+### Runtime Issues
+- **Font not found**: Ensure `arial.ttf` exists in `assets/fonts/`
+- **Agent selection empty**: Check that agent `isImplemented` flags are set correctly
+- **Leaderboard not saving**: Verify write permissions in project directory
+- **Models not loading**: Check that `models/` directory exists and is writable
 
 ### Game Issues
-- **Snake won't move**: Check if game is paused (ESC key)
-- **No textures**: Ensure `assets/head.jpg` and `assets/skin.jpg` exist
-- **Font error**: Add `arial.ttf` to `assets/fonts/`
-- **Q-table not saving**: Check write permissions for `models/` directory
+- **Snake won't move**: Check if game is paused (ESC toggles pause)
+- **No apple spawning**: Verify apple placement logic for current game mode
+- **Agent not learning**: Confirm training mode is enabled and epsilon > 0
+- **Performance slow**: Reduce speed or check for debug logging overhead
 
 ## Contributing
 
-### Next Development Phase
-```cpp
-// Immediate tasks (Week 1-2):
-1. Grid system implementation ✅
-2. Snake class with movement ✅
-3. Mouse-click apple placement ✅
-4. Basic collision detection ✅
-5. Q-Learning agent foundation ✅
+### Development Priorities
+1. **Neural Network Agents**: Implement DQN, Policy Gradient, and Actor-Critic
+2. **Advanced Features**: Curriculum learning, multi-agent scenarios
+3. **Visualization**: Training dashboards, performance graphs
+4. **Optimization**: Performance improvements, memory efficiency
 
-// Next phase (Week 3-4):
-1. Deep Q-Network (DQN) implementation
-2. Performance visualization dashboard
-3. Multi-agent scenarios
-4. Advanced reward shaping
-5. Curriculum learning
-```
+### Code Standards
+- Follow existing naming conventions and structure
+- Add comprehensive logging for debugging
+- Include unit tests for new features
+- Update documentation for API changes
+
+### Beginner Contributions
+- **Bug Reports**: Test different scenarios and report issues
+- **Documentation**: Improve README sections or add tutorials
+- **Asset Creation**: Design better graphics or sound effects
+- **Configuration**: Add new game settings or customization options
+
+### Advanced Contributions
+- **ML Implementation**: Complete placeholder agent implementations
+- **Performance**: Optimize training speed and memory usage
+- **Features**: Add new game modes or AI techniques
+- **Infrastructure**: Improve build system or CI/CD pipeline
 
 1. Fork repository
 2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push branch: `git push origin feature/amazing-feature`
-5. Open Pull Request
+3. Implement changes with tests
+4. Update documentation
+5. Commit changes: `git commit -m 'Add amazing feature'`
+6. Push branch: `git push origin feature/amazing-feature`
+7. Open Pull Request with detailed description
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+**Ready to Train AI Agents?** Start with the Q-Learning agent, experiment with different game modes, and watch your AI learn to master Snake! 🐍🤖
