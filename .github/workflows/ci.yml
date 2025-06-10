@@ -168,8 +168,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y clang-format
-        find src/ -name "*.cpp" -o -name "*.hpp" | xargs clang-format --dry-run --Werror
-      continue-on-error: true
+        echo "Checking code formatting..."
+        find src/ -name "*.cpp" -o -name "*.hpp" | xargs clang-format --dry-run --Werror || echo "⚠️ Code formatting issues found"
     
     - name: Count lines of code
       run: |
@@ -207,14 +207,11 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: Push to registry
+    - name: Tag and Push to registry
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
-        REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-        docker tag snakeai-mlops:latest ghcr.io/${REPO_LOWER}:latest
-        docker tag snakeai-mlops:latest ghcr.io/${REPO_LOWER}:${{ github.sha }}
-        docker push ghcr.io/${REPO_LOWER}:latest
-        docker push ghcr.io/${REPO_LOWER}:${{ github.sha }}
+        docker tag snakeai-mlops:latest ghcr.io/${{ github.actor }}/snakeai-mlops:latest
+        docker push ghcr.io/${{ github.actor }}/snakeai-mlops:latest
 
   release:
     runs-on: ubuntu-latest
