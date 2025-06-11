@@ -11,7 +11,8 @@ enum class GameState {
     GAME_OVER,
     AGENT_SELECTION,
     LEADERBOARD,
-    SETTINGS
+    SETTINGS,
+    HOW_TO_PLAY
 };
 
 enum class GameMode {

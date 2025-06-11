@@ -5,7 +5,7 @@
 
 // Enhanced Q-Learning Agent Implementation
 QLearningAgentEnhanced::QLearningAgentEnhanced(float lr, float gamma, float eps)
-    : m_learningRate(lr), m_discountFactor(gamma), m_epsilon(eps), m_rng(std::random_device{}()) {
+    : m_learningRate(lr), m_discountFactor(gamma), m_epsilon(eps), m_rng(std::random_device{}()), m_hasLastState(false) {
     spdlog::info("QLearningAgentEnhanced: Initialized with lr={}, gamma={}, epsilon={}", lr, gamma, eps);
 }
 
@@ -21,8 +21,18 @@ Direction QLearningAgentEnhanced::getAction(const EnhancedState& state, bool tra
 }
 
 void QLearningAgentEnhanced::updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) {
-    std::string stateKey = state.basic.toString();
-    std::string nextStateKey = nextState.basic.toString();
+    if (m_hasLastState) {
+        updateQValue(m_lastState, m_lastAction, reward, state.basic);
+    }
+    
+    m_lastState = state.basic;
+    m_lastAction = action;
+    m_hasLastState = true;
+}
+
+void QLearningAgentEnhanced::updateQValue(const AgentState& state, Direction action, float reward, const AgentState& nextState) {
+    std::string stateKey = state.toString();
+    std::string nextStateKey = nextState.toString();
     int actionIdx = static_cast<int>(action);
     
     if (m_qTable.find(stateKey) == m_qTable.end()) {
@@ -36,6 +46,14 @@ void QLearningAgentEnhanced::updateAgent(const EnhancedState& state, Direction a
     float maxNextQ = *std::max_element(m_qTable[nextStateKey].begin(), m_qTable[nextStateKey].end());
     
     m_qTable[stateKey][actionIdx] = currentQ + m_learningRate * (reward + m_discountFactor * maxNextQ - currentQ);
+}
+
+void QLearningAgentEnhanced::startEpisode() {
+    m_hasLastState = false;
+}
+
+void QLearningAgentEnhanced::endEpisode() {
+    m_hasLastState = false;
 }
 
 void QLearningAgentEnhanced::saveModel(const std::string& path) {

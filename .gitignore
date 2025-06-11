@@ -41,3 +41,5 @@ out/
 /data
 /models
 qtable.json
+/src/models
+*.pyc

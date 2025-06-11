@@ -32,6 +32,11 @@ private:
     float m_epsilon;
     mutable std::mt19937 m_rng;
     
+    // Training state
+    AgentState m_lastState;
+    Direction m_lastAction;
+    bool m_hasLastState;
+    
 public:
     QLearningAgentEnhanced(float lr = 0.1f, float gamma = 0.95f, float eps = 0.1f);
     Direction getAction(const EnhancedState& state, bool training = true) override;
@@ -42,8 +47,13 @@ public:
     void decayEpsilon() override;
     std::string getAgentInfo() const override;
     
+    // Training methods
+    void startEpisode();
+    void endEpisode();
+    
 private:
     Direction getMaxQAction(const AgentState& state) const;
+    void updateQValue(const AgentState& state, Direction action, float reward, const AgentState& nextState);
 };
 
 // DQN Agent (Placeholder)

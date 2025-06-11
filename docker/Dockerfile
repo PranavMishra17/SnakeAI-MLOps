@@ -1,7 +1,6 @@
 # Multi-stage build for SnakeAI-MLOps
 FROM ubuntu:22.04 AS build
 
-# Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies
@@ -15,7 +14,6 @@ RUN apt-get update && apt-get install -y \
     unzip \
     tar \
     ninja-build \
-    # SFML dependencies
     libx11-dev \
     libxrandr-dev \
     libxinerama-dev \
@@ -29,33 +27,31 @@ RUN apt-get update && apt-get install -y \
     libvorbis-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Copy vcpkg configuration
+# Copy configuration files
 COPY vcpkg.json .
+COPY CMakeLists.txt .
+COPY CMakePresets.json .
 
-# Install vcpkg
+# Install vcpkg and dependencies
 RUN git clone https://github.com/Microsoft/vcpkg.git && \
     ./vcpkg/bootstrap-vcpkg.sh && \
     ./vcpkg/vcpkg install
 
 # Copy source code
 COPY src/ src/
-COPY CMakeLists.txt .
-COPY CMakePresets.json .
 
-# Create assets directory (placeholder)
-RUN mkdir -p assets/fonts && \
+# Create required directories and assets
+RUN mkdir -p assets/fonts models data logs && \
     echo "Font placeholder for Docker" > assets/fonts/arial.ttf
 
 # Build the project
 RUN cmake -B build \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE=/app/vcpkg/scripts/buildsystems/vcpkg.cmake \
-    -G Ninja
-
-RUN cmake --build build --config Release
+    -G Ninja && \
+    cmake --build build --config Release
 
 # Runtime stage
 FROM ubuntu:22.04 AS runtime
@@ -78,18 +74,19 @@ RUN apt-get update && apt-get install -y \
 # Create app user
 RUN useradd -m -s /bin/bash snakeai
 
-# Set working directory
 WORKDIR /app
 
-# Copy built executable and assets
+# Copy built executable and required files
 COPY --from=build /app/build/SnakeAI-MLOps .
 COPY --from=build /app/assets/ assets/
 
-# Create necessary directories
+# Create necessary directories with proper permissions
 RUN mkdir -p models data logs && \
     chown -R snakeai:snakeai /app
 
-# Switch to app user
+# Copy pre-trained models if they exist
+COPY models/ models/ 
+
 USER snakeai
 
 # Health check
@@ -97,10 +94,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD test -f /app/SnakeAI-MLOps || exit 1
 
 # Default command
-CMD ["echo", "SnakeAI-MLOps container ready. Note: This is a GUI application and requires display forwarding for interactive use."]
+CMD ["echo", "SnakeAI-MLOps container ready. Use with X11 forwarding: docker run -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix snakeai-mlops"]
 
-# Labels for metadata
+# Metadata labels
 LABEL org.opencontainers.image.title="SnakeAI-MLOps"
 LABEL org.opencontainers.image.description="Reinforcement Learning Snake Game with MLOps Pipeline"
-LABEL org.opencontainers.image.version="1.0"
+LABEL org.opencontainers.image.version="2.0"
 LABEL org.opencontainers.image.vendor="SnakeAI-MLOps Project"

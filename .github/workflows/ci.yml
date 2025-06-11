@@ -45,10 +45,16 @@ jobs:
       run: |
         cmake --build out/build/windows-default --config Release
     
-    - name: Create assets
+    - name: Create assets and models
       run: |
         mkdir -p out/build/windows-default/Debug/assets/fonts
         mkdir -p out/build/windows-default/Release/assets/fonts
+        mkdir -p out/build/windows-default/Debug/models
+        mkdir -p out/build/windows-default/Release/models
+        mkdir -p out/build/windows-default/Debug/data
+        mkdir -p out/build/windows-default/Release/data
+        mkdir -p out/build/windows-default/Debug/logs
+        mkdir -p out/build/windows-default/Release/logs
         echo "Font placeholder" > out/build/windows-default/Debug/assets/fonts/arial.ttf
         echo "Font placeholder" > out/build/windows-default/Release/assets/fonts/arial.ttf
     
@@ -79,7 +85,8 @@ jobs:
         path: |
           out/build/windows-default/Debug/SnakeAI-MLOps.exe
           out/build/windows-default/Debug/*.dll
-          assets/
+          out/build/windows-default/Debug/assets/
+          out/build/windows-default/Debug/models/
         retention-days: 30
     
     - name: Upload Release Artifacts
@@ -89,7 +96,8 @@ jobs:
         path: |
           out/build/windows-default/Release/SnakeAI-MLOps.exe
           out/build/windows-default/Release/*.dll
-          assets/
+          out/build/windows-default/Release/assets/
+          out/build/windows-default/Release/models/
         retention-days: 90
 
   build-linux:
@@ -139,6 +147,14 @@ jobs:
       run: |
         cmake --build build --config Release -j$(nproc)
     
+    - name: Create required directories
+      run: |
+        mkdir -p build/assets/fonts
+        mkdir -p build/models
+        mkdir -p build/data
+        mkdir -p build/logs
+        echo "Font placeholder for CI" > build/assets/fonts/arial.ttf
+    
     - name: Test Build
       run: |
         if [ -f "build/SnakeAI-MLOps" ]; then
@@ -154,7 +170,8 @@ jobs:
         name: SnakeAI-MLOps-Linux
         path: |
           build/SnakeAI-MLOps
-          assets/
+          build/assets/
+          build/models/
         retention-days: 30
 
   code-quality:
@@ -210,7 +227,7 @@ jobs:
     - name: Tag and Push to registry
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
-        IMAGE_NAME=ghcr.io/$(echo "$GHCR_USER" | tr '[:upper:]' '[:lower:]')/snakeai-mlops:latest
+        IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/snakeai-mlops:latest
         docker tag snakeai-mlops:latest $IMAGE_NAME
         docker push $IMAGE_NAME
 
@@ -248,33 +265,13 @@ jobs:
         git log --oneline -10 >> CHANGELOG.md
     
     - name: Create Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: build-${{ github.run_number }}
-        release_name: SnakeAI-MLOps Build ${{ github.run_number }}
+        name: SnakeAI-MLOps Build ${{ github.run_number }}
         body_path: CHANGELOG.md
         draft: false
         prerelease: true
-      id: create_release
-    
-    - name: Upload Windows Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./SnakeAI-MLOps-Windows.zip
-        asset_name: SnakeAI-MLOps-Windows.zip
-        asset_content_type: application/zip
-    
-    - name: Upload Linux Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./SnakeAI-MLOps-Linux.tar.gz
-        asset_name: SnakeAI-MLOps-Linux.tar.gz
-        asset_content_type: application/gzip
+        files: |
+          SnakeAI-MLOps-Windows.zip
+          SnakeAI-MLOps-Linux.tar.gz

@@ -20,9 +20,8 @@ add_executable(${PROJECT_NAME}
     src/Leaderboard.cpp
     src/QLearningAgent.cpp
     src/MLAgents.cpp
-    src/DataCollector.cpp
     src/InputManager.cpp
-    src/UnifiedDaataCollector.cpp
+    src/UnifiedDataCollector.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} 

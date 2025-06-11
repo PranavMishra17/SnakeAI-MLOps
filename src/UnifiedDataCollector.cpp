@@ -5,7 +5,7 @@
 #include <numeric>
 
 UnifiedDataCollector::UnifiedDataCollector(const std::string& dataPath) 
-    : m_dataPath(dataPath), m_currentEpisode(0) {
+    : m_dataPath(dataPath), m_currentEpisodeNumber(0) {
     ensureDirectoryExists(m_dataPath);
     m_trainingStart = std::chrono::steady_clock::now();
 }
@@ -33,39 +33,39 @@ void UnifiedDataCollector::setAgentType(AgentType agentType) {
 }
 
 void UnifiedDataCollector::startEpisode(int episode) {
-    m_currentEpisode = episode;
-    m_currentEpisode.clear();
+    m_currentEpisodeNumber = episode;
+    m_currentEpisodeData.clear();
     m_episodeStart = std::chrono::steady_clock::now();
 }
 
 void UnifiedDataCollector::recordTransition(const UnifiedTransition& transition) {
     UnifiedTransition trans = transition;
-    trans.episode = m_currentEpisode;
-    trans.step = m_currentEpisode.size();
+    trans.episode = m_currentEpisodeNumber;
+    trans.step = m_currentEpisodeData.size();
     trans.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - m_episodeStart);
     
-    m_currentEpisode.push_back(trans);
+    m_currentEpisodeData.push_back(trans);
 }
 
 void UnifiedDataCollector::endEpisode(int finalScore, bool died, float epsilon) {
-    if (!m_currentEpisode.empty()) {
+    if (!m_currentEpisodeData.empty()) {
         // Mark the last transition as terminal
-        m_currentEpisode.back().terminal = true;
+        m_currentEpisodeData.back().terminal = true;
         
         // Calculate episode metrics
         float totalReward = 0.0f;
-        for (const auto& transition : m_currentEpisode) {
+        for (const auto& transition : m_currentEpisodeData) {
             totalReward += transition.reward;
         }
         
         m_episodeScores.push_back(static_cast<float>(finalScore));
         m_episodeRewards.push_back(totalReward);
-        m_episodeLengths.push_back(static_cast<int>(m_currentEpisode.size()));
+        m_episodeLengths.push_back(static_cast<int>(m_currentEpisodeData.size()));
         
         // Store episode
-        m_episodeHistory.push_back(std::move(m_currentEpisode));
-        m_currentEpisode.clear();
+        m_episodeHistory.push_back(std::move(m_currentEpisodeData));
+        m_currentEpisodeData.clear();
         
         // Auto-save every 10 episodes
         if (m_episodeHistory.size() % 10 == 0) {

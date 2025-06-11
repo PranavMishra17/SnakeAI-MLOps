@@ -89,6 +89,317 @@ Current: `ε₀ = 0.1`, `decay_rate = 0.995`
 
 ---
 
+## Data Structures for Agent Training
+
+### Q-Learning Data Requirements
+
+**State Representation**:
+```cpp
+struct AgentState {
+    bool dangerStraight, dangerLeft, dangerRight;  // 3 bits
+    Direction currentDirection;                     // 2 bits (4 values)
+    bool foodLeft, foodRight, foodUp, foodDown;    // 4 bits
+    // Total: 8 dimensions, 512 discrete states
+};
+```
+
+**Training Data Format**:
+```cpp
+struct QLearningTransition {
+    std::string stateKey;      // State encoded as string
+    int actionIndex;           // 0-3 for UP,DOWN,LEFT,RIGHT
+    float reward;              // Immediate reward
+    std::string nextStateKey;  // Next state encoded
+    bool terminal;             // Episode termination flag
+    float epsilon;             // Exploration rate when action taken
+};
+```
+
+**Q-Table Storage**:
+```cpp
+std::map<std::string, std::array<float, 4>> qTable;
+// Key: state.toString() -> "001203101" (9 chars)
+// Value: [Q(s,UP), Q(s,DOWN), Q(s,LEFT), Q(s,RIGHT)]
+```
+
+**Training Batch Requirements**:
+- Minimum: 100 transitions for stable updates
+- Optimal: 1,000+ transitions per training batch
+- Experience replay: Store last 10,000 transitions
+
+### Deep Q-Network (DQN) Data Requirements
+
+**State Representation**:
+```cpp
+struct EnhancedState {
+    // Neural network input: 20-dimensional vector
+    std::vector<float> features = {
+        // Basic danger detection (3)
+        dangerStraight, dangerLeft, dangerRight,
+        // Direction encoding (4) - one-hot
+        dirUp, dirDown, dirLeft, dirRight,
+        // Food direction (4)
+        foodLeft, foodRight, foodUp, foodDown,
+        // Distance features (5)
+        distanceToFood, distToWallUp, distToWallDown, 
+        distToWallLeft, distToWallRight,
+        // Density features (4)
+        bodyDensityQ1, bodyDensityQ2, bodyDensityQ3, bodyDensityQ4
+    };
+};
+```
+
+**Training Data Format**:
+```cpp
+struct DQNTransition {
+    std::vector<float> state;      // 20-dimensional state vector
+    int action;                    // Action index 0-3
+    float reward;                  // Immediate reward
+    std::vector<float> nextState;  // Next state vector
+    bool terminal;                 // Episode end flag
+    float priority;                // For prioritized replay (default 1.0)
+    double timestamp;              // For temporal difference
+};
+```
+
+**Experience Replay Buffer**:
+```cpp
+class ExperienceReplayBuffer {
+    std::deque<DQNTransition> buffer;
+    size_t maxCapacity = 100000;     // 100K transitions
+    size_t batchSize = 32;           // Training batch size
+    
+    std::vector<DQNTransition> sampleBatch(size_t size);
+    void addTransition(const DQNTransition& transition);
+};
+```
+
+**Network Architecture Data**:
+```cpp
+struct DQNModelData {
+    std::vector<std::vector<float>> weights;  // Layer weights
+    std::vector<float> biases;                // Layer biases
+    std::vector<int> layerSizes = {20, 128, 128, 4}; // Input->Hidden->Output
+    float learningRate = 0.001f;
+    float targetUpdateFreq = 1000;            // Target network update frequency
+};
+```
+
+**Training Requirements**:
+- Minimum buffer size: 10,000 transitions before training
+- Batch size: 32-128 transitions per update
+- Target network update: Every 1,000 steps
+- Training frequency: Every 4 steps
+
+### Policy Gradient Data Requirements
+
+**Episode-Based Collection**:
+```cpp
+struct PolicyGradientEpisode {
+    std::vector<EnhancedState> states;
+    std::vector<int> actions;
+    std::vector<float> rewards;
+    std::vector<float> logProbabilities;  // log π(a|s)
+    std::vector<float> advantages;        // A(s,a) = G_t - V(s)
+    std::vector<float> returns;           // G_t = Σ γ^k r_{t+k}
+    float episodeReturn;                  // Total episode reward
+    int episodeLength;
+};
+```
+
+**Training Data Format**:
+```cpp
+struct PolicyTransition {
+    std::vector<float> state;     // 20-dimensional state
+    int action;                   // Action taken
+    float reward;                 // Immediate reward
+    float logProb;                // log π(a|s) when action taken
+    float advantage;              // Advantage estimate A(s,a)
+    float return_;                // Discounted return G_t
+    bool terminal;                // End of episode flag
+};
+```
+
+**Batch Training Requirements**:
+- Collect full episodes before training
+- Batch size: 2,048-8,192 transitions
+- Multiple epochs per batch: 4-10 iterations
+- Advantage calculation: GAE (λ=0.95) or Monte Carlo
+
+### Actor-Critic Data Requirements
+
+**Dual Network Storage**:
+```cpp
+struct ActorCriticData {
+    // Actor network (policy)
+    std::vector<std::vector<float>> actorWeights;
+    std::vector<float> actorBiases;
+    
+    // Critic network (value function)
+    std::vector<std::vector<float>> criticWeights;
+    std::vector<float> criticBiases;
+    
+    float actorLearningRate = 0.001f;
+    float criticLearningRate = 0.002f;
+};
+```
+
+**Training Data Format**:
+```cpp
+struct ActorCriticTransition {
+    std::vector<float> state;        // Current state
+    int action;                      // Action taken
+    float reward;                    // Immediate reward
+    std::vector<float> nextState;    // Next state
+    bool terminal;                   // Episode termination
+    float valueEstimate;             // V(s) from critic
+    float nextValueEstimate;         // V(s') from critic
+    float tdError;                   // δ = r + γV(s') - V(s)
+    float logProbability;            // log π(a|s) from actor
+};
+```
+
+**Training Requirements**:
+- Online training: Update after each step
+- Critic target: r + γV(s') for non-terminal, r for terminal
+- Actor update: Policy gradient with advantage
+- Learning rates: Actor < Critic (typically 1:2 ratio)
+
+### Genetic Algorithm Data Requirements
+
+**Population Structure**:
+```cpp
+struct GeneticIndividual {
+    std::vector<std::vector<float>> neuralWeights;  // Network weights
+    std::vector<float> biases;                      // Network biases
+    float fitness;                                  // Performance score
+    int gamesPlayed;                               // Evaluation count
+    float averageScore;                            // Average game score
+    std::vector<int> gameScores;                   // Individual game results
+};
+
+struct GeneticPopulation {
+    std::vector<GeneticIndividual> individuals;
+    int generation;
+    int populationSize = 50;
+    float mutationRate = 0.1f;
+    float crossoverRate = 0.7f;
+    float eliteRatio = 0.2f;                       // Top 20% survive
+};
+```
+
+**Evaluation Data**:
+```cpp
+struct GeneticEvaluation {
+    int individualId;
+    int generation;
+    std::vector<int> gameScores;     // Scores from multiple games
+    float meanScore;                 // Average performance
+    float scoreVariance;             // Consistency measure
+    int totalSteps;                  // Total steps across all games
+    float efficiency;                // Score per step ratio
+};
+```
+
+**Training Requirements**:
+- Population size: 50-200 individuals
+- Evaluation games: 10-50 games per individual
+- Selection pressure: Top 20-50% survive
+- Mutation: Gaussian noise (σ=0.1) on weights
+
+### Unified Data Collection Format
+
+**Universal Transition Structure**:
+```cpp
+struct UnifiedTransition {
+    // Episode metadata
+    int episode;
+    int step;
+    std::chrono::milliseconds timestamp;
+    
+    // State representations (multiple formats)
+    AgentState basicState;           // 8D discrete for Q-Learning
+    EnhancedState enhancedState;     // 20D continuous for neural nets
+    std::vector<float> rawState;     // Raw state vector
+    
+    // Action information
+    int actionIndex;                 // 0-3 action encoding
+    Direction actionDirection;       // Enum action
+    
+    // Reward and termination
+    float reward;                    // Immediate reward
+    bool terminal;                   // Episode end flag
+    
+    // Agent-specific data
+    float logProbability;            // For policy gradient methods
+    float valueEstimate;             // For actor-critic methods
+    float qValue;                    // For Q-learning methods
+    float epsilon;                   // Exploration rate
+    
+    // Training metadata
+    AgentType agentType;
+    float learningRate;
+    int batchId;                     // Training batch identifier
+};
+```
+
+**Multi-Agent Training Pipeline**:
+```cpp
+class UnifiedDataCollector {
+    // Storage for different agent types
+    std::vector<QLearningTransition> qLearningBuffer;
+    ExperienceReplayBuffer dqnBuffer;
+    std::vector<PolicyGradientEpisode> policyEpisodes;
+    std::vector<ActorCriticTransition> acBuffer;
+    GeneticPopulation geneticPopulation;
+    
+    // Conversion methods
+    QLearningTransition toQLearning(const UnifiedTransition& trans);
+    DQNTransition toDQN(const UnifiedTransition& trans);
+    PolicyTransition toPolicyGradient(const UnifiedTransition& trans);
+    ActorCriticTransition toActorCritic(const UnifiedTransition& trans);
+};
+```
+
+### Training Data Persistence
+
+**File Formats by Agent Type**:
+
+**Q-Learning**: JSON format
+```json
+{
+  "metadata": {"episodes": 1000, "totalSteps": 50000},
+  "qTable": {
+    "00120310": [0.5, -0.2, 0.8, 0.1],
+    "01021130": [0.3, 0.7, -0.1, 0.4]
+  },
+  "hyperparameters": {"lr": 0.1, "gamma": 0.95, "epsilon": 0.05}
+}
+```
+
+**Neural Networks**: Binary format + metadata
+```cpp
+struct ModelCheckpoint {
+    std::vector<float> flattenedWeights;  // All weights serialized
+    std::vector<int> layerSizes;          // Network architecture
+    float trainingLoss;                   // Current loss value
+    int trainingSteps;                    // Steps trained
+    float validationScore;                // Performance metric
+};
+```
+
+**Training Data Requirements Summary**:
+
+| Agent Type | Min. Data | Optimal Data | Update Frequency | Memory Usage |
+|------------|-----------|--------------|------------------|--------------|
+| Q-Learning | 100 transitions | 10K transitions | Every step | ~1-10 MB |
+| DQN | 10K transitions | 100K transitions | Every 4 steps | ~100-500 MB |
+| Policy Gradient | 10 episodes | 100 episodes | Per episode | ~50-200 MB |
+| Actor-Critic | 1 transition | Continuous | Every step | ~10-100 MB |
+| Genetic Algorithm | 500 evaluations | 5K evaluations | Per generation | ~10-50 MB |
+
+---
+
 ## Alternative Reinforcement Learning Approaches
 
 ### 1. Deep Q-Networks (DQN)

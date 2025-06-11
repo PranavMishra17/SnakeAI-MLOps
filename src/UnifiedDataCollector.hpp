@@ -138,7 +138,7 @@ public:
 
 class UnifiedDataCollector {
 private:
-    std::vector<UnifiedTransition> m_currentEpisode;
+    std::vector<UnifiedTransition> m_currentEpisodeData;
     std::vector<std::vector<UnifiedTransition>> m_episodeHistory;
     AgentDataType m_dataType;
     std::string m_dataPath;
@@ -149,7 +149,7 @@ private:
     std::vector<float> m_episodeScores;
     std::vector<float> m_episodeRewards;
     std::vector<int> m_episodeLengths;
-    int m_currentEpisode;
+    int m_currentEpisodeNumber;
     
 public:
     UnifiedDataCollector(const std::string& dataPath = "data/");
@@ -171,7 +171,7 @@ public:
     void loadTrainingData(const std::string& filename);
     
     // Real-time access
-    const std::vector<UnifiedTransition>& getCurrentEpisode() const { return m_currentEpisode; }
+    const std::vector<UnifiedTransition>& getCurrentEpisode() const { return m_currentEpisodeData; }
     const std::vector<std::vector<UnifiedTransition>>& getEpisodeHistory() const { return m_episodeHistory; }
     
     // Statistics

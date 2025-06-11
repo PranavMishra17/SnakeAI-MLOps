@@ -11,7 +11,7 @@
 #include "AgentSelection.hpp"
 #include "Leaderboard.hpp"
 #include "MLAgents.hpp"
-#include "DataCollector.hpp"
+#include "UnifiedDataCollector.hpp"
 #include "InputManager.hpp"
 
 // Forward declarations
@@ -38,7 +38,7 @@ private:
     // Game logic
     void update(float deltaTime);
     void updateGame(float deltaTime);
-    void handleSnakeDeath(const EnhancedState& currentState);
+    void handleSnakeDeath(const EnhancedState& currentState, Direction action);
     float calculateReward(bool ateFood, bool died) const;
     void spawnNewApple();
     
@@ -46,6 +46,8 @@ private:
     void render();
     void renderGame();
     void renderUI();
+    void renderSettings();
+    void renderHowToPlay();
     
     // Menu handling
     void handleMenuSelection(GameMode mode);
@@ -64,7 +66,7 @@ private:
     std::unique_ptr<AgentSelection> m_agentSelection;
     std::unique_ptr<Leaderboard> m_leaderboard;
     std::unique_ptr<IAgent> m_currentAgent;
-    std::unique_ptr<DataCollector> m_dataCollector;
+    std::unique_ptr<UnifiedDataCollector> m_dataCollector;
     std::unique_ptr<InputManager> m_inputManager;
     
     // Game state

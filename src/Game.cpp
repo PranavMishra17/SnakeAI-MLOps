@@ -46,7 +46,8 @@ Game::Game()
         m_leaderboard = std::make_unique<Leaderboard>();
         m_leaderboard->initialize(*m_window);
         
-        m_dataCollector = std::make_unique<DataCollector>();
+        // Initialize components
+        m_dataCollector = std::make_unique<UnifiedDataCollector>();
         m_inputManager = std::make_unique<InputManager>();
         
         // Initialize default agent (Q-Learning)
@@ -56,6 +57,9 @@ Game::Game()
         defaultConfig.isImplemented = true;
         m_currentAgent = AgentFactory::createAgent(defaultConfig);
         m_currentAgentConfig = defaultConfig;
+        
+        // Set agent type for data collector
+        m_dataCollector->setAgentType(AgentType::Q_LEARNING);
         
         // Load existing model
         if (std::filesystem::exists("models/qtable.json")) {
@@ -77,7 +81,7 @@ Game::~Game() {
         std::filesystem::create_directories("models");
         m_currentAgent->saveModel("models/" + m_currentAgentConfig.modelPath);
     }
-    m_dataCollector->saveSummary();
+    m_dataCollector->saveTrainingData();
     spdlog::info("Game shutting down, data saved");
 }
 
@@ -96,6 +100,14 @@ void Game::setupCallbacks() {
     // Menu callbacks
     m_menu->setSelectionCallback([this](GameMode mode) {
         handleMenuSelection(mode);
+    });
+    
+    m_menu->setSettingsCallback([this]() {
+        m_currentState = GameState::SETTINGS;
+    });
+    
+    m_menu->setHowToPlayCallback([this]() {
+        m_currentState = GameState::HOW_TO_PLAY;
     });
     
     // Pause menu callbacks
@@ -149,6 +161,14 @@ void Game::processEvents() {
                 break;
             case GameState::LEADERBOARD:
                 m_leaderboard->handleEvent(*event);
+                break;
+            case GameState::SETTINGS:
+            case GameState::HOW_TO_PLAY:
+                if (auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+                    if (keyPressed->code == sf::Keyboard::Key::Escape) {
+                        m_currentState = GameState::MENU;
+                    }
+                }
                 break;
             case GameState::PLAYING:
                 handleGameplayEvents(*event);
@@ -274,9 +294,12 @@ void Game::updateGame(float deltaTime) {
         EnhancedState currentState = StateGenerator::generateState(*m_snake, *m_apple, *m_grid);
         
         // Agent decision (for AI modes)
+        Direction action = Direction::UP;
         if (m_gameMode != GameMode::SINGLE_PLAYER) {
-            Direction action = m_currentAgent->getAction(currentState, true);
+            action = m_currentAgent->getAction(currentState, true);
             m_snake->setDirection(action);
+        } else {
+            action = m_snake->getDirection();
         }
         
         // Move snake
@@ -284,7 +307,7 @@ void Game::updateGame(float deltaTime) {
         
         // Check collisions
         if (m_snake->checkSelfCollision() || m_snake->checkWallCollision()) {
-            handleSnakeDeath(currentState);
+            handleSnakeDeath(currentState, action);
             return;
         }
         
@@ -295,25 +318,36 @@ void Game::updateGame(float deltaTime) {
             m_score++;
             ateFood = true;
             m_apple->setActive(false);
-            
-            // Spawn new apple
             spawnNewApple();
-            
             spdlog::info("Apple eaten! Score: {}", m_score);
         }
         
-        // Update agent (for AI modes)
+        // Record data for all modes (human demonstrations + AI training)
+        float reward = calculateReward(ateFood, false);
+        EnhancedState nextState = StateGenerator::generateState(*m_snake, *m_apple, *m_grid);
+        
+        // Create unified transition
+        UnifiedTransition transition;
+        transition.basicState = currentState.basic;
+        transition.enhancedState = currentState;
+        transition.actionIndex = static_cast<int>(action);
+        transition.actionDirection = action;
+        transition.reward = reward;
+        transition.terminal = false;
+        transition.agentType = m_currentAgentType;
+        transition.epsilon = (m_gameMode == GameMode::SINGLE_PLAYER) ? 0.0f : m_currentAgent->getEpsilon();
+        transition.learningRate = 0.1f;
+        
+        m_dataCollector->recordTransition(transition);
+        
+        // Update agent only for AI modes
         if (m_gameMode != GameMode::SINGLE_PLAYER) {
-            float reward = calculateReward(ateFood, false);
-            EnhancedState nextState = StateGenerator::generateState(*m_snake, *m_apple, *m_grid);
-            
-            m_currentAgent->updateAgent(currentState, m_snake->getDirection(), reward, nextState);
-            m_dataCollector->recordStep(currentState.basic, m_snake->getDirection(), reward);
+            m_currentAgent->updateAgent(currentState, action, reward, nextState);
         }
     }
 }
 
-void Game::handleSnakeDeath(const EnhancedState& currentState) {
+void Game::handleSnakeDeath(const EnhancedState& currentState, Direction action) {
     m_gameOver = true;
     m_currentState = GameState::GAME_OVER;
     
@@ -322,10 +356,20 @@ void Game::handleSnakeDeath(const EnhancedState& currentState) {
         float reward = calculateReward(false, true);
         EnhancedState nextState = StateGenerator::generateState(*m_snake, *m_apple, *m_grid);
         
-        m_currentAgent->updateAgent(currentState, m_snake->getDirection(), reward, nextState);
-        m_dataCollector->recordStep(currentState.basic, m_snake->getDirection(), reward);
+        // Create final transition
+        UnifiedTransition transition;
+        transition.basicState = currentState.basic;
+        transition.enhancedState = currentState;
+        transition.actionIndex = static_cast<int>(action);
+        transition.actionDirection = action;
+        transition.reward = reward;
+        transition.terminal = true;
+        transition.agentType = m_currentAgentType;
+        transition.epsilon = m_currentAgent->getEpsilon();
+        transition.learningRate = 0.1f;
         
-        // Decay exploration
+        m_dataCollector->recordTransition(transition);
+        m_currentAgent->updateAgent(currentState, action, reward, nextState);
         m_currentAgent->decayEpsilon();
     }
     
@@ -378,6 +422,12 @@ void Game::render() {
             break;
         case GameState::LEADERBOARD:
             m_leaderboard->render(*m_window);
+            break;
+        case GameState::SETTINGS:
+            renderSettings();
+            break;
+        case GameState::HOW_TO_PLAY:
+            renderHowToPlay();
             break;
         case GameState::PLAYING:
         case GameState::PAUSED:
@@ -474,6 +524,7 @@ void Game::renderUI() {
             text.setCharacterSize(i == 0 ? 36 : 20);
             text.setFillColor(i == 0 ? sf::Color::Red : sf::Color::White);
             
+            // Center text
             auto bounds = text.getLocalBounds();
             m_window->draw(text);
         }
@@ -502,6 +553,9 @@ void Game::selectAgent(const AgentConfig& config) {
     m_currentAgentConfig = config;
     m_currentAgentType = config.type;
     
+    // Set agent type for data collector
+    m_dataCollector->setAgentType(config.type);
+    
     // Load existing model
     std::string modelPath = "models/" + config.modelPath;
     if (std::filesystem::exists(modelPath)) {
@@ -516,7 +570,16 @@ void Game::startGame() {
     m_currentState = GameState::PLAYING;
     m_episode++;
     resetGame();
-    m_dataCollector->startEpisode(m_episode);
+    
+    // Start episode tracking for AI agents
+    if (m_gameMode != GameMode::SINGLE_PLAYER) {
+        m_dataCollector->startEpisode(m_episode);
+        
+        // Special handling for Q-Learning agent
+        if (auto* qAgent = dynamic_cast<QLearningAgentEnhanced*>(m_currentAgent.get())) {
+            qAgent->startEpisode();
+        }
+    }
     
     spdlog::info("Starting game - Mode: {}, Episode: {}, Agent: {}", 
                  static_cast<int>(m_gameMode), m_episode, m_currentAgentConfig.name);
@@ -541,4 +604,104 @@ void Game::resetGame() {
 bool Game::shouldAddToLeaderboard() const {
     // Add to leaderboard if score > 5 or is human player
     return m_score > 5 || m_currentAgentType == AgentType::HUMAN;
+}
+
+void Game::renderSettings() {
+    sf::RectangleShape background(sf::Vector2f(m_window->getSize().x, m_window->getSize().y));
+    background.setFillColor(sf::Color(25, 25, 35));
+    m_window->draw(background);
+    
+    sf::Font font;
+    if (!font.openFromFile("assets/fonts/arial.ttf")) return;
+    
+    sf::Text title(font);
+    title.setString("⚙️ Settings");
+    title.setCharacterSize(48);
+    title.setFillColor(sf::Color::White);
+    title.setPosition(sf::Vector2f(m_window->getSize().x / 2.0f - 120.0f, 100.0f));
+    m_window->draw(title);
+    
+    std::vector<std::string> settings = {
+        "Game Settings:",
+        "",
+        "• Default Speed: " + std::to_string(m_moveSpeed).substr(0, 4) + " blocks/sec",
+        "• Grid Size: 20x20",
+        "• Q-Learning Parameters:",
+        "  - Learning Rate: 0.1",
+        "  - Discount Factor: 0.95",
+        "  - Exploration Rate: " + std::to_string(m_currentAgent->getEpsilon()).substr(0, 5),
+        "",
+        "Data Collection:",
+        "• Training data saved to: data/",
+        "• Models saved to: models/",
+        "• Logs saved to: logs/",
+        "",
+        "ESC: Back to Menu"
+    };
+    
+    for (size_t i = 0; i < settings.size(); ++i) {
+        sf::Text text(font);
+        text.setString(settings[i]);
+        text.setCharacterSize(i == 0 ? 28 : 20);
+        text.setFillColor(i == 0 ? sf::Color::Cyan : sf::Color::White);
+        text.setPosition(sf::Vector2f(200.0f, 200.0f + i * 30.0f));
+        m_window->draw(text);
+    }
+}
+
+void Game::renderHowToPlay() {
+    sf::RectangleShape background(sf::Vector2f(m_window->getSize().x, m_window->getSize().y));
+    background.setFillColor(sf::Color(25, 35, 25));
+    m_window->draw(background);
+    
+    sf::Font font;
+    if (!font.openFromFile("assets/fonts/arial.ttf")) return;
+    
+    sf::Text title(font);
+    title.setString("❓ How to Play");
+    title.setCharacterSize(48);
+    title.setFillColor(sf::Color::White);
+    title.setPosition(sf::Vector2f(m_window->getSize().x / 2.0f - 140.0f, 80.0f));
+    m_window->draw(title);
+    
+    std::vector<std::string> instructions = {
+        "Game Modes:",
+        "",
+        "🎮 Single Player:",
+        "  • Use arrow keys (↑↓←→) or WASD to control snake",
+        "  • Eat red apples to grow and score points",
+        "  • Avoid hitting walls or your own body",
+        "",
+        "🤖 Agent vs Player:",
+        "  • AI controls the snake automatically",
+        "  • Click with mouse to place apples",
+        "  • Test AI behavior with strategic apple placement",
+        "",
+        "🔬 Agent vs System:",
+        "  • Pure AI training mode",
+        "  • AI controls snake, system spawns apples",
+        "  • Watch the AI learn and improve over time",
+        "",
+        "Controls:",
+        "• ESC: Pause game / Open menus",
+        "• +/-: Adjust game speed",
+        "• F1: View leaderboard",
+        "• F2: Change AI agent (in AI modes)",
+        "",
+        "ESC: Back to Menu"
+    };
+    
+    for (size_t i = 0; i < instructions.size(); ++i) {
+        sf::Text text(font);
+        text.setString(instructions[i]);
+        text.setCharacterSize(instructions[i].find("Game Modes:") != std::string::npos || 
+                             instructions[i].find("Controls:") != std::string::npos ? 28 : 18);
+        text.setFillColor(instructions[i].find("🎮") != std::string::npos || 
+                         instructions[i].find("🤖") != std::string::npos || 
+                         instructions[i].find("🔬") != std::string::npos ? sf::Color::Yellow : 
+                         instructions[i].find("Game Modes:") != std::string::npos || 
+                         instructions[i].find("Controls:") != std::string::npos ? sf::Color::Cyan : sf::Color::White);
+        text.setPosition(sf::Vector2f(150.0f, 160.0f + i * 24.0f));
+        m_window->draw(text);
+    }
 }
