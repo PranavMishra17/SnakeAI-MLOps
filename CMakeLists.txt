@@ -22,6 +22,7 @@ add_executable(${PROJECT_NAME}
     src/MLAgents.cpp
     src/DataCollector.cpp
     src/InputManager.cpp
+    src/UnifiedDaataCollector.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} 

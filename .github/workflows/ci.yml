@@ -210,8 +210,9 @@ jobs:
     - name: Tag and Push to registry
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
-        docker tag snakeai-mlops:latest ghcr.io/${{ github.actor }}/snakeai-mlops:latest
-        docker push ghcr.io/${{ github.actor }}/snakeai-mlops:latest
+        IMAGE_NAME=ghcr.io/$(echo "$GHCR_USER" | tr '[:upper:]' '[:lower:]')/snakeai-mlops:latest
+        docker tag snakeai-mlops:latest $IMAGE_NAME
+        docker push $IMAGE_NAME
 
   release:
     runs-on: ubuntu-latest
