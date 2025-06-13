@@ -6,8 +6,25 @@ PauseMenu::PauseMenu()
       m_currentEpisode(0), m_currentEpsilon(0.0f), m_speedEditMode(false) {}
 
 void PauseMenu::initialize(sf::RenderWindow& window) {
-    if (!m_font.openFromFile("assets/fonts/arial.ttf")) {
-        spdlog::error("Failed to load font in PauseMenu");
+    // SFML 3 font loading with multiple paths
+    bool fontLoaded = false;
+    std::vector<std::string> fontPaths = {
+        "assets/fonts/ARIAL.TTF",
+        "assets/fonts/arial.ttf", 
+        "assets/fonts/ArialCE.ttf",
+        "assets/fonts/Roboto.ttf"
+    };
+    
+    for (const auto& path : fontPaths) {
+        if (m_font.openFromFile(path)) {
+            fontLoaded = true;
+            spdlog::info("PauseMenu: Font loaded from: {}", path);
+            break;
+        }
+    }
+    
+    if (!fontLoaded) {
+        spdlog::error("PauseMenu: Failed to load any font");
     }
     
     sf::Vector2u windowSize = window.getSize();

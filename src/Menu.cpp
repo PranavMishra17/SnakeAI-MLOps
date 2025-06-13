@@ -4,8 +4,25 @@
 Menu::Menu() : m_selectedIndex(0), m_currentSection(MenuSection::MAIN) {}
 
 void Menu::initialize(sf::RenderWindow& window) {
-    if (!m_font.openFromFile("assets/fonts/arial.ttf")) {
-        spdlog::error("Failed to load font");
+    // SFML 3 font loading with multiple paths
+    bool fontLoaded = false;
+    std::vector<std::string> fontPaths = {
+        "assets/fonts/ARIAL.TTF",
+        "assets/fonts/arial.ttf", 
+        "assets/fonts/ArialCE.ttf",
+        "assets/fonts/Roboto.ttf"
+    };
+    
+    for (const auto& path : fontPaths) {
+        if (m_font.openFromFile(path)) {
+            fontLoaded = true;
+            spdlog::info("Menu: Font loaded from: {}", path);
+            break;
+        }
+    }
+    
+    if (!fontLoaded) {
+        spdlog::error("Menu: Failed to load any font");
     }
     
     sf::Vector2u windowSize = window.getSize();

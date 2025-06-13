@@ -9,6 +9,7 @@
 #include <map>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <spdlog/spdlog.h>
 
 // Base Agent Interface
 class IAgent {
@@ -17,13 +18,28 @@ public:
     virtual Direction getAction(const EnhancedState& state, bool training = true) = 0;
     virtual void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) = 0;
     virtual void saveModel(const std::string& path) = 0;
-    virtual void loadModel(const std::string& path) = 0;
+    virtual bool loadModel(const std::string& path) = 0;
     virtual float getEpsilon() const = 0;
     virtual void decayEpsilon() = 0;
     virtual std::string getAgentInfo() const = 0;
+    virtual std::string getModelInfo() const { return "No model info available"; }
 };
 
-// Enhanced Q-Learning Agent
+// Trained Model Information
+struct TrainedModelInfo {
+    std::string name;
+    std::string profile;
+    std::string modelPath;
+    std::string description;
+    float averageScore = 0.0f;
+    int episodesTrained = 0;
+    bool isLoaded = false;
+    
+    static TrainedModelInfo fromFile(const std::string& infoPath);
+    void saveToFile(const std::string& infoPath) const;
+};
+
+// Enhanced Q-Learning Agent with trained model support
 class QLearningAgentEnhanced : public IAgent {
 private:
     std::map<std::string, std::array<float, 4>> m_qTable;
@@ -37,23 +53,38 @@ private:
     Direction m_lastAction;
     bool m_hasLastState;
     
+    // Model information
+    TrainedModelInfo m_modelInfo;
+    bool m_isPreTrained;
+    
 public:
     QLearningAgentEnhanced(float lr = 0.1f, float gamma = 0.95f, float eps = 0.1f);
+    QLearningAgentEnhanced(const TrainedModelInfo& modelInfo);
+    
     Direction getAction(const EnhancedState& state, bool training = true) override;
     void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override;
     void saveModel(const std::string& path) override;
-    void loadModel(const std::string& path) override;
+    bool loadModel(const std::string& path) override;
     float getEpsilon() const override;
     void decayEpsilon() override;
     std::string getAgentInfo() const override;
+    std::string getModelInfo() const override;
     
     // Training methods
     void startEpisode();
     void endEpisode();
     
+    // Model management
+    bool loadTrainedModel(const std::string& modelPath);
+    const TrainedModelInfo& getModelInformation() const { return m_modelInfo; }
+    bool isPreTrained() const { return m_isPreTrained; }
+    int getQTableSize() const { return m_qTable.size(); }
+    
 private:
     Direction getMaxQAction(const AgentState& state) const;
     void updateQValue(const AgentState& state, Direction action, float reward, const AgentState& nextState);
+    std::string encodeState9Bit(const AgentState& state) const;
+    AgentState decodeState9Bit(const std::string& stateStr) const;
 };
 
 // DQN Agent (Placeholder)
@@ -79,7 +110,7 @@ public:
     Direction getAction(const EnhancedState& state, bool training = true) override;
     void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
     void saveModel(const std::string& path) override;
-    void loadModel(const std::string& path) override;
+    bool loadModel(const std::string& path) override;
     float getEpsilon() const override;
     void decayEpsilon() override;
     std::string getAgentInfo() const override;
@@ -106,16 +137,37 @@ public:
     Direction getAction(const EnhancedState& state, bool training = true) override;
     void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override;
     void saveModel(const std::string& path) override {}
-    void loadModel(const std::string& path) override {}
+    bool loadModel(const std::string& path) override { return false; }
     float getEpsilon() const override { return 0.0f; }
     void decayEpsilon() override {}
     std::string getAgentInfo() const override { return "Policy Gradient (Placeholder)"; }
 };
 
-// Agent Factory
+// Trained Model Manager
+class TrainedModelManager {
+private:
+    std::vector<TrainedModelInfo> m_availableModels;
+    std::string m_modelsDirectory;
+    
+public:
+    TrainedModelManager(const std::string& modelsDir = "models/");
+    
+    void scanForModels();
+    void createModelInfoFiles();
+    std::vector<TrainedModelInfo> getAvailableModels() const;
+    TrainedModelInfo* findModel(const std::string& profile);
+    bool validateModel(const std::string& modelPath) const;
+    
+private:
+    void createDefaultModelInfo(const std::string& profile, const std::string& modelPath);
+};
+
+// Agent Factory with trained model support
 class AgentFactory {
 public:
     static std::unique_ptr<IAgent> createAgent(const AgentConfig& config);
+    static std::unique_ptr<IAgent> createTrainedAgent(const std::string& modelProfile);
+    static std::vector<AgentConfig> getAvailableTrainedAgents();
 };
 
 // Enhanced State Generator

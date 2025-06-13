@@ -7,12 +7,27 @@ Leaderboard::Leaderboard() : m_state(LeaderboardState::VIEWING), m_pendingScore(
                            m_pendingAgentType(AgentType::HUMAN), m_pendingEpisode(0) {}
 
 void Leaderboard::initialize(sf::RenderWindow& window) {
-    if (!m_font.openFromFile("assets/fonts/arial.ttf")) {
-        spdlog::error("Failed to load font in Leaderboard");
+    // SFML 3 font loading with multiple paths
+    bool fontLoaded = false;
+    std::vector<std::string> fontPaths = {
+        "assets/fonts/ARIAL.TTF",
+        "assets/fonts/arial.ttf", 
+        "assets/fonts/ArialCE.ttf",
+        "assets/fonts/Roboto.ttf"
+    };
+    
+    for (const auto& path : fontPaths) {
+        if (m_font.openFromFile(path)) {
+            fontLoaded = true;
+            spdlog::info("Leaderboard: Font loaded from: {}", path);
+            break;
+        }
     }
     
+    if (!fontLoaded) {
+        spdlog::error("Leaderboard: Failed to load any font");
+    }
     sf::Vector2u windowSize = window.getSize();
-    
     // Background
     m_background.setSize(sf::Vector2f(static_cast<float>(windowSize.x), 
                                      static_cast<float>(windowSize.y)));
@@ -55,7 +70,6 @@ void Leaderboard::initialize(sf::RenderWindow& window) {
     loadLeaderboard();
     updateDisplay();
 }
-
 void Leaderboard::handleEvent(const sf::Event& event) {
     if (auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
         if (keyPressed->code == sf::Keyboard::Key::Escape) {

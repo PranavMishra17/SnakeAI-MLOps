@@ -19,6 +19,12 @@ Game::Game()
     spdlog::info("Game: Starting initialization...");
     
     try {
+        // Create necessary directories
+        std::filesystem::create_directories("models");
+        std::filesystem::create_directories("data");
+        std::filesystem::create_directories("logs");
+        std::filesystem::create_directories("assets/fonts");
+        
         // Create window
         auto videoMode = sf::VideoMode::getDesktopMode();
         m_window = std::make_unique<sf::RenderWindow>(videoMode, "SnakeAI-MLOps", sf::Style::Default);
@@ -50,7 +56,7 @@ Game::Game()
         m_dataCollector = std::make_unique<UnifiedDataCollector>();
         m_inputManager = std::make_unique<InputManager>();
         
-        // Initialize default agent (Q-Learning)
+        // Initialize default agent (fresh Q-Learning)
         AgentConfig defaultConfig;
         defaultConfig.type = AgentType::Q_LEARNING;
         defaultConfig.name = "Q-Learning Agent";
@@ -61,14 +67,9 @@ Game::Game()
         // Set agent type for data collector
         m_dataCollector->setAgentType(AgentType::Q_LEARNING);
         
-        // Load existing model
-        if (std::filesystem::exists("models/qtable.json")) {
-            m_currentAgent->loadModel("models/qtable.json");
-        }
-        
         setupCallbacks();
         
-        spdlog::info("Game: Initialization complete!");
+        spdlog::info("Game: Initialization complete with trained model support!");
         
     } catch (const std::exception& e) {
         spdlog::error("Game: Exception during initialization: {}", e.what());
@@ -76,13 +77,32 @@ Game::Game()
     }
 }
 
+// Update the destructor to save models properly:
 Game::~Game() {
     if (m_currentAgent) {
         std::filesystem::create_directories("models");
-        m_currentAgent->saveModel("models/" + m_currentAgentConfig.modelPath);
+        
+        // For fresh agents, save with timestamp
+        if (m_currentAgentConfig.modelPath.empty()) {
+            auto now = std::chrono::system_clock::now();
+            auto time_t = std::chrono::system_clock::to_time_t(now);
+            auto tm = *std::localtime(&time_t);
+            
+            char buffer[100];
+            std::strftime(buffer, sizeof(buffer), "qtable_session_%Y%m%d_%H%M%S.json", &tm);
+            
+            std::string savePath = "models/" + std::string(buffer);
+            m_currentAgent->saveModel(savePath);
+            spdlog::info("Game: Saved session model to {}", savePath);
+        } else {
+            // For trained models, save to their original path
+            m_currentAgent->saveModel(m_currentAgentConfig.modelPath);
+            spdlog::info("Game: Updated trained model: {}", m_currentAgentConfig.modelPath);
+        }
     }
+    
     m_dataCollector->saveTrainingData();
-    spdlog::info("Game shutting down, data saved");
+    spdlog::info("Game: Shutdown complete, all data saved");
 }
 
 void Game::run() {
@@ -468,9 +488,24 @@ void Game::renderUI() {
     uiPanel.setOutlineColor(sf::Color(100, 100, 100));
     m_window->draw(uiPanel);
     
-    // Load font
+    // SFML 3 font loading
     sf::Font font;
-    if (!font.openFromFile("assets/fonts/arial.ttf")) return;
+    bool fontLoaded = false;
+    std::vector<std::string> fontPaths = {
+        "assets/fonts/ARIAL.TTF",
+        "assets/fonts/arial.ttf", 
+        "assets/fonts/ArialCE.ttf",
+        "assets/fonts/Roboto.ttf"
+    };
+    
+    for (const auto& path : fontPaths) {
+        if (font.openFromFile(path)) {
+            fontLoaded = true;
+            break;
+        }
+    }
+    
+    if (!fontLoaded) return;
     
     // Game stats
     std::vector<std::string> lines = {
@@ -536,6 +571,13 @@ void Game::handleMenuSelection(GameMode mode) {
     
     if (mode == GameMode::SINGLE_PLAYER) {
         m_currentAgentType = AgentType::HUMAN;
+        // Reset to fresh Q-Learning for human play
+        AgentConfig humanConfig;
+        humanConfig.type = AgentType::Q_LEARNING;
+        humanConfig.name = "Human Player";
+        humanConfig.isImplemented = true;
+        m_currentAgent = AgentFactory::createAgent(humanConfig);
+        m_currentAgentConfig = humanConfig;
         startGame();
     } else {
         // Show agent selection for AI modes
@@ -543,27 +585,41 @@ void Game::handleMenuSelection(GameMode mode) {
     }
 }
 
+// Update the selectAgent method in Game.cpp:
 void Game::selectAgent(const AgentConfig& config) {
     if (!config.isImplemented) {
-        spdlog::warn("Agent {} is not implemented yet", config.name);
+        spdlog::warn("Game: Agent {} is not implemented yet", config.name);
         return;
     }
     
-    m_currentAgent = AgentFactory::createAgent(config);
+    spdlog::info("Game: Selecting agent: {} (model: {})", config.name, config.modelPath);
+    
+    // Create agent based on whether it has a pre-trained model
+    if (!config.modelPath.empty() && std::filesystem::exists(config.modelPath)) {
+        // For trained models, use the display name to find the correct profile
+        auto trainedAgent = AgentFactory::createTrainedAgent(config.name);
+        if (trainedAgent) {
+            m_currentAgent = std::move(trainedAgent);
+            spdlog::info("Game: Successfully loaded trained agent: {}", config.name);
+            spdlog::info("Game: Model info: {}", m_currentAgent->getModelInfo());
+        } else {
+            spdlog::error("Game: Failed to load trained agent, falling back to fresh agent");
+            m_currentAgent = AgentFactory::createAgent(config);
+        }
+    } else {
+        // Create fresh agent
+        m_currentAgent = AgentFactory::createAgent(config);
+        spdlog::info("Game: Created fresh agent: {}", config.name);
+    }
+    
     m_currentAgentConfig = config;
     m_currentAgentType = config.type;
     
     // Set agent type for data collector
     m_dataCollector->setAgentType(config.type);
     
-    // Load existing model
-    std::string modelPath = "models/" + config.modelPath;
-    if (std::filesystem::exists(modelPath)) {
-        m_currentAgent->loadModel(modelPath);
-        spdlog::info("Loaded model for agent: {}", config.name);
-    }
-    
     startGame();
+
 }
 
 void Game::startGame() {
@@ -584,6 +640,7 @@ void Game::startGame() {
     spdlog::info("Starting game - Mode: {}, Episode: {}, Agent: {}", 
                  static_cast<int>(m_gameMode), m_episode, m_currentAgentConfig.name);
 }
+
 
 void Game::resetGame() {
     m_score = 0;
