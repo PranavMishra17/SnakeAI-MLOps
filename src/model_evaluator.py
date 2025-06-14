@@ -45,7 +45,8 @@ class UnifiedModelEvaluator:
     
     def load_neural_model(self, model_path: str, model_type: str):
         """Load neural network model (DQN, Policy Gradient, Actor-Critic)"""
-        checkpoint = torch.load(model_path, map_location=self.device)
+        # FIXED: Add weights_only=False to handle numpy objects
+        checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
         config_dict = checkpoint['config']
         
         # Create network config

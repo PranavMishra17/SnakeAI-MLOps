@@ -214,7 +214,7 @@ def test_neural_network_training():
         
         # Validate PyTorch format
         import torch
-        checkpoint = torch.load(model_file, map_location='cpu')
+        checkpoint = torch.load(model_file, map_location='cpu', weights_only=False)  # FIXED
         
         required_keys = ['q_network', 'config', 'metadata']
         for key in required_keys:
@@ -386,11 +386,18 @@ def test_model_loading():
             from neural_network_utils import DQNNetwork, NetworkConfig
             
             # Load checkpoint
-            checkpoint = torch.load(dqn_model, map_location='cpu')
+            checkpoint = torch.load(dqn_model, map_location='cpu', weights_only=False)  # FIXED
             
             # Recreate model from config
-            config = NetworkConfig(**checkpoint['config'])
-            model = DQNNetwork(config)
+            # After (fixed):
+            config_dict = checkpoint['config']
+            net_config = NetworkConfig(
+                input_size=20,
+                hidden_layers=config_dict.get('hidden_layers', [128, 64]),
+                output_size=4,
+                dropout=0.0
+            )
+            model = DQNNetwork(net_config)
             model.load_state_dict(checkpoint['q_network'])
             model.eval()
             

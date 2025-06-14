@@ -1,6 +1,7 @@
 #include "MLAgents.hpp"
 #include <spdlog/spdlog.h>
 #include <fstream>
+#include <sstream>
 #include <cmath>
 #include <filesystem>
 #include <algorithm>
@@ -590,6 +591,113 @@ void StateGenerator::calculateBodyDensity(const Snake& snake, const Grid& grid, 
     for (int i = 0; i < 4; ++i) {
         density[i] = static_cast<float>(quadrantCounts[i]) / quadrantSize;
     }
+}
+
+
+bool QLearningAgentEnhanced::loadModel(const std::string& path) {
+    return loadTrainedModel(path);
+}
+
+float QLearningAgentEnhanced::getEpsilon() const {
+    return m_epsilon;
+}
+
+void QLearningAgentEnhanced::decayEpsilon() {
+    m_epsilon = std::max(0.02f, m_epsilon * 0.995f);
+}
+
+std::string QLearningAgentEnhanced::getAgentInfo() const {
+    std::ostringstream oss;
+    oss << "Q-Learning | States: " << getQTableSize() 
+        << " | Epsilon: " << std::fixed << std::setprecision(3) << m_epsilon;
+    return oss.str();
+}
+
+std::string QLearningAgentEnhanced::getModelInfo() const {
+    if (m_isPreTrained) {
+        return "Pre-trained: " + m_modelInfo.name + " (" + m_modelInfo.profile + ")";
+    }
+    return "Fresh Q-Learning agent (training from scratch)";
+}
+
+// TrainedModelManager missing methods
+TrainedModelInfo* TrainedModelManager::findModel(const std::string& modelName) {
+    for (auto& model : m_availableModels) {
+        if (model.name == modelName) {
+            return &model;
+        }
+    }
+    return nullptr;
+}
+
+void TrainedModelManager::createModelInfoFiles() {
+    // Optional: Create .info files for models that don't have them
+    spdlog::debug("TrainedModelManager: Model info files creation not implemented");
+}
+
+// QLearningAgentEnhanced missing methods
+void QLearningAgentEnhanced::startEpisode() {
+    m_hasLastState = false;
+    spdlog::debug("QLearningAgentEnhanced: Starting new episode");
+}
+
+void QLearningAgentEnhanced::updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) {
+    if (m_hasLastState) {
+        updateQValue(m_lastState, m_lastAction, reward, state.basic);
+    }
+    m_lastState = state.basic;
+    m_lastAction = action;
+    m_hasLastState = true;
+}
+
+// Add to MLAgents.cpp:
+
+void QLearningAgentEnhanced::saveModel(const std::string& path) {
+    try {
+        nlohmann::json j;
+        j["qTable"] = nlohmann::json::object();
+        
+        // Save Q-table entries
+        for (const auto& [state, actions] : m_qTable) {
+            j["qTable"][state] = actions;
+        }
+        
+        // Save hyperparameters
+        j["hyperparameters"] = {
+            {"learningRate", m_learningRate},
+            {"discountFactor", m_discountFactor}, 
+            {"epsilon", m_epsilon}
+        };
+        
+        std::ofstream file(path);
+        if (file.is_open()) {
+            file << j.dump(4);
+            spdlog::info("QLearningAgent: Model saved to {}", path);
+        }
+    } catch (const std::exception& e) {
+        spdlog::error("QLearningAgent: Failed to save model: {}", e.what());
+    }
+}
+
+void QLearningAgentEnhanced::updateQValue(const AgentState& state, Direction action, float reward, const AgentState& nextState) {
+    std::string stateKey = encodeState9Bit(state);
+    std::string nextStateKey = encodeState9Bit(nextState);
+    
+    // Initialize if needed
+    if (m_qTable.find(stateKey) == m_qTable.end()) {
+        m_qTable[stateKey] = {0.0f, 0.0f, 0.0f, 0.0f};
+    }
+    if (m_qTable.find(nextStateKey) == m_qTable.end()) {
+        m_qTable[nextStateKey] = {0.0f, 0.0f, 0.0f, 0.0f};
+    }
+    
+    int actionIdx = static_cast<int>(action);
+    float currentQ = m_qTable[stateKey][actionIdx];
+    float maxNextQ = *std::max_element(m_qTable[nextStateKey].begin(), m_qTable[nextStateKey].end());
+    
+    // Q-learning update
+    float newQ = currentQ + m_learningRate * (reward + m_discountFactor * maxNextQ - currentQ);
+    m_qTable[stateKey][actionIdx] = newQ;
 }
 
 float StateGenerator::calculatePathToFood(const Snake& snake, const Apple& apple, const Grid& grid) {

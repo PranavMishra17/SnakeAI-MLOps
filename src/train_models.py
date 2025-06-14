@@ -14,7 +14,7 @@ from qlearning_trainer import train_qlearning, TrainingConfig as QConfig
 from dqn_trainer import train_dqn, DQNConfig  
 from policy_gradient_trainer import train_policy_gradient, PolicyGradientConfig
 from actor_critic_trainer import train_actor_critic, ActorCriticConfig
-from model_evaluator import ModelEvaluator
+from model_evaluator import UnifiedModelEvaluator  # FIXED: Changed from ModelEvaluator
 
 def check_gpu_requirements():
     """Verify GPU setup and requirements"""
@@ -259,7 +259,7 @@ def evaluate_all_models():
     if not check_gpu_requirements():
         return
     
-    evaluator = ModelEvaluator()
+    evaluator = UnifiedModelEvaluator()
     model_dir = Path("models")
     
     if not model_dir.exists():
@@ -352,6 +352,7 @@ if __name__ == "__main__":
     main()
 
 """
+
 Usage Examples:
 
 # Train all models (complete pipeline)
@@ -360,6 +361,11 @@ python train_models.py --technique all
 # Train specific technique
 python train_models.py --technique dqn --profile balanced
 python train_models.py --technique policy_gradient --profile aggressive --episodes 2000
+
+python src/train_models.py --technique qlearning
+python src/train_models.py --technique dqn  
+python src/train_models.py --technique policy_gradient
+python src/train_models.py --technique actor_critic
 
 # Evaluate all models
 python train_models.py --evaluate
@@ -398,4 +404,5 @@ models/
     ├── dqn/
     ├── policy_gradient/
     └── actor_critic/
+
 """

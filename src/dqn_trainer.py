@@ -324,6 +324,7 @@ def train_dqn(config: DQNConfig):
     print(f"   Max episodes: {config.max_episodes}")
     
     best_score = 0
+    best_path = None  # FIXED: Initialize best_path
     training_start = time.time()
     
     for episode in tqdm(range(config.max_episodes), desc="Training DQN"):
@@ -395,6 +396,7 @@ def train_dqn(config: DQNConfig):
         'total_episodes': len(metrics.scores)
     })
     
+
     # Save metrics
     metrics_path = model_dir / f"dqn_{config.profile_name}_metrics.json"
     metrics.save_metrics(str(metrics_path))
@@ -419,7 +421,9 @@ def train_dqn(config: DQNConfig):
     
     print(f"✅ DQN training complete!")
     print(f"📁 Final model: {final_path}")
-    print(f"📁 Best model: {best_path}")
+    if best_path:  # FIXED: Check if best_path exists
+        print(f"📁 Best model: {best_path}")
+    
     print(f"📊 Report: {report_path}")
 
 def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: str):

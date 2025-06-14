@@ -275,7 +275,7 @@ class PolicyGradientAgent:
             advantages = returns - values.detach()
             
             # Value network loss
-            value_loss = F.mse_loss(values, returns)
+            value_loss = F.mse_loss(values, returns.detach())
             self.value_optimizer.zero_grad()
             value_loss.backward()
             self.value_optimizer.step()

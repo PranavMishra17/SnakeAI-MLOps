@@ -209,6 +209,42 @@ class QLearningAgent:
         """Decay exploration rate"""
         self.epsilon = max(self.config.epsilon_end, 
                           self.epsilon * self.config.epsilon_decay)
+        
+    # Add this method to QLearningAgent class in qlearning_trainer.py:
+
+    def load_model(self, filepath):
+        """Load Q-table from JSON file"""
+        try:
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+            
+            # Clear existing Q-table
+            self.q_table.zero_()
+            
+            # Load Q-values
+            if "qTable" in data:
+                for state_str, actions in data["qTable"].items():
+                    if len(state_str) == 9:  # Valid 9-bit state
+                        state_idx = int(state_str, 2)
+                        if state_idx < 512:
+                            self.q_table[state_idx] = torch.tensor(actions, device=self.device)
+            
+            # Load hyperparameters
+            if "hyperparameters" in data:
+                params = data["hyperparameters"]
+                if "epsilon" in params:
+                    self.epsilon = params["epsilon"]
+                if "learningRate" in params:
+                    self.config.learning_rate = params["learningRate"]
+                if "discountFactor" in params:
+                    self.config.discount_factor = params["discountFactor"]
+            
+            print(f"✅ Model loaded from: {filepath}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to load model: {e}")
+            return False
     
     def save_model(self, filepath):
         """Save Q-table as JSON (compatible with C++)"""
@@ -242,11 +278,11 @@ def train_qlearning(config: TrainingConfig):
     device = verify_gpu()
     config.device = str(device)
     
-    # Setup paths
-    model_dir = Path("models")
+    # FIXED: Setup paths with proper directory structure
+    model_dir = Path("models/qlearning")  # Changed: ensure qlearning subdirectory
     checkpoint_dir = model_dir / f"{config.profile_name}_checkpoints"
-    model_dir.mkdir(exist_ok=True)
-    checkpoint_dir.mkdir(exist_ok=True)
+    model_dir.mkdir(parents=True, exist_ok=True)  # Create parents
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     
     # Initialize environment and agent
     env = SnakeEnvironment(device=str(device))
@@ -286,16 +322,16 @@ def train_qlearning(config: TrainingConfig):
             # Save checkpoint
             if episode % config.checkpoint_interval == 0:
                 checkpoint_path = checkpoint_dir / f"qtable_{config.profile_name}_ep{episode}.json"
-                agent.save_model(checkpoint_path)
+                agent.save_model(str(checkpoint_path))  # Convert to string
         
         # Early stopping
         if episode >= 100 and np.mean(scores[-100:]) >= config.target_score:
             print(f"✅ Target score reached at episode {episode}")
             break
     
-    # Save final model
+    # FIXED: Save final model to correct path
     final_path = model_dir / f"qtable_{config.profile_name}.json"
-    agent.save_model(final_path)
+    agent.save_model(str(final_path))
     
     # Generate training report
     report = {
@@ -332,6 +368,7 @@ def train_qlearning(config: TrainingConfig):
     print(f"📁 Final model: {final_path}")
     print(f"📁 Checkpoints: {checkpoint_dir}/")
     print(f"📊 Report: {report_path}")
+
 
 if __name__ == "__main__":
     # Train different profiles
