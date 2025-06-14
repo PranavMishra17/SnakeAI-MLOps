@@ -25,12 +25,13 @@ public:
     virtual std::string getModelInfo() const { return "No model info available"; }
 };
 
-// Trained Model Information
+// Trained Model Information (Enhanced)
 struct TrainedModelInfo {
     std::string name;
     std::string profile;
     std::string modelPath;
     std::string description;
+    std::string modelType;  // "qlearning", "dqn", "policy_gradient", "actor_critic"
     float averageScore = 0.0f;
     int episodesTrained = 0;
     bool isLoaded = false;
@@ -87,21 +88,9 @@ private:
     AgentState decodeState9Bit(const std::string& stateStr) const;
 };
 
-// DQN Agent (Placeholder)
+// DQN Agent (C++ Placeholder - Full implementation requires PyTorch/ONNX)
 class DQNAgent : public IAgent {
 private:
-    struct NeuralNetwork {
-        std::vector<std::vector<float>> weights;
-        std::vector<float> biases;
-        int inputSize = 20;
-        int hiddenSize = 128;
-        int outputSize = 4;
-        
-        NeuralNetwork();
-        std::vector<float> forward(const std::vector<float>& input);
-    };
-    
-    NeuralNetwork m_network;
     float m_epsilon;
     mutable std::mt19937 m_rng;
     
@@ -111,39 +100,51 @@ public:
     void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
     void saveModel(const std::string& path) override;
     bool loadModel(const std::string& path) override;
-    float getEpsilon() const override;
-    void decayEpsilon() override;
+    float getEpsilon() const override { return m_epsilon; }
+    void decayEpsilon() override { m_epsilon *= 0.995f; }
     std::string getAgentInfo() const override;
+    std::string getModelInfo() const override;
+    
+    // Note: This is a placeholder implementation
+    // For full DQN functionality, use Python training and evaluation
+    // or integrate with LibTorch/ONNX Runtime
 };
 
-// Policy Gradient Agent (Placeholder)
+// Policy Gradient Agent (C++ Placeholder)
 class PolicyGradientAgent : public IAgent {
 private:
-    struct PolicyNetwork {
-        std::vector<std::vector<float>> weights;
-        int inputSize = 20;
-        int hiddenSize = 64;
-        int outputSize = 4;
-        
-        std::vector<float> forward(const std::vector<float>& input);
-    };
-    
-    PolicyNetwork m_network;
-    std::vector<float> m_episodeRewards;
     mutable std::mt19937 m_rng;
     
 public:
     PolicyGradientAgent();
     Direction getAction(const EnhancedState& state, bool training = true) override;
-    void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override;
+    void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
     void saveModel(const std::string& path) override {}
-    bool loadModel(const std::string& path) override { return false; }
+    bool loadModel(const std::string& path) override;
     float getEpsilon() const override { return 0.0f; }
     void decayEpsilon() override {}
-    std::string getAgentInfo() const override { return "Policy Gradient (Placeholder)"; }
+    std::string getAgentInfo() const override;
+    std::string getModelInfo() const override { return "Policy Gradient Placeholder - Use Python for neural network inference"; }
 };
 
-// Trained Model Manager
+// Actor-Critic Agent (C++ Placeholder)
+class ActorCriticAgent : public IAgent {
+private:
+    mutable std::mt19937 m_rng;
+    
+public:
+    ActorCriticAgent();
+    Direction getAction(const EnhancedState& state, bool training = true) override;
+    void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
+    void saveModel(const std::string& path) override {}
+    bool loadModel(const std::string& path) override;
+    float getEpsilon() const override { return 0.0f; }
+    void decayEpsilon() override {}
+    std::string getAgentInfo() const override;
+    std::string getModelInfo() const override { return "Actor-Critic Placeholder - Use Python for neural network inference"; }
+};
+
+// Enhanced Trained Model Manager with Multi-Technique Support
 class TrainedModelManager {
 private:
     std::vector<TrainedModelInfo> m_availableModels;
@@ -154,20 +155,62 @@ public:
     
     void scanForModels();
     void createModelInfoFiles();
-    std::vector<TrainedModelInfo> getAvailableModels() const;
+    std::vector<TrainedModelInfo> getAvailableModels() const { return m_availableModels; }
     TrainedModelInfo* findModel(const std::string& profile);
-    bool validateModel(const std::string& modelPath) const;
+    
+    // Model validation (Q-Learning only, neural networks require Python)
+    bool validateQlearningModel(const std::string& modelPath) const;
+    
+    // Get models by type
+    std::vector<TrainedModelInfo> getModelsByType(const std::string& modelType) const {
+        std::vector<TrainedModelInfo> filtered;
+        for (const auto& model : m_availableModels) {
+            if (model.modelType == modelType) {
+                filtered.push_back(model);
+            }
+        }
+        return filtered;
+    }
+    
+    // Statistics
+    size_t getModelCount() const { return m_availableModels.size(); }
+    size_t getQlearningModelCount() const { return getModelsByType("qlearning").size(); }
+    size_t getNeuralNetworkModelCount() const { 
+        return getModelsByType("dqn").size() + 
+               getModelsByType("policy_gradient").size() + 
+               getModelsByType("actor_critic").size(); 
+    }
     
 private:
-    void createDefaultModelInfo(const std::string& profile, const std::string& modelPath);
+    void createDefaultModelInfo(const std::string& profile, const std::string& modelPath, const std::string& modelType);
 };
 
-// Agent Factory with trained model support
+// Enhanced Agent Factory with Multi-Technique Support
 class AgentFactory {
 public:
     static std::unique_ptr<IAgent> createAgent(const AgentConfig& config);
-    static std::unique_ptr<IAgent> createTrainedAgent(const std::string& modelProfile);
+    static std::unique_ptr<IAgent> createTrainedAgent(const std::string& modelName);
     static std::vector<AgentConfig> getAvailableTrainedAgents();
+    
+    // Create agents by type
+    static std::unique_ptr<IAgent> createQLearningAgent(const std::string& profile = "balanced");
+    static std::unique_ptr<IAgent> createDQNAgent(const std::string& profile = "balanced");
+    static std::unique_ptr<IAgent> createPolicyGradientAgent(const std::string& profile = "balanced");
+    static std::unique_ptr<IAgent> createActorCriticAgent(const std::string& profile = "balanced");
+    
+    // Utility functions
+    static bool isModelTypeSupported(const std::string& modelType) {
+        return modelType == "qlearning" || modelType == "dqn" || 
+               modelType == "policy_gradient" || modelType == "actor_critic";
+    }
+    
+    static bool isFullyImplemented(const std::string& modelType) {
+        return modelType == "qlearning"; // Only Q-Learning fully implemented in C++
+    }
+    
+    static std::string getSupportedTechniques() {
+        return "Q-Learning (full C++ support), DQN/Policy Gradient/Actor-Critic (Python required for training/evaluation)";
+    }
 };
 
 // Enhanced State Generator
@@ -175,8 +218,110 @@ class StateGenerator {
 public:
     static EnhancedState generateState(const Snake& snake, const Apple& apple, const Grid& grid);
     
+    // Enhanced state generation with additional features
+    static EnhancedState generateEnhancedState(const Snake& snake, const Apple& apple, const Grid& grid, int episode = 0);
+    
 private:
     static AgentState generateBasicState(const Snake& snake, const Apple& apple, const Grid& grid);
     static void calculateBodyDensity(const Snake& snake, const Grid& grid, float density[4]);
     static float calculatePathToFood(const Snake& snake, const Apple& apple, const Grid& grid);
+    
+    // Additional feature extraction methods
+    static float calculateSnakeEfficiency(const Snake& snake, int episode);
+    static float calculateEnvironmentComplexity(const Snake& snake, const Grid& grid);
+    static std::vector<float> calculateSpatialFeatures(const Snake& snake, const Apple& apple, const Grid& grid);
+};
+
+// Model Performance Tracker
+class ModelPerformanceTracker {
+private:
+    struct PerformanceMetrics {
+        std::vector<float> scores;
+        std::vector<float> episodeLengths;
+        std::vector<float> efficiencyRatios;
+        float averageScore = 0.0f;
+        float maxScore = 0.0f;
+        float consistency = 0.0f; // Lower std dev = higher consistency
+        std::string modelType;
+        std::string modelName;
+    };
+    
+    std::map<std::string, PerformanceMetrics> m_modelMetrics;
+    
+public:
+    void recordPerformance(const std::string& modelName, const std::string& modelType, 
+                          float score, float episodeLength, float efficiency);
+    
+    void generatePerformanceReport(const std::string& outputPath) const;
+    PerformanceMetrics getMetrics(const std::string& modelName) const;
+    
+    // Comparison methods
+    std::vector<std::pair<std::string, float>> getRankingByScore() const;
+    std::vector<std::pair<std::string, float>> getRankingByConsistency() const;
+    std::string getBestModelByType(const std::string& modelType) const;
+};
+
+// Neural Network Integration Interface (Future Expansion)
+class NeuralNetworkInterface {
+public:
+    virtual ~NeuralNetworkInterface() = default;
+    
+    // Methods for when LibTorch/ONNX integration is added
+    virtual bool loadONNXModel(const std::string& modelPath) = 0;
+    virtual std::vector<float> inference(const std::vector<float>& input) = 0;
+    virtual bool isModelLoaded() const = 0;
+    
+    // Placeholder for future implementation
+    static std::unique_ptr<NeuralNetworkInterface> create(const std::string& framework = "onnx");
+};
+
+// Configuration for neural network models
+struct NeuralNetworkConfig {
+    std::string modelPath;
+    std::string framework; // "onnx", "libtorch", etc.
+    bool useGPU = false;
+    int batchSize = 1;
+    float inferenceThreshold = 0.5f;
+    
+    // Model-specific parameters
+    std::map<std::string, float> parameters;
+};
+
+// Future: ONNX Runtime Integration Placeholder
+#ifdef ONNX_RUNTIME_AVAILABLE
+class ONNXDQNAgent : public IAgent {
+private:
+    std::unique_ptr<NeuralNetworkInterface> m_model;
+    NeuralNetworkConfig m_config;
+    
+public:
+    ONNXDQNAgent(const NeuralNetworkConfig& config);
+    Direction getAction(const EnhancedState& state, bool training = true) override;
+    // ... other methods
+};
+#endif
+
+// Comprehensive model evaluation results
+struct ModelEvaluationResult {
+    std::string modelName;
+    std::string modelType;
+    std::string profile;
+    float averageScore;
+    float maxScore;
+    float consistency;
+    float actionEntropy;
+    int episodesTested;
+    std::string evaluationDate;
+    std::map<std::string, float> additionalMetrics;
+};
+
+// Batch model evaluator for C++ (Q-Learning only, others require Python)
+class BatchModelEvaluator {
+public:
+    static std::vector<ModelEvaluationResult> evaluateAllModels(int episodesPerModel = 100);
+    static ModelEvaluationResult evaluateModel(const std::string& modelPath, 
+                                             const std::string& modelType, 
+                                             int episodes = 100);
+    static void generateComparisonReport(const std::vector<ModelEvaluationResult>& results, 
+                                       const std::string& outputPath);
 };

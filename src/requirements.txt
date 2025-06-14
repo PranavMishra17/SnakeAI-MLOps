@@ -1,8 +1,58 @@
+# Core ML Libraries
 torch>=2.0.0
+torchvision>=0.15.0
 numpy>=1.24.0
+scipy>=1.10.0
+
+# Visualization and Plotting
 matplotlib>=3.6.0
+seaborn>=0.12.0
+plotly>=5.14.0
+
+# Progress and Logging
 tqdm>=4.65.0
 tensorboard>=2.12.0
 wandb>=0.15.0
-seaborn>=0.12.0
+
+# Data Processing
 pandas>=2.0.0
+scikit-learn>=1.2.0
+
+# Hyperparameter Optimization (Optional)
+optuna>=3.1.0
+hyperopt>=0.2.7
+
+# Model Export (Optional)
+onnx>=1.14.0
+onnxruntime>=1.15.0
+
+# Development and Testing
+pytest>=7.3.0
+pytest-cov>=4.0.0
+black>=23.3.0
+flake8>=6.0.0
+
+# Jupyter Notebooks (Optional)
+jupyter>=1.0.0
+ipywidgets>=8.0.0
+
+# System and File Handling
+psutil>=5.9.0
+pathlib2>=2.3.7
+
+# Configuration
+pyyaml>=6.0
+toml>=0.10.2
+
+# Performance Profiling (Optional)
+py-spy>=0.3.14
+memory-profiler>=0.61.0
+
+# Model Serving (Future)
+flask>=2.3.0
+fastapi>=0.95.0
+uvicorn>=0.21.0
+
+# Documentation (Optional)
+sphinx>=6.1.0
+sphinx-rtd-theme>=1.2.0
