@@ -718,15 +718,16 @@ std::unique_ptr<IAgent> AgentFactory::createTrainedAgent(const std::string& mode
 }
 
 // State Generator Implementation (unchanged)
+// Add this to the end of MLAgents.cpp
+
 EnhancedState StateGenerator::generateState(const Snake& snake, const Apple& apple, const Grid& grid) {
     EnhancedState state;
-    
     state.basic = generateBasicState(snake, apple, grid);
     
     auto head = snake.getHeadPosition();
     auto food = apple.getPosition();
     
-    state.distanceToFood = static_cast<float>(abs(head.x - food.x) + abs(head.y - food.y));
+    state.distanceToFood = static_cast<float>(std::abs(head.x - food.x) + std::abs(head.y - food.y));
     
     state.distanceToWall[0] = static_cast<float>(head.y);
     state.distanceToWall[1] = static_cast<float>(grid.getSize() - 1 - head.y);
@@ -738,6 +739,18 @@ EnhancedState StateGenerator::generateState(const Snake& snake, const Apple& app
     state.snakeLength = snake.getLength();
     state.emptySpaces = grid.getSize() * grid.getSize() - snake.getLength() - 1;
     state.pathToFood = calculatePathToFood(snake, apple, grid);
+    
+    return state;
+}
+
+EnhancedState StateGenerator::generateEnhancedState(const Snake& snake, const Apple& apple, const Grid& grid, int episode) {
+    EnhancedState state = generateState(snake, apple, grid);
+    state.pathToFood += calculateSnakeEfficiency(snake, episode) * 0.1f;
+    
+    float complexity = calculateEnvironmentComplexity(snake, grid);
+    for (int i = 0; i < 4; ++i) {
+        state.distanceToWall[i] *= (1.0f + complexity * 0.2f);
+    }
     
     return state;
 }
@@ -792,7 +805,7 @@ void StateGenerator::calculateBodyDensity(const Snake& snake, const Grid& grid, 
     
     int quadrantSize = halfSize * halfSize;
     for (int i = 0; i < 4; ++i) {
-        density[i] = static_cast<float>(quadrantCounts[i]) / quadrantSize;
+        density[i] = static_cast<float>(quadrantCounts[i]) / static_cast<float>(quadrantSize);
     }
 }
 
@@ -800,7 +813,7 @@ float StateGenerator::calculatePathToFood(const Snake& snake, const Apple& apple
     auto head = snake.getHeadPosition();
     auto food = apple.getPosition();
     
-    float baseDistance = static_cast<float>(abs(head.x - food.x) + abs(head.y - food.y));
+    float baseDistance = static_cast<float>(std::abs(head.x - food.x) + std::abs(head.y - food.y));
     
     sf::Vector2i current = head;
     sf::Vector2i direction = {
@@ -819,9 +832,37 @@ float StateGenerator::calculatePathToFood(const Snake& snake, const Apple& apple
         if (snake.isPositionOnSnake(current)) {
             penalty += 2.0f;
         }
-        
         steps++;
     }
     
     return baseDistance + penalty;
+}
+
+float StateGenerator::calculateSnakeEfficiency(const Snake& snake, int episode) {
+    float lengthRatio = static_cast<float>(snake.getLength()) / 10.0f;
+    float episodeProgress = std::min(1.0f, static_cast<float>(episode) / 1000.0f);
+    return lengthRatio * (1.0f + episodeProgress);
+}
+
+float StateGenerator::calculateEnvironmentComplexity(const Snake& snake, const Grid& grid) {
+    int totalCells = grid.getSize() * grid.getSize();
+    int occupiedCells = snake.getLength();
+    float occupancyRatio = static_cast<float>(occupiedCells) / static_cast<float>(totalCells);
+    
+    int directionChanges = 0;
+    const auto& body = snake.getBody();
+    
+    if (body.size() > 2) {
+        for (size_t i = 1; i < body.size() - 1; ++i) {
+            sf::Vector2i prev = body[i-1] - body[i];
+            sf::Vector2i next = body[i] - body[i+1];
+            
+            if (prev.x != next.x || prev.y != next.y) {
+                directionChanges++;
+            }
+        }
+    }
+    
+    float shapeComplexity = static_cast<float>(directionChanges) / static_cast<float>(std::max(1, static_cast<int>(body.size())));
+    return occupancyRatio + shapeComplexity * 0.5f;
 }

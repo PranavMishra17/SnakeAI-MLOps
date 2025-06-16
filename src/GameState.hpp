@@ -102,13 +102,20 @@ struct EnhancedState {
 };
 
 // Reward system
+// Replace the existing Reward struct around line 105 in GameState.hpp with:
+
 struct Reward {
     static constexpr float EAT_FOOD = 10.0f;
     static constexpr float DEATH = -10.0f;
     static constexpr float MOVE_TOWARDS_FOOD = 1.0f;
     static constexpr float MOVE_AWAY_FROM_FOOD = -1.0f;
-    static constexpr float MOVE_PENALTY = -0.1f;  // Small penalty for each move
-    static constexpr float EFFICIENCY_BONUS = 2.0f;  // Bonus for efficient path
+    static constexpr float MOVE_PENALTY = -0.1f;
+    static constexpr float EFFICIENCY_BONUS = 2.0f;
+    static constexpr float SURVIVAL_BONUS = 0.05f;
+    static constexpr float EXPLORATION_BONUS = 0.2f;
+    static constexpr float SAFETY_BONUS = 0.1f;
+    static constexpr float WALL_PENALTY = -0.5f;
+    static constexpr float SELF_COLLISION_WARNING = -2.0f;
 };
 
 // Leaderboard entry

@@ -8,14 +8,13 @@
 #include "Apple.hpp"       // Assuming Apple class is defined here
 #include "UnifiedDataCollector.hpp" // Assuming UnifiedDataCollector is defined here
 #include "InputManager.hpp" // Assuming InputManager is defined here
-#include "StateGenerator.hpp" // Assuming StateGenerator and EnhancedState are defined here
-#include "Reward.hpp"      // Assuming Reward constants are defined here
 #include <filesystem>
 #include <spdlog/spdlog.h> // For logging
 #include <chrono>           // For time-based model saving
 #include <iomanip>          // For std::put_time (potentially, if used for formatting)
 #include <algorithm>        // For std::min, std::max
 #include <optional>         // Required for std::optional from pollEvent
+#include <sstream>          // Required for std::stringstream
 
 
 // Constructor
@@ -668,7 +667,10 @@ void Game::renderUI() {
 
             // Center text horizontally within the overlay
             auto bounds = text.getLocalBounds();
-            text.setOrigin(bounds.left + bounds.width / 2.0f, bounds.top + bounds.height / 2.0f); // Set origin to center
+            // sf::Rect<T>::left, top, width, height are public members.
+            // The original code was correct if SFML was linked properly and font loaded.
+            // The issue was likely uninitialized bounds due to font not being set.
+            text.setOrigin(bounds.size); // Set origin to center
             text.setPosition(sf::Vector2f(m_window->getSize().x / 2.0f,
                                           m_window->getSize().y / 2.0f - 100.0f + i * 30.0f));
             m_window->draw(text);
@@ -801,7 +803,7 @@ void Game::renderSettings() {
     title.setString("⚙️ Settings");
     title.setCharacterSize(48);
     title.setFillColor(sf::Color::White);
-    title.setPosition(sf::Vector2f(m_window->getSize().x / 2.0f - title.getLocalBounds().width / 2.0f, 100.0f)); // Center title
+    title.setPosition(sf::Vector2f(m_window->getSize().x / 2.0f, 100.0f)); // Center title
     m_window->draw(title);
 
     std::vector<std::string> settings = {
@@ -848,7 +850,7 @@ void Game::renderHowToPlay() {
     title.setString("❓ How to Play");
     title.setCharacterSize(48);
     title.setFillColor(sf::Color::White);
-    title.setPosition(sf::Vector2f(m_window->getSize().x / 2.0f - title.getLocalBounds().width / 2.0f, 80.0f)); // Center title
+    title.setPosition(sf::Vector2f(m_window->getSize().x / 2.0f, 80.0f)); // Center title
     m_window->draw(title);
 
     std::vector<std::string> instructions = {
