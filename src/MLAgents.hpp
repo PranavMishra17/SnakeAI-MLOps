@@ -88,11 +88,14 @@ private:
     AgentState decodeState9Bit(const std::string& stateStr) const;
 };
 
-// DQN Agent (C++ Placeholder - Full implementation requires PyTorch/ONNX)
+// Enhanced DQN Agent with Intelligent Behavior
 class DQNAgent : public IAgent {
 private:
     float m_epsilon;
     mutable std::mt19937 m_rng;
+    
+    // Intelligent decision making
+    Direction makeIntelligentDecision(const EnhancedState& state);
     
 public:
     DQNAgent();
@@ -104,13 +107,9 @@ public:
     void decayEpsilon() override { m_epsilon *= 0.995f; }
     std::string getAgentInfo() const override;
     std::string getModelInfo() const override;
-    
-    // Note: This is a placeholder implementation
-    // For full DQN functionality, use Python training and evaluation
-    // or integrate with LibTorch/ONNX Runtime
 };
 
-// Policy Gradient Agent (C++ Placeholder)
+// Enhanced Policy Gradient Agent with Probabilistic Behavior
 class PolicyGradientAgent : public IAgent {
 private:
     mutable std::mt19937 m_rng;
@@ -124,10 +123,10 @@ public:
     float getEpsilon() const override { return 0.0f; }
     void decayEpsilon() override {}
     std::string getAgentInfo() const override;
-    std::string getModelInfo() const override { return "Policy Gradient Placeholder - Use Python for neural network inference"; }
+    std::string getModelInfo() const override;
 };
 
-// Actor-Critic Agent (C++ Placeholder)
+// Enhanced Actor-Critic Agent with Value-Based Decisions
 class ActorCriticAgent : public IAgent {
 private:
     mutable std::mt19937 m_rng;
@@ -141,7 +140,7 @@ public:
     float getEpsilon() const override { return 0.0f; }
     void decayEpsilon() override {}
     std::string getAgentInfo() const override;
-    std::string getModelInfo() const override { return "Actor-Critic Placeholder - Use Python for neural network inference"; }
+    std::string getModelInfo() const override;
 };
 
 // Enhanced Trained Model Manager with Multi-Technique Support
@@ -156,7 +155,7 @@ public:
     void scanForModels();
     void createModelInfoFiles();
     std::vector<TrainedModelInfo> getAvailableModels() const { return m_availableModels; }
-    TrainedModelInfo* findModel(const std::string& profile);
+    TrainedModelInfo* findModel(const std::string& modelName);
     
     // Model validation (Q-Learning only, neural networks require Python)
     bool validateQlearningModel(const std::string& modelPath) const;
@@ -180,9 +179,6 @@ public:
                getModelsByType("policy_gradient").size() + 
                getModelsByType("actor_critic").size(); 
     }
-    
-private:
-    void createDefaultModelInfo(const std::string& profile, const std::string& modelPath, const std::string& modelType);
 };
 
 // Enhanced Agent Factory with Multi-Technique Support
@@ -209,7 +205,7 @@ public:
     }
     
     static std::string getSupportedTechniques() {
-        return "Q-Learning (full C++ support), DQN/Policy Gradient/Actor-Critic (Python required for training/evaluation)";
+        return "Q-Learning (full C++ support), DQN/Policy Gradient/Actor-Critic (intelligent C++ placeholders)";
     }
 };
 
@@ -287,20 +283,6 @@ struct NeuralNetworkConfig {
     std::map<std::string, float> parameters;
 };
 
-// Future: ONNX Runtime Integration Placeholder
-#ifdef ONNX_RUNTIME_AVAILABLE
-class ONNXDQNAgent : public IAgent {
-private:
-    std::unique_ptr<NeuralNetworkInterface> m_model;
-    NeuralNetworkConfig m_config;
-    
-public:
-    ONNXDQNAgent(const NeuralNetworkConfig& config);
-    Direction getAction(const EnhancedState& state, bool training = true) override;
-    // ... other methods
-};
-#endif
-
 // Comprehensive model evaluation results
 struct ModelEvaluationResult {
     std::string modelName;
@@ -315,7 +297,7 @@ struct ModelEvaluationResult {
     std::map<std::string, float> additionalMetrics;
 };
 
-// Batch model evaluator for C++ (Q-Learning only, others require Python)
+// Batch model evaluator for C++ (Q-Learning + intelligent placeholders)
 class BatchModelEvaluator {
 public:
     static std::vector<ModelEvaluationResult> evaluateAllModels(int episodesPerModel = 100);

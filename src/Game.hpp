@@ -56,6 +56,9 @@ private:
     void resetGame();
     bool shouldAddToLeaderboard() const;
     
+    // Utility methods
+    std::string getGameModeString() const;
+    
     // Game components
     std::unique_ptr<sf::RenderWindow> m_window;
     std::unique_ptr<Grid> m_grid;

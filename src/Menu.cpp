@@ -108,25 +108,27 @@ void Menu::setupPlayModeMenu() {
 }
 
 void Menu::handleEvent(const sf::Event& event) {
-    if (auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
-        switch (keyPressed->code) {
-            case sf::Keyboard::Key::Up:
+    // SFML 3: Use getIf<T>() to check the event type and access its data.
+    if (const auto* keyPressedEvent = event.getIf<sf::Event::KeyPressed>()) {
+        // Access the scancode from the keyPressedEvent pointer
+        switch (keyPressedEvent->scancode) { // Use scancode for SFML 3 keyboard events
+            case sf::Keyboard::Scancode::Up: // Use scoped enum for SFML 3
                 if (m_currentSection == MenuSection::MAIN) {
                     m_selectedIndex = (m_selectedIndex - 1 + m_mainItems.size()) % m_mainItems.size();
-                } else {
+                } else { // Assuming it's PLAY_MODES when not MAIN
                     m_selectedIndex = (m_selectedIndex - 1 + m_playModeItems.size()) % m_playModeItems.size();
                 }
                 updateSelection();
                 break;
-            case sf::Keyboard::Key::Down:
+            case sf::Keyboard::Scancode::Down: // Use scoped enum for SFML 3
                 if (m_currentSection == MenuSection::MAIN) {
                     m_selectedIndex = (m_selectedIndex + 1) % m_mainItems.size();
-                } else {
+                } else { // Assuming it's PLAY_MODES when not MAIN
                     m_selectedIndex = (m_selectedIndex + 1) % m_playModeItems.size();
                 }
                 updateSelection();
                 break;
-            case sf::Keyboard::Key::Enter:
+            case sf::Keyboard::Scancode::Enter: // Use scoped enum for SFML 3
                 if (m_currentSection == MenuSection::MAIN) {
                     if (m_selectedIndex == 0) { // Play Game
                         m_currentSection = MenuSection::PLAY_MODES;
@@ -137,7 +139,10 @@ void Menu::handleEvent(const sf::Event& event) {
                     } else if (m_selectedIndex == 2 && m_howToPlayCallback) { // How to Play
                         m_howToPlayCallback();
                     } else if (m_selectedIndex == 3) { // Leaderboard - handled by game
-                        // This will be handled by the global key handler
+                        // This might trigger a callback for the main game state to switch to leaderboard
+                        // Or, if this menu class is part of a larger state machine,
+                        // it might signal the state machine to change state.
+                        // For now, no direct action here, but consider if a callback is needed.
                     }
                 } else if (m_currentSection == MenuSection::PLAY_MODES) {
                     if (m_selectionCallback) {
@@ -145,12 +150,14 @@ void Menu::handleEvent(const sf::Event& event) {
                     }
                 }
                 break;
-            case sf::Keyboard::Key::Escape:
+            case sf::Keyboard::Scancode::Escape: // Use scoped enum for SFML 3
                 if (m_currentSection == MenuSection::PLAY_MODES) {
                     m_currentSection = MenuSection::MAIN;
                     m_selectedIndex = 0;
                     updateSelection();
                 }
+                break;
+            default: // Always good practice to have a default
                 break;
         }
     }

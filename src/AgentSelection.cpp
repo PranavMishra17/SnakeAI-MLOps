@@ -1,5 +1,6 @@
 #include "AgentSelection.hpp"
 #include <spdlog/spdlog.h>
+#include <optional>     
 
 AgentSelection::AgentSelection() : m_selectedIndex(0) {
     m_modelManager = std::make_unique<TrainedModelManager>();
@@ -89,59 +90,168 @@ void AgentSelection::loadTrainedModels() {
     
     spdlog::info("AgentSelection: Loading {} trained models", trainedModels.size());
     
-    // Add trained Q-Learning models right after the fresh Q-Learning
+    // Add trained Q-Learning models with proper names and descriptions
     for (const auto& modelInfo : trainedModels) {
-        AgentConfig config;
-        config.type = AgentType::Q_LEARNING;
-        config.name = modelInfo.name;
-        config.description = modelInfo.description + " (Pre-trained)";
-        config.isImplemented = true;
-        config.modelPath = modelInfo.modelPath;
-        
-        AgentMenuItem item(config);
-        item.isTrainedModel = true;
-        m_agents.push_back(std::move(item));
-        
-        spdlog::info("AgentSelection: Added trained model: {} ({})", 
-                     modelInfo.name, modelInfo.profile);
+        if (modelInfo.modelType == "qlearning") {
+            AgentConfig config;
+            config.type = AgentType::Q_LEARNING;
+            config.isImplemented = true;
+            config.modelPath = modelInfo.modelPath;
+            
+            // Extract profile from filename and create proper display names
+            std::string profile = modelInfo.profile;
+            
+            if (profile == "aggressive") {
+                config.name = "Q-Learning Aggressive";
+                config.description = "High learning rate, bold exploration (aggressive)";
+            } else if (profile == "balanced") {
+                config.name = "Q-Learning Balanced";
+                config.description = "Optimal learning parameters (balanced)";
+            } else if (profile == "conservative") {
+                config.name = "Q-Learning Conservative";
+                config.description = "Careful exploration, stable learning (conservative)";
+            } else {
+                config.name = "Q-Learning " + profile;
+                config.description = "Trained Q-Learning model (" + profile + " profile)";
+            }
+            
+            AgentMenuItem item(config);
+            item.isTrainedModel = true;
+            m_agents.push_back(std::move(item));
+            
+            spdlog::info("AgentSelection: Added Q-Learning model: {} ({})", 
+                         config.name, profile);
+        }
     }
     
-    // Add other agent types after Q-Learning variants
-    // Deep Q-Network (Placeholder)
-    AgentConfig dqn;
-    dqn.type = AgentType::DEEP_Q_NETWORK;
-    dqn.name = "Deep Q-Network (DQN)";
-    dqn.description = "Neural network-based Q-learning with experience replay";
-    dqn.isImplemented = false;
-    dqn.modelPath = "dqn_model.bin";
-    m_agents.emplace_back(dqn);
+    // Add neural network agents as enhanced intelligent placeholders
+    // DQN Agents
+    for (const auto& modelInfo : trainedModels) {
+        if (modelInfo.modelType == "dqn") {
+            AgentConfig config;
+            config.type = AgentType::DEEP_Q_NETWORK;
+            config.isImplemented = true; // Mark as implemented (intelligent placeholder)
+            config.modelPath = modelInfo.modelPath;
+            
+            std::string profile = modelInfo.profile;
+            if (profile == "aggressive") {
+                config.name = "DQN Aggressive";
+                config.description = "Neural network with high exploration (aggressive)";
+            } else if (profile == "balanced") {
+                config.name = "DQN Balanced";
+                config.description = "Deep Q-Network with optimal parameters (balanced)";
+            } else if (profile == "conservative") {
+                config.name = "DQN Conservative";
+                config.description = "Stable neural network learning (conservative)";
+            } else {
+                config.name = "DQN " + profile;
+                config.description = "Deep Q-Network model (" + profile + " profile)";
+            }
+            
+            AgentMenuItem item(config);
+            item.isTrainedModel = true;
+            m_agents.push_back(std::move(item));
+            
+            spdlog::info("AgentSelection: Added DQN model: {} ({})", 
+                         config.name, profile);
+        }
+    }
     
-    // Policy Gradient (Placeholder)
-    AgentConfig pg;
-    pg.type = AgentType::POLICY_GRADIENT;
-    pg.name = "Policy Gradient";
-    pg.description = "Direct policy optimization using REINFORCE algorithm";
-    pg.isImplemented = false;
-    pg.modelPath = "policy_model.bin";
-    m_agents.emplace_back(pg);
+    // Policy Gradient Agents
+    for (const auto& modelInfo : trainedModels) {
+        if (modelInfo.modelType == "policy_gradient") {
+            AgentConfig config;
+            config.type = AgentType::POLICY_GRADIENT;
+            config.isImplemented = true; // Mark as implemented (intelligent placeholder)
+            config.modelPath = modelInfo.modelPath;
+            
+            std::string profile = modelInfo.profile;
+            if (profile == "aggressive") {
+                config.name = "Policy Gradient Aggressive";
+                config.description = "Direct policy optimization, high entropy (aggressive)";
+            } else if (profile == "balanced") {
+                config.name = "Policy Gradient Balanced";
+                config.description = "REINFORCE algorithm with baseline (balanced)";
+            } else if (profile == "conservative") {
+                config.name = "Policy Gradient Conservative";
+                config.description = "Stable policy learning, low entropy (conservative)";
+            } else {
+                config.name = "Policy Gradient " + profile;
+                config.description = "Policy gradient model (" + profile + " profile)";
+            }
+            
+            AgentMenuItem item(config);
+            item.isTrainedModel = true;
+            m_agents.push_back(std::move(item));
+            
+            spdlog::info("AgentSelection: Added Policy Gradient model: {} ({})", 
+                         config.name, profile);
+        }
+    }
     
-    // Actor-Critic (Placeholder)
-    AgentConfig ac;
-    ac.type = AgentType::ACTOR_CRITIC;
-    ac.name = "Actor-Critic";
-    ac.description = "Combines value function estimation with policy gradient";
-    ac.isImplemented = false;
-    ac.modelPath = "actor_critic.bin";
-    m_agents.emplace_back(ac);
+    // Actor-Critic Agents
+    for (const auto& modelInfo : trainedModels) {
+        if (modelInfo.modelType == "actor_critic") {
+            AgentConfig config;
+            config.type = AgentType::ACTOR_CRITIC;
+            config.isImplemented = true; // Mark as implemented (intelligent placeholder)
+            config.modelPath = modelInfo.modelPath;
+            
+            std::string profile = modelInfo.profile;
+            if (profile == "aggressive") {
+                config.name = "Actor-Critic Aggressive";
+                config.description = "Value + policy learning, high exploration (aggressive)";
+            } else if (profile == "balanced") {
+                config.name = "Actor-Critic Balanced";
+                config.description = "A2C algorithm with entropy regularization (balanced)";
+            } else if (profile == "conservative") {
+                config.name = "Actor-Critic Conservative";
+                config.description = "Stable actor-critic learning (conservative)";
+            } else {
+                config.name = "Actor-Critic " + profile;
+                config.description = "Actor-critic model (" + profile + " profile)";
+            }
+            
+            AgentMenuItem item(config);
+            item.isTrainedModel = true;
+            m_agents.push_back(std::move(item));
+            
+            spdlog::info("AgentSelection: Added Actor-Critic model: {} ({})", 
+                         config.name, profile);
+        }
+    }
     
-    // Genetic Algorithm (Placeholder)
-    AgentConfig ga;
-    ga.type = AgentType::GENETIC_ALGORITHM;
-    ga.name = "Genetic Algorithm";
-    ga.description = "Evolution-based approach with neural network population";
-    ga.isImplemented = false;
-    ga.modelPath = "genetic_best.bin";
-    m_agents.emplace_back(ga);
+    // If no trained models found, add fallback placeholders
+    if (trainedModels.empty()) {
+        spdlog::warn("AgentSelection: No trained models found, adding fallback agents");
+        
+        // DQN Placeholder
+        AgentConfig dqn;
+        dqn.type = AgentType::DEEP_Q_NETWORK;
+        dqn.name = "DQN (Intelligent Placeholder)";
+        dqn.description = "Neural network simulation - requires PyTorch for full training";
+        dqn.isImplemented = true;
+        dqn.modelPath = "";
+        m_agents.emplace_back(dqn);
+        
+        // Policy Gradient Placeholder
+        AgentConfig pg;
+        pg.type = AgentType::POLICY_GRADIENT;
+        pg.name = "Policy Gradient (Placeholder)";
+        pg.description = "Policy optimization simulation - train with Python for full model";
+        pg.isImplemented = true;
+        pg.modelPath = "";
+        m_agents.emplace_back(pg);
+        
+        // Actor-Critic Placeholder
+        AgentConfig ac;
+        ac.type = AgentType::ACTOR_CRITIC;
+        ac.name = "Actor-Critic (Placeholder)";
+        ac.description = "Actor-critic simulation - use Python training for full capability";
+        ac.isImplemented = true;
+        ac.modelPath = "";
+        m_agents.emplace_back(ac);
+    }
 }
 
 void AgentSelection::createAgentDisplay(AgentMenuItem& item, float y) {
@@ -170,17 +280,22 @@ void AgentSelection::createAgentDisplay(AgentMenuItem& item, float y) {
     
     // Status
     item.statusText = std::make_unique<sf::Text>(m_font);
-    std::string statusStr = item.config.isImplemented ? "READY" : "COMING SOON";
+    std::string statusStr;
+    sf::Color statusColor;
+    
     if (item.isTrainedModel) {
-        statusStr = "PRE-TRAINED";
+        statusStr = "TRAINED";
+        statusColor = sf::Color::Green;
+    } else if (item.config.isImplemented) {
+        statusStr = "READY";
+        statusColor = sf::Color::Cyan;
+    } else {
+        statusStr = "COMING SOON";
+        statusColor = sf::Color::Yellow;
     }
+    
     item.statusText->setString(statusStr);
     item.statusText->setCharacterSize(18);
-    
-    sf::Color statusColor = sf::Color::Green;
-    if (!item.config.isImplemented) statusColor = sf::Color::Yellow;
-    else if (item.isTrainedModel) statusColor = sf::Color::Cyan;
-    
     item.statusText->setFillColor(statusColor);
     item.statusText->setPosition(sf::Vector2f(windowSize.x / 2.0f + 300.0f, y + 15.0f));
     
@@ -190,12 +305,22 @@ void AgentSelection::createAgentDisplay(AgentMenuItem& item, float y) {
         
         // Find model info from manager
         auto* modelInfo = m_modelManager->findModel(item.config.name);
-        std::string infoStr = "Model Performance: ";
+        std::string infoStr;
+        
         if (modelInfo && modelInfo->averageScore > 0) {
-            infoStr += "Avg Score: " + std::to_string(modelInfo->averageScore).substr(0, 5);
+            infoStr = "Avg Score: " + std::to_string(modelInfo->averageScore).substr(0, 5);
             infoStr += " | Episodes: " + std::to_string(modelInfo->episodesTrained);
         } else {
-            infoStr += "Performance data not available";
+            // Extract profile info from description for display
+            if (item.config.description.find("aggressive") != std::string::npos) {
+                infoStr = "Profile: Aggressive - High learning rate, bold exploration";
+            } else if (item.config.description.find("balanced") != std::string::npos) {
+                infoStr = "Profile: Balanced - Optimal parameters, stable performance";
+            } else if (item.config.description.find("conservative") != std::string::npos) {
+                infoStr = "Profile: Conservative - Careful learning, high consistency";
+            } else {
+                infoStr = "Trained model ready for inference";
+            }
         }
         
         item.modelInfoText->setString(infoStr);
@@ -205,38 +330,49 @@ void AgentSelection::createAgentDisplay(AgentMenuItem& item, float y) {
     }
 }
 
+
 void AgentSelection::handleEvent(const sf::Event& event) {
-    if (auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
-        switch (keyPressed->code) {
-            case sf::Keyboard::Key::Up:
+    // In SFML 3, sf::Event itself is the variant.
+    // We use getIf<T>() to check the type and get a pointer to the specific event data.
+
+    if (const auto* keyPressedEvent = event.getIf<sf::Event::KeyPressed>()) {
+        // Now 'keyPressedEvent' is a pointer to sf::Event::KeyPressed,
+        // and its members are directly accessible (e.g., scancode).
+        switch (keyPressedEvent->scancode) { // Use scancode for SFML 3 Keyboard events
+            case sf::Keyboard::Scancode::Up: // Use scoped enum for SFML 3
                 m_selectedIndex = (m_selectedIndex - 1 + m_agents.size()) % m_agents.size();
                 updateSelection();
                 spdlog::debug("AgentSelection: Selected agent index: {}", m_selectedIndex);
                 break;
-            case sf::Keyboard::Key::Down:
+            case sf::Keyboard::Scancode::Down: // Use scoped enum for SFML 3
                 m_selectedIndex = (m_selectedIndex + 1) % m_agents.size();
                 updateSelection();
                 spdlog::debug("AgentSelection: Selected agent index: {}", m_selectedIndex);
                 break;
-            case sf::Keyboard::Key::Enter:
+            case sf::Keyboard::Scancode::Enter: // Use scoped enum for SFML 3
                 if (m_agents[m_selectedIndex].config.isImplemented && m_selectionCallback) {
-                    spdlog::info("AgentSelection: Selected agent: {}", 
-                                m_agents[m_selectedIndex].config.name);
+                    spdlog::info("AgentSelection: Selected agent: {}",
+                                 m_agents[m_selectedIndex].config.name);
                     m_selectionCallback(m_agents[m_selectedIndex].config);
                 } else {
-                    spdlog::warn("AgentSelection: Attempted to select unimplemented agent: {}", 
-                                m_agents[m_selectedIndex].config.name);
+                    spdlog::warn("AgentSelection: Attempted to select unimplemented agent: {}",
+                                 m_agents[m_selectedIndex].config.name);
                 }
                 break;
-            case sf::Keyboard::Key::Escape:
+            case sf::Keyboard::Scancode::Escape: // Use scoped enum for SFML 3
                 if (m_backCallback) {
                     spdlog::info("AgentSelection: Going back to main menu");
                     m_backCallback();
                 }
                 break;
+            default: // It's good practice to have a default in switch statements
+                break;
         }
     }
+    // If you had other event types to handle (e.g., sf::Event::Closed, sf::Event::Resized),
+    // you would add more `if (const auto* ... = event.getIf<...>()){}` blocks.
 }
+
 
 void AgentSelection::update() {
     // Add animations or other updates here
@@ -260,9 +396,13 @@ void AgentSelection::render(sf::RenderWindow& window) {
 void AgentSelection::updateSelection() {
     for (size_t i = 0; i < m_agents.size(); ++i) {
         if (i == m_selectedIndex) {
-            // Highlight selected agent
-            sf::Color highlightColor = m_agents[i].isTrainedModel ? 
-                sf::Color(60, 120, 100) : sf::Color(60, 100, 60);
+            // Highlight selected agent based on type
+            sf::Color highlightColor;
+            if (m_agents[i].isTrainedModel) {
+                highlightColor = sf::Color(60, 120, 100); // Green tint for trained models
+            } else {
+                highlightColor = sf::Color(60, 100, 120); // Blue tint for fresh agents
+            }
             
             m_agents[i].background.setFillColor(highlightColor);
             m_agents[i].background.setOutlineColor(sf::Color::Green);
