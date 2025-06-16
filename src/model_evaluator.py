@@ -60,19 +60,42 @@ class UnifiedModelEvaluator:
         
         if model_type == "dqn":
             model = DQNNetwork(net_config, dueling=config_dict.get('dueling', True))
-            model.load_state_dict(checkpoint['q_network'])
+            # Create temporary model to inspect state dict
+            temp_state = model.state_dict()
+            saved_state = checkpoint['q_network']
+            
+            # Check if architectures match
+            if set(temp_state.keys()) != set(saved_state.keys()):
+                # Try to load with strict=False to handle minor differences
+                model.load_state_dict(saved_state, strict=False)
+            else:
+                model.load_state_dict(saved_state)
             
         elif model_type == "policy_gradient":
             model = PolicyNetwork(net_config)
-            model.load_state_dict(checkpoint['policy_network'])
+            # For compatibility with older models, try different keys
+            if 'policy_network' in checkpoint:
+                state_dict = checkpoint['policy_network']
+            elif 'model_state_dict' in checkpoint:
+                state_dict = checkpoint['model_state_dict']
+            else:
+                state_dict = checkpoint
+            
+            # Load with strict=False to handle architecture differences
+            model.load_state_dict(state_dict, strict=False)
             
         elif model_type == "actor_critic":
             # Load both actor and critic
             actor = PolicyNetwork(net_config)
-            actor.load_state_dict(checkpoint['actor_state_dict'])
-            
             critic = ValueNetwork(net_config)
-            critic.load_state_dict(checkpoint['critic_state_dict'])
+            
+            # Handle different checkpoint formats
+            if 'actor_state_dict' in checkpoint:
+                actor.load_state_dict(checkpoint['actor_state_dict'], strict=False)
+                critic.load_state_dict(checkpoint['critic_state_dict'], strict=False)
+            elif 'actor' in checkpoint:
+                actor.load_state_dict(checkpoint['actor'], strict=False)
+                critic.load_state_dict(checkpoint['critic'], strict=False)
             
             model = (actor, critic)
         
@@ -362,7 +385,7 @@ class UnifiedModelEvaluator:
         
         # 2. Score distribution (box plot)
         score_data = [r['scores'] for r in results]
-        axes[0,1].boxplot(score_data, labels=models)
+        axes[0,1].boxplot(score_data, tick_labels=models)
         axes[0,1].set_title('Score Distribution', fontsize=14, weight='bold')
         axes[0,1].set_ylabel('Score')
         axes[0,1].set_xticklabels(models, rotation=45, ha='right')
@@ -430,7 +453,9 @@ class UnifiedModelEvaluator:
         axes[2,0].grid(True, alpha=0.3)
         
         # 8. Performance radar chart
-        self._create_radar_chart(axes[2,1], results[:4])  # Top 4 models
+        # Create a proper polar subplot for radar chart
+        ax_radar = plt.subplot(3, 3, 8, projection='polar')
+        self._create_radar_chart(ax_radar, results[:4])  # Top 4 models
         
         # 9. Technique comparison
         technique_scores = {}
@@ -595,9 +620,9 @@ class UnifiedModelEvaluator:
         # Rank models by multiple criteria
         rankings = {
             'avg_score': sorted(results, key=lambda x: x['avg_score'], reverse=True),
-            'consistency': sorted(results, key=lambda x: x['performance_consistency'], reverse=True),
-            'efficiency': sorted(results, key=lambda x: x['avg_food_efficiency']),
-            'survival': sorted(results, key=lambda x: x['avg_survival_time'], reverse=True)
+            'performance_consistency': sorted(results, key=lambda x: x['performance_consistency'], reverse=True),
+            'avg_food_efficiency': sorted(results, key=lambda x: x['avg_food_efficiency']),
+            'avg_survival_time': sorted(results, key=lambda x: x['avg_survival_time'], reverse=True)
         }
         
         report = {
@@ -622,9 +647,9 @@ class UnifiedModelEvaluator:
             "technique_summary": self._generate_technique_summary(results),
             "best_performers": {
                 "overall_best": Path(rankings['avg_score'][0]['model_path']).stem,
-                "most_consistent": Path(rankings['consistency'][0]['model_path']).stem,
-                "most_efficient": Path(rankings['efficiency'][0]['model_path']).stem,
-                "best_survivor": Path(rankings['survival'][0]['model_path']).stem
+                "most_consistent": Path(rankings['performance_consistency'][0]['model_path']).stem,
+                "most_efficient": Path(rankings['avg_food_efficiency'][0]['model_path']).stem,
+                "best_survivor": Path(rankings['avg_survival_time'][0]['model_path']).stem
             },
             "detailed_results": results
         }
@@ -687,19 +712,19 @@ class UnifiedModelEvaluator:
         print("🏆 ENHANCED MODEL EVALUATION SUMMARY")
         print(f"{'='*80}")
         
-        # Top performers by criterion
         criteria = {
             'avg_score': '📊 Highest Average Score',
-            'consistency': '🎯 Most Consistent',
-            'efficiency': '⚡ Most Efficient',
-            'survival': '🛡️ Best Survivor'
+            'performance_consistency': '🎯 Most Consistent',
+            'avg_food_efficiency': '⚡ Most Efficient',
+            'avg_survival_time': '🛡️ Best Survivor'
         }
         
         for criterion, title in criteria.items():
             print(f"\n{title}:")
             for i, result in enumerate(rankings[criterion][:3]):
                 model_name = Path(result['model_path']).stem
-                value = result[criterion if criterion != 'efficiency' else 'avg_food_efficiency']
+                # Now 'criterion' is the correct key and can be used directly
+                value = result[criterion]
                 print(f"{i+1:2d}. {result['model_type']:15s} {model_name:25s} "
                       f"{value:8.2f}")
         
@@ -709,15 +734,15 @@ class UnifiedModelEvaluator:
         for result in rankings['avg_score']:
             # Normalize and combine metrics
             score_rank = rankings['avg_score'].index(result)
-            consistency_rank = rankings['consistency'].index(result)
-            efficiency_rank = rankings['efficiency'].index(result)
-            survival_rank = rankings['survival'].index(result)
+            consistency_rank = rankings['performance_consistency'].index(result)
+            efficiency_rank = rankings['avg_food_efficiency'].index(result)
+            survival_rank = rankings['avg_survival_time'].index(result)
             
             # Lower rank is better, so invert
             composite = (len(rankings['avg_score']) - score_rank) * 0.4 + \
-                       (len(rankings['consistency']) - consistency_rank) * 0.2 + \
-                       (len(rankings['efficiency']) - efficiency_rank) * 0.2 + \
-                       (len(rankings['survival']) - survival_rank) * 0.2
+                       (len(rankings['performance_consistency']) - consistency_rank) * 0.2 + \
+                       (len(rankings['avg_food_efficiency']) - efficiency_rank) * 0.2 + \
+                       (len(rankings['avg_survival_time']) - survival_rank) * 0.2
             
             composite_scores.append((result, composite))
         
