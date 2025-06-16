@@ -84,8 +84,9 @@ COPY --from=build /app/assets/ assets/
 RUN mkdir -p models data logs && \
     chown -R snakeai:snakeai /app
 
-# Copy pre-trained models if they exist
-COPY models/ models/ 
+# Copy pre-trained models if they exist (optional)
+RUN mkdir -p models
+COPY models* models/
 
 USER snakeai
 

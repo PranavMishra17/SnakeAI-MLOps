@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Policy Gradient (REINFORCE) trainer for SnakeAI-MLOps
-GPU-accelerated implementation with baseline variance reduction
+Enhanced Policy Gradient (REINFORCE) trainer for SnakeAI-MLOps
+Implements: GAE, reward normalization, entropy scheduling
 """
 import torch
 import torch.nn as nn
@@ -24,17 +24,28 @@ from neural_network_utils import (
 
 @dataclass
 class PolicyGradientConfig:
-    """Policy Gradient training configuration"""
+    """Enhanced Policy Gradient training configuration"""
     profile_name: str = "balanced"
     max_episodes: int = 3000
     learning_rate: float = 0.001
     baseline_lr: float = 0.005
     discount_factor: float = 0.99
     
-    # Policy gradient specific
+    # Enhanced features
     use_baseline: bool = True
+    use_gae: bool = True  # Generalized Advantage Estimation
+    gae_lambda: float = 0.95  # GAE lambda parameter
     entropy_coeff: float = 0.01
+    entropy_decay: float = 0.999  # Entropy coefficient decay
+    min_entropy_coeff: float = 0.001
     value_coeff: float = 0.5
+    reward_normalization: bool = True
+    gradient_clip: float = 1.0
+    
+    # Learning rate scheduling
+    use_lr_scheduler: bool = True
+    lr_decay_step: int = 500
+    lr_decay_gamma: float = 0.9
     
     # Network architecture
     hidden_layers: list = None
@@ -43,11 +54,42 @@ class PolicyGradientConfig:
     device: str = "cuda"
     checkpoint_interval: int = 300
     target_score: int = 12
-    batch_episodes: int = 1  # Train after each episode
+    batch_episodes: int = 4  # Collect multiple episodes before update
     
     def __post_init__(self):
         if self.hidden_layers is None:
             self.hidden_layers = [128, 64]
+
+class RunningMeanStd:
+    """Running mean and standard deviation for reward normalization"""
+    
+    def __init__(self, epsilon=1e-4, shape=()):
+        self.mean = np.zeros(shape, 'float64')
+        self.var = np.ones(shape, 'float64')
+        self.count = epsilon
+        
+    def update(self, x):
+        batch_mean = np.mean(x, axis=0)
+        batch_var = np.var(x, axis=0)
+        batch_count = x.shape[0]
+        self.update_from_moments(batch_mean, batch_var, batch_count)
+        
+    def update_from_moments(self, batch_mean, batch_var, batch_count):
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+        
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * self.count
+        m_b = batch_var * batch_count
+        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / tot_count
+        new_var = M2 / tot_count
+        
+        self.mean = new_mean
+        self.var = new_var
+        self.count = tot_count
+        
+    def normalize(self, x):
+        return (x - self.mean) / np.sqrt(self.var + 1e-8)
 
 class SnakeEnvironmentPG:
     """Snake environment for Policy Gradient training"""
@@ -83,7 +125,6 @@ class SnakeEnvironmentPG:
         directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
         current_dir = directions[self.direction]
         
-        # Check straight, left, right
         straight_pos = (head_x + current_dir[0], head_y + current_dir[1])
         danger_straight = self._is_collision(straight_pos)
         
@@ -181,15 +222,15 @@ class SnakeEnvironmentPG:
             # Distance-based reward
             old_dist = abs(head_x - self.food[0]) + abs(head_y - self.food[1])
             new_dist = abs(new_head[0] - self.food[0]) + abs(new_head[1] - self.food[1])
-            reward = 0.5 if new_dist < old_dist else -0.1
+            reward = 0.1 if new_dist < old_dist else -0.05
         
         self.steps += 1
         done = self.steps >= 1000
         
         return self._get_enhanced_state(), reward, done
 
-class PolicyGradientAgent:
-    """REINFORCE agent with optional baseline"""
+class EnhancedPolicyGradientAgent:
+    """Enhanced REINFORCE agent with GAE and reward normalization"""
     
     def __init__(self, config: PolicyGradientConfig):
         self.config = config
@@ -208,20 +249,44 @@ class PolicyGradientAgent:
         if config.use_baseline:
             self.value_network = ValueNetwork(net_config).to(self.device)
             self.value_optimizer = optim.Adam(self.value_network.parameters(), lr=config.baseline_lr)
+            
+            if config.use_lr_scheduler:
+                self.value_scheduler = optim.lr_scheduler.StepLR(
+                    self.value_optimizer, 
+                    step_size=config.lr_decay_step, 
+                    gamma=config.lr_decay_gamma
+                )
         
         # Optimizer
         self.policy_optimizer = optim.Adam(self.policy_network.parameters(), lr=config.learning_rate)
         
-        # Episode storage
-        self.episode_states = []
-        self.episode_actions = []
-        self.episode_rewards = []
-        self.episode_log_probs = []
+        if config.use_lr_scheduler:
+            self.policy_scheduler = optim.lr_scheduler.StepLR(
+                self.policy_optimizer, 
+                step_size=config.lr_decay_step, 
+                gamma=config.lr_decay_gamma
+            )
         
-        print(f"✅ Policy Gradient Agent initialized on {self.device}")
+        # Reward normalization
+        if config.reward_normalization:
+            self.reward_rms = RunningMeanStd()
+        
+        # Episode storage for batch updates
+        self.batch_states = []
+        self.batch_actions = []
+        self.batch_rewards = []
+        self.batch_log_probs = []
+        self.batch_values = []
+        self.batch_dones = []
+        
+        # Current entropy coefficient
+        self.entropy_coeff = config.entropy_coeff
+        
+        print(f"✅ Enhanced Policy Gradient Agent initialized on {self.device}")
         print(f"   Policy Network: {sum(p.numel() for p in self.policy_network.parameters())} parameters")
         if config.use_baseline:
             print(f"   Value Network: {sum(p.numel() for p in self.value_network.parameters())} parameters")
+        print(f"   Features: GAE={config.use_gae}, Reward Norm={config.reward_normalization}")
     
     def get_action(self, state):
         """Sample action from policy"""
@@ -231,86 +296,156 @@ class PolicyGradientAgent:
             action = action_dist.sample()
             log_prob = action_dist.log_prob(action)
             
-            return action.item(), log_prob.item()
+            # Get value if using baseline
+            value = None
+            if self.config.use_baseline:
+                value = self.value_network(state.unsqueeze(0)).squeeze()
+            
+            return action.item(), log_prob.item(), value
     
-    def store_transition(self, state, action, reward, log_prob):
-        """Store transition for episode"""
-        self.episode_states.append(state)
-        self.episode_actions.append(action)
-        self.episode_rewards.append(reward)
-        self.episode_log_probs.append(log_prob)
+    def store_episode(self, states, actions, rewards, log_probs, values, dones):
+        """Store episode data for batch update"""
+        self.batch_states.extend(states)
+        self.batch_actions.extend(actions)
+        self.batch_rewards.extend(rewards)
+        self.batch_log_probs.extend(log_probs)
+        if values[0] is not None:
+            self.batch_values.extend(values)
+        self.batch_dones.extend(dones)
     
-    def compute_returns(self, rewards):
+    def compute_gae(self, rewards, values, next_values, dones, gamma=0.99, lam=0.95):
+        """Compute Generalized Advantage Estimation"""
+        advantages = []
+        gae = 0
+        
+        for t in reversed(range(len(rewards))):
+            if t == len(rewards) - 1:
+                next_value = next_values
+            else:
+                next_value = values[t + 1]
+            
+            delta = rewards[t] + gamma * next_value * (1 - dones[t]) - values[t]
+            gae = delta + gamma * lam * (1 - dones[t]) * gae
+            advantages.insert(0, gae)
+            
+        return torch.tensor(advantages, dtype=torch.float32, device=self.device)
+    
+    def compute_returns(self, rewards, gamma=0.99):
         """Compute discounted returns"""
         returns = []
         G = 0
         for reward in reversed(rewards):
-            G = reward + self.config.discount_factor * G
+            G = reward + gamma * G
             returns.insert(0, G)
         return torch.tensor(returns, dtype=torch.float32, device=self.device)
     
-    def train_episode(self):
-        """Train on collected episode data"""
-        if not self.episode_rewards:
+    def train_batch(self):
+        """Train on collected batch of episodes"""
+        if not self.batch_rewards:
             return 0.0, 0.0
         
-        # Compute returns
-        returns = self.compute_returns(self.episode_rewards)
-        
-        # Normalize returns
-        if len(returns) > 1:
-            returns = (returns - returns.mean()) / (returns.std() + 1e-8)
-        
         # Convert to tensors
-        states = torch.stack(self.episode_states)
-        log_probs = torch.tensor(self.episode_log_probs, device=self.device)
+        states = torch.stack(self.batch_states)
+        actions = torch.tensor(self.batch_actions, dtype=torch.long, device=self.device)
+        rewards = torch.tensor(self.batch_rewards, dtype=torch.float32, device=self.device)
+        log_probs = torch.tensor(self.batch_log_probs, device=self.device)
+        dones = torch.tensor(self.batch_dones, dtype=torch.float32, device=self.device)
+        
+        # Normalize rewards if enabled
+        if self.config.reward_normalization:
+            rewards_np = rewards.cpu().numpy()
+            self.reward_rms.update(rewards_np)
+            normalized_rewards = self.reward_rms.normalize(rewards_np)
+            rewards = torch.tensor(normalized_rewards, dtype=torch.float32, device=self.device)
         
         policy_loss = 0.0
         value_loss = 0.0
-        entropy_loss = 0.0
         
-        # Compute baseline if used
-        if self.config.use_baseline:
-            values = self.value_network(states).squeeze()
-            advantages = returns - values.detach()
-            
-            # Value network loss
-            value_loss = F.mse_loss(values, returns.detach())
-            self.value_optimizer.zero_grad()
-            value_loss.backward()
-            self.value_optimizer.step()
+        if self.config.use_baseline and self.config.use_gae:
+            # Compute GAE
+            values = torch.tensor(self.batch_values, device=self.device)
+            with torch.no_grad():
+                # Bootstrap value for last state
+                last_value = 0  # Assuming episodes end naturally
+                advantages = self.compute_gae(
+                    rewards, values, last_value, dones, 
+                    self.config.discount_factor, self.config.gae_lambda
+                )
+                returns = advantages + values
         else:
-            advantages = returns
+            # Standard returns computation
+            returns = self.compute_returns(rewards.cpu().numpy(), self.config.discount_factor)
+            
+            if self.config.use_baseline:
+                values = self.value_network(states).squeeze()
+                advantages = returns - values.detach()
+            else:
+                advantages = returns
         
-        # Policy network loss
-        policy_loss = -(log_probs * advantages).mean()
+        # Normalize advantages
+        if len(advantages) > 1:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         
-        # Entropy regularization
+        # Policy loss
+        policy_loss = -(log_probs * advantages.detach()).mean()
+        
+        # Entropy bonus
         action_probs = self.policy_network(states)
         entropy = -(action_probs * torch.log(action_probs + 1e-8)).sum(dim=-1).mean()
-        entropy_loss = -self.config.entropy_coeff * entropy
+        entropy_loss = -self.entropy_coeff * entropy
         
+        # Value loss
+        if self.config.use_baseline:
+            if not self.config.use_gae:
+                values = self.value_network(states).squeeze()
+            value_loss = F.mse_loss(values, returns.detach())
+            
+            # Update value network
+            self.value_optimizer.zero_grad()
+            value_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.value_network.parameters(), self.config.gradient_clip)
+            self.value_optimizer.step()
+        
+        # Total policy loss
         total_loss = policy_loss + entropy_loss
         
+        # Update policy network
         self.policy_optimizer.zero_grad()
         total_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), self.config.gradient_clip)
         self.policy_optimizer.step()
         
-        # Clear episode data
-        self.episode_states.clear()
-        self.episode_actions.clear()
-        self.episode_rewards.clear()
-        self.episode_log_probs.clear()
+        # Clear batch
+        self.batch_states.clear()
+        self.batch_actions.clear()
+        self.batch_rewards.clear()
+        self.batch_log_probs.clear()
+        self.batch_values.clear()
+        self.batch_dones.clear()
         
-        return policy_loss.item(), value_loss if self.config.use_baseline else 0.0
+        return policy_loss.item(), value_loss.item() if self.config.use_baseline else 0.0
+    
+    def update_entropy_coeff(self):
+        """Decay entropy coefficient"""
+        self.entropy_coeff = max(
+            self.config.min_entropy_coeff,
+            self.entropy_coeff * self.config.entropy_decay
+        )
+    
+    def update_schedulers(self):
+        """Update learning rate schedulers"""
+        if self.config.use_lr_scheduler:
+            self.policy_scheduler.step()
+            if self.config.use_baseline:
+                self.value_scheduler.step()
     
     def save_model(self, filepath, metadata=None):
-        """Save policy gradient model"""
+        """Save enhanced policy gradient model"""
         model_data = {
             'policy_network': self.policy_network.state_dict(),
             'policy_optimizer': self.policy_optimizer.state_dict(),
             'config': self.config.__dict__,
+            'entropy_coeff': self.entropy_coeff,
             'metadata': metadata or {}
         }
         
@@ -318,11 +453,18 @@ class PolicyGradientAgent:
             model_data['value_network'] = self.value_network.state_dict()
             model_data['value_optimizer'] = self.value_optimizer.state_dict()
         
+        if self.config.reward_normalization:
+            model_data['reward_rms'] = {
+                'mean': self.reward_rms.mean,
+                'var': self.reward_rms.var,
+                'count': self.reward_rms.count
+            }
+        
         torch.save(model_data, filepath)
-        print(f"✅ Policy Gradient model saved: {filepath}")
+        print(f"✅ Enhanced Policy Gradient model saved: {filepath}")
 
 def train_policy_gradient(config: PolicyGradientConfig):
-    """Main Policy Gradient training loop"""
+    """Main Policy Gradient training loop with enhancements"""
     device = verify_gpu()
     config.device = str(device)
     
@@ -334,77 +476,111 @@ def train_policy_gradient(config: PolicyGradientConfig):
     
     # Initialize environment and agent
     env = SnakeEnvironmentPG(device=str(device))
-    agent = PolicyGradientAgent(config)
+    agent = EnhancedPolicyGradientAgent(config)
     metrics = TrainingMetrics()
     
-    print(f"🚀 Starting Policy Gradient training: {config.profile_name}")
+    print(f"🚀 Starting Enhanced Policy Gradient training: {config.profile_name}")
     print(f"   Target score: {config.target_score}")
     print(f"   Max episodes: {config.max_episodes}")
-    print(f"   Using baseline: {config.use_baseline}")
+    print(f"   Using GAE: {config.use_gae}")
+    print(f"   Batch size: {config.batch_episodes}")
     
     best_score = 0
     training_start = time.time()
     recent_scores = deque(maxlen=100)
+    episode_count = 0
     
-    for episode in tqdm(range(config.max_episodes), desc="Training Policy Gradient"):
-        state = env.reset()
-        total_reward = 0
-        steps = 0
+    for batch_idx in tqdm(range(config.max_episodes // config.batch_episodes), desc="Training Policy Gradient"):
+        batch_scores = []
         
-        # Collect episode
-        while True:
-            action, log_prob = agent.get_action(state)
-            next_state, reward, done = env.step(action)
+        # Collect batch of episodes
+        for _ in range(config.batch_episodes):
+            state = env.reset()
+            total_reward = 0
+            steps = 0
             
-            agent.store_transition(state, action, reward, log_prob)
-            total_reward += reward
-            steps += 1
-            state = next_state
+            # Episode storage
+            episode_states = []
+            episode_actions = []
+            episode_rewards = []
+            episode_log_probs = []
+            episode_values = []
+            episode_dones = []
             
-            if done:
-                break
+            # Collect episode
+            while True:
+                action, log_prob, value = agent.get_action(state)
+                next_state, reward, done = env.step(action)
+                
+                episode_states.append(state)
+                episode_actions.append(action)
+                episode_rewards.append(reward)
+                episode_log_probs.append(log_prob)
+                episode_values.append(value.item() if value is not None else None)
+                episode_dones.append(float(done))
+                
+                total_reward += reward
+                steps += 1
+                state = next_state
+                
+                if done:
+                    break
+            
+            # Store episode in batch
+            agent.store_episode(
+                episode_states, episode_actions, episode_rewards,
+                episode_log_probs, episode_values, episode_dones
+            )
+            
+            batch_scores.append(env.score)
+            recent_scores.append(env.score)
+            metrics.add_episode(env.score, 0.0, agent.entropy_coeff, steps, total_reward)
+            episode_count += 1
         
-        # Train on episode
-        policy_loss, value_loss = agent.train_episode()
+        # Train on batch
+        policy_loss, value_loss = agent.train_batch()
         
-        # Metrics
-        recent_scores.append(env.score)
-        metrics.add_episode(env.score, policy_loss, 0.0, steps, total_reward)
+        # Update parameters
+        agent.update_entropy_coeff()
+        agent.update_schedulers()
         
         # Progress logging
-        if episode % 100 == 0:
+        if batch_idx % (100 // config.batch_episodes) == 0:
             avg_score = np.mean(recent_scores) if recent_scores else 0
-            avg_loss = metrics.get_recent_average('losses', 100)
-            print(f"Episode {episode}: Avg Score: {avg_score:.2f}, Policy Loss: {avg_loss:.4f}")
+            current_lr = agent.policy_scheduler.get_last_lr()[0] if config.use_lr_scheduler else config.learning_rate
+            print(f"Episode {episode_count}: Avg Score: {avg_score:.2f}, "
+                  f"Policy Loss: {policy_loss:.4f}, Value Loss: {value_loss:.4f}, "
+                  f"Entropy: {agent.entropy_coeff:.4f}, LR: {current_lr:.5f}")
             
             # Save checkpoint
-            if episode % config.checkpoint_interval == 0 and episode > 0:
-                checkpoint_path = checkpoint_dir / f"pg_{config.profile_name}_ep{episode}.pth"
+            if episode_count % config.checkpoint_interval < config.batch_episodes:
+                checkpoint_path = checkpoint_dir / f"pg_{config.profile_name}_ep{episode_count}.pth"
                 agent.save_model(checkpoint_path, {
-                    'episode': episode,
+                    'episode': episode_count,
                     'avg_score': avg_score,
                     'training_time': time.time() - training_start
                 })
         
         # Save best model
-        if env.score > best_score:
-            best_score = env.score
+        max_batch_score = max(batch_scores)
+        if max_batch_score > best_score:
+            best_score = max_batch_score
             best_path = model_dir / f"pg_{config.profile_name}_best.pth"
             agent.save_model(best_path, {
-                'episode': episode,
+                'episode': episode_count,
                 'best_score': best_score,
                 'training_time': time.time() - training_start
             })
         
         # Early stopping
         if len(recent_scores) >= 100 and np.mean(recent_scores) >= config.target_score:
-            print(f"✅ Target score reached at episode {episode}")
+            print(f"✅ Target score reached at episode {episode_count}")
             break
     
     # Save final model
     final_path = model_dir / f"pg_{config.profile_name}.pth"
     agent.save_model(final_path, {
-        'final_episode': episode,
+        'final_episode': episode_count,
         'final_avg_score': np.mean(recent_scores) if recent_scores else 0,
         'total_training_time': time.time() - training_start,
         'total_episodes': len(metrics.scores)
@@ -423,6 +599,7 @@ def train_policy_gradient(config: PolicyGradientConfig):
         "episodes": len(metrics.scores),
         "final_avg_score": float(np.mean(recent_scores)) if recent_scores else 0,
         "best_score": int(max(metrics.scores)) if metrics.scores else 0,
+        "final_entropy_coeff": agent.entropy_coeff,
         "training_time": time.time() - training_start,
         "config": config.__dict__
     }
@@ -431,7 +608,7 @@ def train_policy_gradient(config: PolicyGradientConfig):
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=4)
     
-    print(f"✅ Policy Gradient training complete!")
+    print(f"✅ Enhanced Policy Gradient training complete!")
     print(f"📁 Final model: {final_path}")
     print(f"📁 Best model: {best_path}")
     print(f"📊 Report: {report_path}")
@@ -457,11 +634,11 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
         axes[0,1].set_ylabel('Average Score')
         axes[0,1].grid(True)
     
-    # Policy loss
-    axes[1,0].plot(metrics.losses)
-    axes[1,0].set_title('Policy Loss')
+    # Entropy coefficient decay
+    axes[1,0].plot(metrics.epsilons)  # Using epsilon field for entropy
+    axes[1,0].set_title('Entropy Coefficient')
     axes[1,0].set_xlabel('Episode')
-    axes[1,0].set_ylabel('Loss')
+    axes[1,0].set_ylabel('Coefficient')
     axes[1,0].grid(True)
     
     # Episode lengths
@@ -471,7 +648,7 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     axes[1,1].set_ylabel('Steps')
     axes[1,1].grid(True)
     
-    plt.suptitle(f'Policy Gradient Training Curves - {profile_name}')
+    plt.suptitle(f'Enhanced Policy Gradient Training Curves - {profile_name}')
     plt.tight_layout()
     
     plot_path = Path(save_dir) / f"pg_training_curves_{profile_name}.png"
@@ -481,7 +658,7 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     print(f"✅ Training curves saved: {plot_path}")
 
 if __name__ == "__main__":
-    # Train different Policy Gradient profiles
+    # Train different Policy Gradient profiles with enhancements
     profiles = {
         "aggressive": PolicyGradientConfig(
             profile_name="aggressive",
@@ -489,7 +666,9 @@ if __name__ == "__main__":
             baseline_lr=0.01,
             entropy_coeff=0.02,
             max_episodes=2000,
-            target_score=10
+            target_score=10,
+            batch_episodes=2,
+            gae_lambda=0.9
         ),
         "balanced": PolicyGradientConfig(
             profile_name="balanced",
@@ -497,7 +676,9 @@ if __name__ == "__main__":
             baseline_lr=0.005,
             entropy_coeff=0.01,
             max_episodes=3000,
-            target_score=12
+            target_score=12,
+            batch_episodes=4,
+            gae_lambda=0.95
         ),
         "conservative": PolicyGradientConfig(
             profile_name="conservative",
@@ -505,12 +686,14 @@ if __name__ == "__main__":
             baseline_lr=0.002,
             entropy_coeff=0.005,
             max_episodes=4000,
-            target_score=15
+            target_score=15,
+            batch_episodes=8,
+            gae_lambda=0.98
         )
     }
     
     for name, config in profiles.items():
         print(f"\n{'='*60}")
-        print(f"🚀 Training Policy Gradient {name.upper()} model")
+        print(f"🚀 Training Enhanced Policy Gradient {name.upper()} model")
         print(f"{'='*60}")
         train_policy_gradient(config)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Actor-Critic trainer for SnakeAI-MLOps
-GPU-accelerated implementation with Advantage Actor-Critic (A2C)
+Enhanced Actor-Critic trainer for SnakeAI-MLOps
+Implements: N-step returns, entropy scheduling, improved advantage estimation
 """
 import torch
 import torch.nn as nn
@@ -24,17 +24,31 @@ from neural_network_utils import (
 
 @dataclass
 class ActorCriticConfig:
-    """Actor-Critic training configuration"""
+    """Enhanced Actor-Critic training configuration"""
     profile_name: str = "balanced"
     max_episodes: int = 2500
     actor_lr: float = 0.001
     critic_lr: float = 0.002
     discount_factor: float = 0.99
     
-    # A2C specific
+    # Enhanced A2C features
+    n_step: int = 5  # N-step returns
     entropy_coeff: float = 0.01
+    entropy_decay: float = 0.999
+    min_entropy_coeff: float = 0.001
     value_coeff: float = 0.5
     max_grad_norm: float = 1.0
+    
+    # Advanced features
+    use_gae: bool = True  # Generalized Advantage Estimation
+    gae_lambda: float = 0.95
+    normalize_advantages: bool = True
+    gradient_accumulation_steps: int = 4
+    
+    # Learning rate scheduling
+    use_lr_scheduler: bool = True
+    lr_decay_step: int = 300
+    lr_decay_gamma: float = 0.9
     
     # Network architecture
     hidden_layers: list = None
@@ -47,6 +61,73 @@ class ActorCriticConfig:
     def __post_init__(self):
         if self.hidden_layers is None:
             self.hidden_layers = [128, 64]
+
+class NStepStorage:
+    """N-step experience storage for Actor-Critic"""
+    
+    def __init__(self, n_step, gamma, device):
+        self.n_step = n_step
+        self.gamma = gamma
+        self.device = device
+        self.reset()
+        
+    def reset(self):
+        self.states = []
+        self.actions = []
+        self.rewards = []
+        self.values = []
+        self.log_probs = []
+        self.dones = []
+        
+    def add(self, state, action, reward, value, log_prob, done):
+        self.states.append(state)
+        self.actions.append(action)
+        self.rewards.append(reward)
+        self.values.append(value)
+        self.log_probs.append(log_prob)
+        self.dones.append(done)
+        
+    def compute_returns_and_advantages(self, last_value, use_gae=True, gae_lambda=0.95):
+        """Compute n-step returns and advantages"""
+        returns = []
+        advantages = []
+        
+        if use_gae:
+            # GAE computation
+            gae = 0
+            for t in reversed(range(len(self.rewards))):
+                if t == len(self.rewards) - 1:
+                    next_value = last_value
+                else:
+                    next_value = self.values[t + 1]
+                
+                delta = self.rewards[t] + self.gamma * next_value * (1 - self.dones[t]) - self.values[t]
+                gae = delta + self.gamma * gae_lambda * (1 - self.dones[t]) * gae
+                advantages.insert(0, gae)
+                returns.insert(0, gae + self.values[t])
+        else:
+            # Standard n-step returns
+            R = last_value
+            for t in reversed(range(len(self.rewards))):
+                R = self.rewards[t] + self.gamma * R * (1 - self.dones[t])
+                returns.insert(0, R)
+                advantages.insert(0, R - self.values[t])
+        
+        return (
+            torch.tensor(returns, dtype=torch.float32, device=self.device),
+            torch.tensor(advantages, dtype=torch.float32, device=self.device)
+        )
+    
+    def get_batch(self):
+        """Get all stored data as batch"""
+        return (
+            torch.stack(self.states),
+            torch.tensor(self.actions, dtype=torch.long, device=self.device),
+            torch.tensor(self.rewards, dtype=torch.float32, device=self.device),
+            torch.tensor(self.values, dtype=torch.float32, device=self.device),
+            torch.tensor(self.log_probs, dtype=torch.float32, device=self.device),
+            torch.tensor(self.dones, dtype=torch.float32, device=self.device)
+        )
 
 class SnakeEnvironmentAC:
     """Snake environment for Actor-Critic training"""
@@ -118,7 +199,7 @@ class SnakeEnvironmentAC:
         food_distance = abs(head_x - food_x) + abs(head_y - food_y)
         state[8] = food_distance / (2 * self.grid_size)
         
-        # Wall distances (normalized)
+        # Wall distances
         state[9] = head_y / self.grid_size
         state[10] = (self.grid_size - 1 - head_y) / self.grid_size
         state[11] = head_x / self.grid_size
@@ -179,15 +260,15 @@ class SnakeEnvironmentAC:
             # Distance-based reward
             old_dist = abs(head_x - self.food[0]) + abs(head_y - self.food[1])
             new_dist = abs(new_head[0] - self.food[0]) + abs(new_head[1] - self.food[1])
-            reward = 0.2 if new_dist < old_dist else -0.1
+            reward = 0.1 if new_dist < old_dist else -0.05
         
         self.steps += 1
         done = self.steps >= 1000
         
         return self._get_enhanced_state(), reward, done
 
-class ActorCriticAgent:
-    """Advantage Actor-Critic (A2C) agent"""
+class EnhancedActorCriticAgent:
+    """Enhanced A2C agent with n-step returns and GAE"""
     
     def __init__(self, config: ActorCriticConfig):
         self.config = config
@@ -208,9 +289,32 @@ class ActorCriticAgent:
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=config.actor_lr)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=config.critic_lr)
         
-        print(f"✅ Actor-Critic Agent initialized on {self.device}")
+        # Learning rate schedulers
+        if config.use_lr_scheduler:
+            self.actor_scheduler = optim.lr_scheduler.StepLR(
+                self.actor_optimizer, 
+                step_size=config.lr_decay_step,
+                gamma=config.lr_decay_gamma
+            )
+            self.critic_scheduler = optim.lr_scheduler.StepLR(
+                self.critic_optimizer,
+                step_size=config.lr_decay_step,
+                gamma=config.lr_decay_gamma
+            )
+        
+        # N-step storage
+        self.storage = NStepStorage(config.n_step, config.discount_factor, self.device)
+        
+        # Gradient accumulation
+        self.gradient_accumulation_counter = 0
+        
+        # Current entropy coefficient
+        self.entropy_coeff = config.entropy_coeff
+        
+        print(f"✅ Enhanced Actor-Critic Agent initialized on {self.device}")
         print(f"   Actor: {sum(p.numel() for p in self.actor.parameters())} parameters")
         print(f"   Critic: {sum(p.numel() for p in self.critic.parameters())} parameters")
+        print(f"   Features: N-step={config.n_step}, GAE={config.use_gae}")
     
     def get_action_and_value(self, state):
         """Get action from actor and value from critic"""
@@ -223,80 +327,124 @@ class ActorCriticAgent:
         log_prob = action_dist.log_prob(action)
         
         # Critic
-        value = self.critic(state_batch)
+        value = self.critic(state_batch).squeeze()
         
-        return action.item(), log_prob, value.squeeze()
+        return action.item(), log_prob.item(), value.item()
     
     def get_action(self, state):
         """Get action for evaluation (no gradients)"""
         with torch.no_grad():
-            action, _, _ = self.get_action_and_value(state)
+            action_probs = self.actor(state.unsqueeze(0))
+            action = torch.argmax(action_probs).item()
             return action
     
-    def train_step(self, states, actions, rewards, next_states, dones, log_probs):
-        """Single training step using collected transitions"""
-        # Convert to tensors
-        states = torch.stack(states)
-        actions = torch.tensor(actions, dtype=torch.long, device=self.device)
-        rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
-        next_states = torch.stack(next_states)
-        dones = torch.tensor(dones, dtype=torch.bool, device=self.device)
-        log_probs = torch.stack(log_probs)
+    def train_on_rollout(self):
+        """Train on collected n-step rollout"""
+        # Get batch data
+        states, actions, rewards, values, log_probs, dones = self.storage.get_batch()
         
-        # Compute values
-        values = self.critic(states).squeeze()
-        next_values = self.critic(next_states).squeeze()
+        # Compute last value for bootstrapping
+        with torch.no_grad():
+            if dones[-1]:
+                last_value = 0
+            else:
+                # Use critic to estimate value of last state
+                last_value = self.critic(states[-1].unsqueeze(0)).squeeze().item()
         
-        # Compute returns (TD target)
-        returns = rewards + self.config.discount_factor * next_values * ~dones
+        # Compute returns and advantages
+        returns, advantages = self.storage.compute_returns_and_advantages(
+            last_value, 
+            use_gae=self.config.use_gae,
+            gae_lambda=self.config.gae_lambda
+        )
         
-        # Compute advantages
-        advantages = returns - values
+        # Normalize advantages
+        if self.config.normalize_advantages and len(advantages) > 1:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         
-        # Actor loss (policy gradient with advantage)
-        actor_loss = -(log_probs * advantages.detach()).mean()
-        
-        # Entropy bonus for exploration
+        # Recompute action probabilities and values for current parameters
         action_probs = self.actor(states)
-        entropy = -(action_probs * torch.log(action_probs + 1e-8)).sum(dim=-1).mean()
-        entropy_loss = -self.config.entropy_coeff * entropy
+        action_dist = torch.distributions.Categorical(action_probs)
+        new_log_probs = action_dist.log_prob(actions)
+        entropy = action_dist.entropy().mean()
+        
+        new_values = self.critic(states).squeeze()
+        
+        # Actor loss (policy gradient with advantages)
+        actor_loss = -(new_log_probs * advantages.detach()).mean()
+        
+        # Entropy bonus
+        entropy_loss = -self.entropy_coeff * entropy
         
         # Critic loss (value function)
-        critic_loss = F.mse_loss(values, returns.detach())
+        critic_loss = F.mse_loss(new_values, returns.detach())
         
         # Total actor loss
         total_actor_loss = actor_loss + entropy_loss
         
-        # Update actor
-        self.actor_optimizer.zero_grad()
-        total_actor_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.config.max_grad_norm)
-        self.actor_optimizer.step()
+        # Gradient accumulation
+        self.gradient_accumulation_counter += 1
         
-        # Update critic
-        self.critic_optimizer.zero_grad()
+        # Scale losses by accumulation steps
+        total_actor_loss = total_actor_loss / self.config.gradient_accumulation_steps
+        critic_loss = critic_loss / self.config.gradient_accumulation_steps
+        
+        # Backward pass
+        total_actor_loss.backward()
         critic_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.config.max_grad_norm)
-        self.critic_optimizer.step()
+        
+        # Update parameters if accumulation complete
+        if self.gradient_accumulation_counter >= self.config.gradient_accumulation_steps:
+            # Clip gradients
+            torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.config.max_grad_norm)
+            torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.config.max_grad_norm)
+            
+            # Update
+            self.actor_optimizer.step()
+            self.critic_optimizer.step()
+            
+            # Zero gradients
+            self.actor_optimizer.zero_grad()
+            self.critic_optimizer.zero_grad()
+            
+            # Reset counter
+            self.gradient_accumulation_counter = 0
+        
+        # Clear storage
+        self.storage.reset()
         
         return actor_loss.item(), critic_loss.item(), entropy.item()
     
+    def update_entropy_coeff(self):
+        """Decay entropy coefficient"""
+        self.entropy_coeff = max(
+            self.config.min_entropy_coeff,
+            self.entropy_coeff * self.config.entropy_decay
+        )
+    
+    def update_schedulers(self):
+        """Update learning rate schedulers"""
+        if self.config.use_lr_scheduler:
+            self.actor_scheduler.step()
+            self.critic_scheduler.step()
+    
     def save_model(self, filepath, metadata=None):
-        """Save Actor-Critic model"""
+        """Save enhanced Actor-Critic model"""
         model_data = {
             'actor_state_dict': self.actor.state_dict(),
             'critic_state_dict': self.critic.state_dict(),
             'actor_optimizer': self.actor_optimizer.state_dict(),
             'critic_optimizer': self.critic_optimizer.state_dict(),
             'config': self.config.__dict__,
+            'entropy_coeff': self.entropy_coeff,
             'metadata': metadata or {}
         }
         
         torch.save(model_data, filepath)
-        print(f"✅ Actor-Critic model saved: {filepath}")
+        print(f"✅ Enhanced Actor-Critic model saved: {filepath}")
 
 def train_actor_critic(config: ActorCriticConfig):
-    """Main Actor-Critic training loop"""
+    """Main Actor-Critic training loop with enhancements"""
     device = verify_gpu()
     config.device = str(device)
     
@@ -308,67 +456,75 @@ def train_actor_critic(config: ActorCriticConfig):
     
     # Initialize environment and agent
     env = SnakeEnvironmentAC(device=str(device))
-    agent = ActorCriticAgent(config)
+    agent = EnhancedActorCriticAgent(config)
     metrics = TrainingMetrics()
     
-    print(f"🚀 Starting Actor-Critic training: {config.profile_name}")
+    print(f"🚀 Starting Enhanced Actor-Critic training: {config.profile_name}")
     print(f"   Target score: {config.target_score}")
     print(f"   Max episodes: {config.max_episodes}")
     
     best_score = 0
+    best_path = None
     training_start = time.time()
     recent_scores = deque(maxlen=100)
     
-    for episode in tqdm(range(config.max_episodes), desc="Training Actor-Critic"):
+    for episode in tqdm(range(config.max_episodes), desc="Training Enhanced Actor-Critic"):
         state = env.reset()
         total_reward = 0
         steps = 0
+        episode_actor_loss = 0
+        episode_critic_loss = 0
+        update_count = 0
         
-        # Episode storage
-        episode_states = []
-        episode_actions = []
-        episode_rewards = []
-        episode_next_states = []
-        episode_dones = []
-        episode_log_probs = []
-        
-        # Collect episode
         while True:
+            # Get action and value
             action, log_prob, value = agent.get_action_and_value(state)
             next_state, reward, done = env.step(action)
             
             # Store transition
-            episode_states.append(state)
-            episode_actions.append(action)
-            episode_rewards.append(reward)
-            episode_next_states.append(next_state)
-            episode_dones.append(done)
-            episode_log_probs.append(log_prob)
+            agent.storage.add(state, action, reward, value, log_prob, done)
             
             total_reward += reward
             steps += 1
+            
+            # Train on n-step rollout
+            if len(agent.storage.states) >= config.n_step or done:
+                actor_loss, critic_loss, entropy = agent.train_on_rollout()
+                episode_actor_loss += actor_loss
+                episode_critic_loss += critic_loss
+                update_count += 1
+            
             state = next_state
             
             if done:
+                # Process any remaining transitions
+                if len(agent.storage.states) > 0:
+                    actor_loss, critic_loss, entropy = agent.train_on_rollout()
+                    episode_actor_loss += actor_loss
+                    episode_critic_loss += critic_loss
+                    update_count += 1
                 break
         
-        # Train on episode
-        actor_loss, critic_loss, entropy = agent.train_step(
-            episode_states, episode_actions, episode_rewards,
-            episode_next_states, episode_dones, episode_log_probs
-        )
+        # Update parameters
+        agent.update_entropy_coeff()
+        agent.update_schedulers()
         
         # Metrics
         recent_scores.append(env.score)
-        total_loss = actor_loss + critic_loss
-        metrics.add_episode(env.score, total_loss, 0.0, steps, total_reward)
+        avg_actor_loss = episode_actor_loss / max(update_count, 1)
+        avg_critic_loss = episode_critic_loss / max(update_count, 1)
+        metrics.add_episode(env.score, avg_actor_loss + avg_critic_loss, agent.entropy_coeff, steps, total_reward)
         
         # Progress logging
         if episode % 100 == 0:
             avg_score = np.mean(recent_scores) if recent_scores else 0
+            current_actor_lr = agent.actor_scheduler.get_last_lr()[0] if config.use_lr_scheduler else config.actor_lr
+            current_critic_lr = agent.critic_scheduler.get_last_lr()[0] if config.use_lr_scheduler else config.critic_lr
+            
             print(f"Episode {episode}: Avg Score: {avg_score:.2f}, "
-                  f"Actor Loss: {actor_loss:.4f}, Critic Loss: {critic_loss:.4f}, "
-                  f"Entropy: {entropy:.4f}")
+                  f"Actor Loss: {avg_actor_loss:.4f}, Critic Loss: {avg_critic_loss:.4f}, "
+                  f"Entropy: {agent.entropy_coeff:.4f}, "
+                  f"LR: A={current_actor_lr:.5f} C={current_critic_lr:.5f}")
             
             # Save checkpoint
             if episode % config.checkpoint_interval == 0 and episode > 0:
@@ -376,8 +532,6 @@ def train_actor_critic(config: ActorCriticConfig):
                 agent.save_model(checkpoint_path, {
                     'episode': episode,
                     'avg_score': avg_score,
-                    'actor_loss': actor_loss,
-                    'critic_loss': critic_loss,
                     'training_time': time.time() - training_start
                 })
         
@@ -418,6 +572,7 @@ def train_actor_critic(config: ActorCriticConfig):
         "episodes": len(metrics.scores),
         "final_avg_score": float(np.mean(recent_scores)) if recent_scores else 0,
         "best_score": int(max(metrics.scores)) if metrics.scores else 0,
+        "final_entropy_coeff": agent.entropy_coeff,
         "training_time": time.time() - training_start,
         "config": config.__dict__
     }
@@ -426,9 +581,10 @@ def train_actor_critic(config: ActorCriticConfig):
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=4)
     
-    print(f"✅ Actor-Critic training complete!")
+    print(f"✅ Enhanced Actor-Critic training complete!")
     print(f"📁 Final model: {final_path}")
-    print(f"📁 Best model: {best_path}")
+    if best_path:
+        print(f"📁 Best model: {best_path}")
     print(f"📊 Report: {report_path}")
 
 def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: str):
@@ -452,7 +608,7 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
         axes[0,1].set_ylabel('Average Score')
         axes[0,1].grid(True)
     
-    # Total loss (actor + critic)
+    # Total loss
     axes[1,0].plot(metrics.losses)
     axes[1,0].set_title('Total Loss (Actor + Critic)')
     axes[1,0].set_xlabel('Episode')
@@ -466,7 +622,7 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     axes[1,1].set_ylabel('Steps')
     axes[1,1].grid(True)
     
-    plt.suptitle(f'Actor-Critic Training Curves - {profile_name}')
+    plt.suptitle(f'Enhanced Actor-Critic Training Curves - {profile_name}')
     plt.tight_layout()
     
     plot_path = Path(save_dir) / f"ac_training_curves_{profile_name}.png"
@@ -476,7 +632,7 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     print(f"✅ Training curves saved: {plot_path}")
 
 if __name__ == "__main__":
-    # Train different Actor-Critic profiles
+    # Train different Actor-Critic profiles with enhancements
     profiles = {
         "aggressive": ActorCriticConfig(
             profile_name="aggressive",
@@ -484,7 +640,9 @@ if __name__ == "__main__":
             critic_lr=0.006,
             entropy_coeff=0.02,
             max_episodes=2000,
-            target_score=10
+            target_score=10,
+            n_step=3,
+            gae_lambda=0.9
         ),
         "balanced": ActorCriticConfig(
             profile_name="balanced",
@@ -492,7 +650,9 @@ if __name__ == "__main__":
             critic_lr=0.002,
             entropy_coeff=0.01,
             max_episodes=2500,
-            target_score=13
+            target_score=13,
+            n_step=5,
+            gae_lambda=0.95
         ),
         "conservative": ActorCriticConfig(
             profile_name="conservative",
@@ -500,12 +660,14 @@ if __name__ == "__main__":
             critic_lr=0.001,
             entropy_coeff=0.005,
             max_episodes=3000,
-            target_score=16
+            target_score=16,
+            n_step=8,
+            gae_lambda=0.98
         )
     }
     
     for name, config in profiles.items():
         print(f"\n{'='*60}")
-        print(f"🚀 Training Actor-Critic {name.upper()} model")
+        print(f"🚀 Training Enhanced Actor-Critic {name.upper()} model")
         print(f"{'='*60}")
         train_actor_critic(config)
