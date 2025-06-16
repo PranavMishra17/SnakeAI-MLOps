@@ -521,6 +521,8 @@ TrainedModelManager::TrainedModelManager(const std::string& modelsDir)
     scanForModels();
 }
 
+// Replace the scanForModels() method in MLAgents.cpp:
+
 void TrainedModelManager::scanForModels() {
     m_availableModels.clear();
     
@@ -529,20 +531,22 @@ void TrainedModelManager::scanForModels() {
         return;
     }
     
-    // Scan for Q-Learning models in qlearning subdirectory
+    // Scan for Q-Learning models
     auto qlearningDir = std::filesystem::path(m_modelsDirectory) / "qlearning";
     if (std::filesystem::exists(qlearningDir)) {
         for (const auto& entry : std::filesystem::directory_iterator(qlearningDir)) {
             if (entry.is_regular_file()) {
                 std::string filename = entry.path().filename().string();
                 
+                // Look for qtable_*.json files (skip session files and reports)
                 if (filename.substr(0, 7) == "qtable_" && 
-                    filename.length() > 5 && filename.substr(filename.length() - 5) == ".json" &&
-                    filename.find("checkpoint") == std::string::npos &&
+                    filename.length() > 12 && 
+                    filename.substr(filename.length() - 5) == ".json" &&
+                    filename.find("session") == std::string::npos &&
                     filename.find("report") == std::string::npos) {
                     
-                    std::string profile = filename.substr(7);
-                    profile = profile.substr(0, profile.length() - 5);
+                    // Extract profile: qtable_balanced.json -> "balanced"
+                    std::string profile = filename.substr(7, filename.length() - 12);
                     
                     TrainedModelInfo info;
                     info.name = "Q-Learning " + profile;
@@ -562,42 +566,100 @@ void TrainedModelManager::scanForModels() {
         }
     }
     
-    // Scan for neural network models
-    std::vector<std::string> neuralTechniques = {"dqn", "policy_gradient", "actor_critic"};
-    for (const auto& technique : neuralTechniques) {
-        auto techDir = std::filesystem::path(m_modelsDirectory) / technique;
-        if (std::filesystem::exists(techDir)) {
-            for (const auto& entry : std::filesystem::directory_iterator(techDir)) {
-                if (entry.is_regular_file()) {
-                    std::string filename = entry.path().filename().string();
+    // Scan for DQN models
+    auto dqnDir = std::filesystem::path(m_modelsDirectory) / "dqn";
+    if (std::filesystem::exists(dqnDir)) {
+        for (const auto& entry : std::filesystem::directory_iterator(dqnDir)) {
+            if (entry.is_regular_file()) {
+                std::string filename = entry.path().filename().string();
+                
+                // Look for dqn_*.pth files (skip best and checkpoint files)
+                if (filename.substr(0, 4) == "dqn_" && 
+                    filename.length() > 8 && 
+                    filename.substr(filename.length() - 4) == ".pth" &&
+                    filename.find("best") == std::string::npos &&
+                    filename.find("checkpoint") == std::string::npos) {
                     
-                    // Look for .pth files (PyTorch models)
-                    if (filename.length() > 4 && filename.substr(filename.length() - 4) == ".pth" &&
-                        filename.find("checkpoint") == std::string::npos &&
-                        filename.find("best") == std::string::npos) {
-                        
-                        // Extract profile from filename
-                        std::string profile = "balanced"; // Default
-                        if (filename.find("aggressive") != std::string::npos) {
-                            profile = "aggressive";
-                        } else if (filename.find("conservative") != std::string::npos) {
-                            profile = "conservative";
-                        } else if (filename.find("balanced") != std::string::npos) {
-                            profile = "balanced";
-                        }
-                        
-                        TrainedModelInfo info;
-                        info.name = technique + " " + profile;
-                        info.profile = profile;
-                        info.modelPath = entry.path().string();
-                        info.modelType = technique;
-                        info.description = technique + " neural network model (" + profile + " profile)";
-                        info.isLoaded = false;
-                        
-                        m_availableModels.push_back(info);
-                        spdlog::info("TrainedModelManager: Found {} model: {} ({})", 
-                                     technique, profile, info.modelPath);
-                    }
+                    // Extract profile: dqn_balanced.pth -> "balanced"
+                    std::string profile = filename.substr(4, filename.length() - 8);
+                    
+                    TrainedModelInfo info;
+                    info.name = "DQN " + profile;
+                    info.profile = profile;
+                    info.modelPath = entry.path().string();
+                    info.modelType = "dqn";
+                    info.description = "DQN neural network model (" + profile + " profile)";
+                    info.isLoaded = false;
+                    
+                    m_availableModels.push_back(info);
+                    spdlog::info("TrainedModelManager: Found dqn model: {} ({})", 
+                                 profile, info.modelPath);
+                }
+            }
+        }
+    }
+    
+    // Scan for Policy Gradient models
+    auto pgDir = std::filesystem::path(m_modelsDirectory) / "policy_gradient";
+    if (std::filesystem::exists(pgDir)) {
+        for (const auto& entry : std::filesystem::directory_iterator(pgDir)) {
+            if (entry.is_regular_file()) {
+                std::string filename = entry.path().filename().string();
+                
+                // Look for pg_*.pth files
+                if (filename.substr(0, 3) == "pg_" && 
+                    filename.length() > 7 && 
+                    filename.substr(filename.length() - 4) == ".pth" &&
+                    filename.find("best") == std::string::npos &&
+                    filename.find("checkpoint") == std::string::npos) {
+                    
+                    // Extract profile: pg_aggressive.pth -> "aggressive"
+                    std::string profile = filename.substr(3, filename.length() - 7);
+                    
+                    TrainedModelInfo info;
+                    info.name = "Policy Gradient " + profile;
+                    info.profile = profile;
+                    info.modelPath = entry.path().string();
+                    info.modelType = "policy_gradient";
+                    info.description = "Policy gradient model (" + profile + " profile)";
+                    info.isLoaded = false;
+                    
+                    m_availableModels.push_back(info);
+                    spdlog::info("TrainedModelManager: Found policy_gradient model: {} ({})", 
+                                 profile, info.modelPath);
+                }
+            }
+        }
+    }
+    
+    // Scan for Actor-Critic models
+    auto acDir = std::filesystem::path(m_modelsDirectory) / "actor_critic";
+    if (std::filesystem::exists(acDir)) {
+        for (const auto& entry : std::filesystem::directory_iterator(acDir)) {
+            if (entry.is_regular_file()) {
+                std::string filename = entry.path().filename().string();
+                
+                // Look for ac_*.pth files
+                if (filename.substr(0, 3) == "ac_" && 
+                    filename.length() > 7 && 
+                    filename.substr(filename.length() - 4) == ".pth" &&
+                    filename.find("best") == std::string::npos &&
+                    filename.find("checkpoint") == std::string::npos) {
+                    
+                    // Extract profile: ac_balanced.pth -> "balanced"
+                    std::string profile = filename.substr(3, filename.length() - 7);
+                    
+                    TrainedModelInfo info;
+                    info.name = "Actor-Critic " + profile;
+                    info.profile = profile;
+                    info.modelPath = entry.path().string();
+                    info.modelType = "actor_critic";
+                    info.description = "Actor-critic model (" + profile + " profile)";
+                    info.isLoaded = false;
+                    
+                    m_availableModels.push_back(info);
+                    spdlog::info("TrainedModelManager: Found actor_critic model: {} ({})", 
+                                 profile, info.modelPath);
                 }
             }
         }

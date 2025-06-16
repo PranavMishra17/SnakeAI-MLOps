@@ -85,12 +85,13 @@ void AgentSelection::initializeAgents() {
     m_agents.emplace_back(basicQLearning);
 }
 
+
 void AgentSelection::loadTrainedModels() {
     auto trainedModels = m_modelManager->getAvailableModels();
     
     spdlog::info("AgentSelection: Loading {} trained models", trainedModels.size());
     
-    // Add trained Q-Learning models with proper names and descriptions
+    // Add trained Q-Learning models
     for (const auto& modelInfo : trainedModels) {
         if (modelInfo.modelType == "qlearning") {
             AgentConfig config;
@@ -98,22 +99,10 @@ void AgentSelection::loadTrainedModels() {
             config.isImplemented = true;
             config.modelPath = modelInfo.modelPath;
             
-            // Extract profile from filename and create proper display names
+            // Match actual file names: qtable_balanced.json -> "Q-Learning balanced"
             std::string profile = modelInfo.profile;
-            
-            if (profile == "aggressive") {
-                config.name = "Q-Learning Aggressive";
-                config.description = "High learning rate, bold exploration (aggressive)";
-            } else if (profile == "balanced") {
-                config.name = "Q-Learning Balanced";
-                config.description = "Optimal learning parameters (balanced)";
-            } else if (profile == "conservative") {
-                config.name = "Q-Learning Conservative";
-                config.description = "Careful exploration, stable learning (conservative)";
-            } else {
-                config.name = "Q-Learning " + profile;
-                config.description = "Trained Q-Learning model (" + profile + " profile)";
-            }
+            config.name = "Q-Learning " + profile;  // Keep lowercase to match TrainedModelManager
+            config.description = "Trained Q-Learning model (" + profile + " profile)";
             
             AgentMenuItem item(config);
             item.isTrainedModel = true;
@@ -124,29 +113,17 @@ void AgentSelection::loadTrainedModels() {
         }
     }
     
-    // Add neural network agents as enhanced intelligent placeholders
-    // DQN Agents
+    // Add DQN models
     for (const auto& modelInfo : trainedModels) {
         if (modelInfo.modelType == "dqn") {
             AgentConfig config;
             config.type = AgentType::DEEP_Q_NETWORK;
-            config.isImplemented = true; // Mark as implemented (intelligent placeholder)
+            config.isImplemented = true;
             config.modelPath = modelInfo.modelPath;
             
             std::string profile = modelInfo.profile;
-            if (profile == "aggressive") {
-                config.name = "DQN Aggressive";
-                config.description = "Neural network with high exploration (aggressive)";
-            } else if (profile == "balanced") {
-                config.name = "DQN Balanced";
-                config.description = "Deep Q-Network with optimal parameters (balanced)";
-            } else if (profile == "conservative") {
-                config.name = "DQN Conservative";
-                config.description = "Stable neural network learning (conservative)";
-            } else {
-                config.name = "DQN " + profile;
-                config.description = "Deep Q-Network model (" + profile + " profile)";
-            }
+            config.name = "DQN " + profile;  // Keep lowercase
+            config.description = "Deep Q-Network model (" + profile + " profile)";
             
             AgentMenuItem item(config);
             item.isTrainedModel = true;
@@ -157,28 +134,17 @@ void AgentSelection::loadTrainedModels() {
         }
     }
     
-    // Policy Gradient Agents
+    // Add Policy Gradient models
     for (const auto& modelInfo : trainedModels) {
         if (modelInfo.modelType == "policy_gradient") {
             AgentConfig config;
             config.type = AgentType::POLICY_GRADIENT;
-            config.isImplemented = true; // Mark as implemented (intelligent placeholder)
+            config.isImplemented = true;
             config.modelPath = modelInfo.modelPath;
             
             std::string profile = modelInfo.profile;
-            if (profile == "aggressive") {
-                config.name = "Policy Gradient Aggressive";
-                config.description = "Direct policy optimization, high entropy (aggressive)";
-            } else if (profile == "balanced") {
-                config.name = "Policy Gradient Balanced";
-                config.description = "REINFORCE algorithm with baseline (balanced)";
-            } else if (profile == "conservative") {
-                config.name = "Policy Gradient Conservative";
-                config.description = "Stable policy learning, low entropy (conservative)";
-            } else {
-                config.name = "Policy Gradient " + profile;
-                config.description = "Policy gradient model (" + profile + " profile)";
-            }
+            config.name = "Policy Gradient " + profile;  // Keep lowercase
+            config.description = "Policy gradient model (" + profile + " profile)";
             
             AgentMenuItem item(config);
             item.isTrainedModel = true;
@@ -189,28 +155,17 @@ void AgentSelection::loadTrainedModels() {
         }
     }
     
-    // Actor-Critic Agents
+    // Add Actor-Critic models
     for (const auto& modelInfo : trainedModels) {
         if (modelInfo.modelType == "actor_critic") {
             AgentConfig config;
             config.type = AgentType::ACTOR_CRITIC;
-            config.isImplemented = true; // Mark as implemented (intelligent placeholder)
+            config.isImplemented = true;
             config.modelPath = modelInfo.modelPath;
             
             std::string profile = modelInfo.profile;
-            if (profile == "aggressive") {
-                config.name = "Actor-Critic Aggressive";
-                config.description = "Value + policy learning, high exploration (aggressive)";
-            } else if (profile == "balanced") {
-                config.name = "Actor-Critic Balanced";
-                config.description = "A2C algorithm with entropy regularization (balanced)";
-            } else if (profile == "conservative") {
-                config.name = "Actor-Critic Conservative";
-                config.description = "Stable actor-critic learning (conservative)";
-            } else {
-                config.name = "Actor-Critic " + profile;
-                config.description = "Actor-critic model (" + profile + " profile)";
-            }
+            config.name = "Actor-Critic " + profile;  // Keep lowercase
+            config.description = "Actor-critic model (" + profile + " profile)";
             
             AgentMenuItem item(config);
             item.isTrainedModel = true;
@@ -221,36 +176,16 @@ void AgentSelection::loadTrainedModels() {
         }
     }
     
-    // If no trained models found, add fallback placeholders
+    // Fallback only if no models found
     if (trainedModels.empty()) {
         spdlog::warn("AgentSelection: No trained models found, adding fallback agents");
         
-        // DQN Placeholder
         AgentConfig dqn;
         dqn.type = AgentType::DEEP_Q_NETWORK;
         dqn.name = "DQN (Intelligent Placeholder)";
-        dqn.description = "Neural network simulation - requires PyTorch for full training";
+        dqn.description = "Neural network simulation";
         dqn.isImplemented = true;
-        dqn.modelPath = "";
         m_agents.emplace_back(dqn);
-        
-        // Policy Gradient Placeholder
-        AgentConfig pg;
-        pg.type = AgentType::POLICY_GRADIENT;
-        pg.name = "Policy Gradient (Placeholder)";
-        pg.description = "Policy optimization simulation - train with Python for full model";
-        pg.isImplemented = true;
-        pg.modelPath = "";
-        m_agents.emplace_back(pg);
-        
-        // Actor-Critic Placeholder
-        AgentConfig ac;
-        ac.type = AgentType::ACTOR_CRITIC;
-        ac.name = "Actor-Critic (Placeholder)";
-        ac.description = "Actor-critic simulation - use Python training for full capability";
-        ac.isImplemented = true;
-        ac.modelPath = "";
-        m_agents.emplace_back(ac);
     }
 }
 

@@ -178,7 +178,7 @@ void Game::setupCallbacks() {
     // Agent selection callbacks
     m_agentSelection->setSelectionCallback([this](const AgentConfig& config) {
         selectAgent(config);
-        m_currentState = GameState::MENU; // After selection, go back to menu to start game
+        // Let startGame() set the state to PLAYING
     });
 
     m_agentSelection->setBackCallback([this]() {
