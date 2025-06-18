@@ -330,13 +330,14 @@ class UnifiedModelEvaluator:
                     result = self.evaluate_model(str(qfile), "qlearning", episodes)
                     results.append(result)
         
-        # Neural network models
+        # Neural network models - FIXED: Include best models, exclude checkpoints
         for technique in ["dqn", "policy_gradient", "actor_critic"]:
             tech_dir = model_dir / technique
             if tech_dir.exists():
                 prefix = technique[:2] if technique != "policy_gradient" else "pg"
                 for model_file in tech_dir.glob(f"{prefix}_*.pth"):
-                    if "best" not in model_file.name and "checkpoint" not in model_file.name:
+                    # FIXED: Only exclude checkpoint files, keep best models
+                    if "checkpoint" not in model_file.name:
                         result = self.evaluate_model(str(model_file), technique, episodes)
                         results.append(result)
         

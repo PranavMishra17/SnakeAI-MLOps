@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Enhanced Deep Q-Network (DQN) trainer for SnakeAI-MLOps
-Implements: Prioritized Experience Replay, Soft Updates, N-step returns
+Fixed Deep Q-Network (DQN) trainer for SnakeAI-MLOps
+Simplified and robust implementation based on proven fundamentals
 """
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 import numpy as np
 import json
 import matplotlib.pyplot as plt
@@ -14,16 +15,16 @@ from dataclasses import dataclass
 from tqdm import tqdm
 import time
 from collections import deque
+import random
 
 from neural_network_utils import (
-    DQNNetwork, NetworkConfig, 
-    verify_gpu, create_directories, save_model, 
-    TrainingMetrics, encode_state_for_dqn
+    verify_gpu, create_directories, save_model,
+    TrainingMetrics
 )
 
 @dataclass
 class DQNConfig:
-    """Enhanced DQN training configuration"""
+    """Simplified DQN training configuration"""
     profile_name: str = "balanced"
     max_episodes: int = 2000
     learning_rate: float = 0.001
@@ -34,143 +35,71 @@ class DQNConfig:
     
     # DQN specific
     batch_size: int = 32
-    memory_capacity: int = 50000  # Increased from 10000
+    memory_capacity: int = 10000
     target_update_freq: int = 100
     min_memory_size: int = 1000
     
-    # Enhanced features
-    soft_update_tau: float = 0.005  # Soft target update
-    n_step: int = 3  # N-step returns
-    use_per: bool = True  # Prioritized Experience Replay
-    per_alpha: float = 0.6  # PER prioritization
-    per_beta: float = 0.4  # PER importance sampling
-    per_beta_increment: float = 0.001  # Beta annealing
-    
-    # Network architecture
-    hidden_layers: list = None
-    dueling: bool = True
+    # Simplified features (removed complex ones that cause instability)
     double_dqn: bool = True
+    dueling: bool = False  # Simplified for now
+    
+    # Network architecture - simpler
+    hidden_size: int = 128
     
     # Training settings
     device: str = "cuda"
     checkpoint_interval: int = 200
-    target_score: int = 15
+    target_score: int = 10  # More realistic target
     
-    def __post_init__(self):
-        if self.hidden_layers is None:
-            self.hidden_layers = [256, 128]
-
-class PrioritizedReplayBuffer:
-    """Prioritized Experience Replay Buffer"""
+class SimpleReplayBuffer:
+    """Simple experience replay buffer"""
     
-    def __init__(self, capacity, alpha=0.6, beta=0.4, device='cuda'):
+    def __init__(self, capacity, device):
         self.capacity = capacity
-        self.alpha = alpha
-        self.beta = beta
-        self.device = torch.device(device)
-        
-        self.buffer = []
-        self.priorities = np.zeros(capacity)
-        self.position = 0
-        self.max_priority = 1.0
+        self.device = device
+        self.buffer = deque(maxlen=capacity)
         
     def push(self, state, action, reward, next_state, done):
-        """Add experience with max priority"""
-        if len(self.buffer) < self.capacity:
-            self.buffer.append(None)
-        
-        self.buffer[self.position] = (state, action, reward, next_state, done)
-        self.priorities[self.position] = self.max_priority
-        self.position = (self.position + 1) % self.capacity
+        """Add experience to buffer"""
+        self.buffer.append((state, action, reward, next_state, done))
         
     def sample(self, batch_size):
-        """Sample batch with prioritized replay"""
-        if len(self.buffer) == self.capacity:
-            priorities = self.priorities
-        else:
-            priorities = self.priorities[:len(self.buffer)]
-            
-        # Calculate sampling probabilities
-        probs = priorities ** self.alpha
-        probs /= probs.sum()
-        
-        # Sample indices
-        indices = np.random.choice(len(self.buffer), batch_size, p=probs)
-        
-        # Calculate importance sampling weights
-        total = len(self.buffer)
-        weights = (total * probs[indices]) ** (-self.beta)
-        weights /= weights.max()
-        weights = torch.tensor(weights, device=self.device, dtype=torch.float32)
-        
-        # Get batch
-        batch = [self.buffer[idx] for idx in indices]
+        """Sample batch of experiences"""
+        batch = random.sample(self.buffer, batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
         
         return (
-            torch.stack(states).to(self.device),
+            torch.stack(states),
             torch.tensor(actions, device=self.device, dtype=torch.long),
             torch.tensor(rewards, device=self.device, dtype=torch.float32),
-            torch.stack(next_states).to(self.device),
-            torch.tensor(dones, device=self.device, dtype=torch.bool),
-            indices,
-            weights
+            torch.stack(next_states),
+            torch.tensor(dones, device=self.device, dtype=torch.bool)
         )
-    
-    def update_priorities(self, indices, td_errors):
-        """Update priorities based on TD errors"""
-        priorities = np.abs(td_errors.cpu().numpy()) + 1e-6
-        for idx, priority in zip(indices, priorities):
-            self.priorities[idx] = priority
-            self.max_priority = max(self.max_priority, priority)
     
     def __len__(self):
         return len(self.buffer)
 
-class NStepBuffer:
-    """N-step return buffer"""
+class SimpleDQN(nn.Module):
+    """Simplified DQN Network"""
     
-    def __init__(self, n_step, gamma, device):
-        self.n_step = n_step
-        self.gamma = gamma
-        self.device = device
-        self.buffer = deque(maxlen=n_step)
+    def __init__(self, input_size, hidden_size, output_size):
+        super(SimpleDQN, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, output_size)
         
-    def append(self, state, action, reward, next_state, done):
-        self.buffer.append((state, action, reward, next_state, done))
-        
-    def get(self):
-        """Get n-step transition"""
-        if len(self.buffer) < self.n_step:
-            return None
-            
-        # Calculate n-step return
-        n_step_return = 0
-        for i, (_, _, r, _, d) in enumerate(self.buffer):
-            n_step_return += (self.gamma ** i) * r
-            if d and i < self.n_step - 1:
-                # Episode ended early
-                return (
-                    self.buffer[0][0],  # state
-                    self.buffer[0][1],  # action
-                    n_step_return,
-                    self.buffer[i][3],  # next_state where it ended
-                    True
-                )
-        
-        return (
-            self.buffer[0][0],  # state
-            self.buffer[0][1],  # action
-            n_step_return,
-            self.buffer[-1][3],  # next_state
-            self.buffer[-1][4]  # done
-        )
+        # Initialize weights
+        for layer in [self.fc1, self.fc2, self.fc3]:
+            nn.init.xavier_uniform_(layer.weight)
+            nn.init.zeros_(layer.bias)
     
-    def clear(self):
-        self.buffer.clear()
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
 
 class SnakeEnvironmentDQN:
-    """Snake environment optimized for DQN training"""
+    """Fixed Snake environment for DQN training"""
     
     def __init__(self, grid_size=20, device='cuda'):
         self.grid_size = grid_size
@@ -184,7 +113,8 @@ class SnakeEnvironmentDQN:
         self.food = self._place_food()
         self.score = 0
         self.steps = 0
-        return self._get_enhanced_state()
+        self.prev_distance = self._get_food_distance()
+        return self._get_state()
     
     def _place_food(self):
         """Place food randomly avoiding snake"""
@@ -194,76 +124,68 @@ class SnakeEnvironmentDQN:
             if pos not in self.snake:
                 return pos
     
-    def _get_enhanced_state(self):
-        """Get 20D enhanced state for neural networks"""
+    def _get_food_distance(self):
+        """Get Manhattan distance to food"""
+        head_x, head_y = self.snake[0]
+        food_x, food_y = self.food
+        return abs(head_x - food_x) + abs(head_y - food_y)
+    
+    def _get_state(self):
+        """Get enhanced state representation"""
         head_x, head_y = self.snake[0]
         food_x, food_y = self.food
         
-        # Basic 8D state
-        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+        # Direction vectors
+        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]  # UP, DOWN, LEFT, RIGHT
+        
+        # Current direction
         current_dir = directions[self.direction]
         
-        straight_pos = (head_x + current_dir[0], head_y + current_dir[1])
-        danger_straight = self._is_collision(straight_pos)
+        # Check dangers in all directions
+        danger_straight = self._is_collision((head_x + current_dir[0], head_y + current_dir[1]))
+        danger_left = self._is_collision((head_x + directions[(self.direction - 1) % 4][0], 
+                                         head_y + directions[(self.direction - 1) % 4][1]))
+        danger_right = self._is_collision((head_x + directions[(self.direction + 1) % 4][0], 
+                                          head_y + directions[(self.direction + 1) % 4][1]))
         
-        left_dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
-        left_dir = left_dirs[self.direction]
-        left_pos = (head_x + left_dir[0], head_y + left_dir[1])
-        danger_left = self._is_collision(left_pos)
-        
-        right_dirs = [(1, 0), (-1, 0), (0, -1), (0, 1)]
-        right_dir = right_dirs[self.direction]
-        right_pos = (head_x + right_dir[0], head_y + right_dir[1])
-        danger_right = self._is_collision(right_pos)
-        
+        # Food direction relative to head
         food_left = food_x < head_x
         food_right = food_x > head_x
         food_up = food_y < head_y
         food_down = food_y > head_y
         
-        # Enhanced 20D state
-        state_20d = torch.zeros(20, dtype=torch.float32, device=self.device)
-        
-        # Basic features
-        state_20d[0] = float(danger_straight)
-        state_20d[1] = float(danger_left)
-        state_20d[2] = float(danger_right)
-        state_20d[3] = float(self.direction / 3.0)
-        state_20d[4] = float(food_left)
-        state_20d[5] = float(food_right)
-        state_20d[6] = float(food_up)
-        state_20d[7] = float(food_down)
-        
         # Enhanced features
-        food_distance = abs(head_x - food_x) + abs(head_y - food_y)
-        state_20d[8] = food_distance / (2 * self.grid_size)
+        food_distance = self._get_food_distance()
+        normalized_distance = food_distance / (2 * self.grid_size)
         
-        state_20d[9] = head_y / self.grid_size
-        state_20d[10] = (self.grid_size - 1 - head_y) / self.grid_size
-        state_20d[11] = head_x / self.grid_size
-        state_20d[12] = (self.grid_size - 1 - head_x) / self.grid_size
+        # Wall distances (normalized)
+        wall_distances = [
+            head_y / self.grid_size,  # distance to top
+            (self.grid_size - 1 - head_y) / self.grid_size,  # distance to bottom
+            head_x / self.grid_size,  # distance to left
+            (self.grid_size - 1 - head_x) / self.grid_size,  # distance to right
+        ]
         
-        # Body density
-        quadrant_counts = [0, 0, 0, 0]
-        half_size = self.grid_size // 2
-        for seg_x, seg_y in self.snake[1:]:
-            quadrant = 0
-            if seg_x >= half_size:
-                quadrant += 1
-            if seg_y >= half_size:
-                quadrant += 2
-            quadrant_counts[quadrant] += 1
+        # Snake length and empty spaces
+        snake_length = len(self.snake) / (self.grid_size * self.grid_size)
+        empty_spaces = (self.grid_size * self.grid_size - len(self.snake) - 1) / (self.grid_size * self.grid_size)
         
-        quadrant_size = half_size * half_size
-        for i in range(4):
-            state_20d[13 + i] = quadrant_counts[i] / quadrant_size
+        # Create state vector (11 features)
+        state = torch.tensor([
+            float(danger_straight),
+            float(danger_left), 
+            float(danger_right),
+            float(self.direction / 3.0),  # normalized direction
+            float(food_left),
+            float(food_right),
+            float(food_up),
+            float(food_down),
+            normalized_distance,
+            snake_length,
+            empty_spaces
+        ], dtype=torch.float32, device=self.device)
         
-        state_20d[17] = len(self.snake) / (self.grid_size * self.grid_size)
-        empty_spaces = self.grid_size * self.grid_size - len(self.snake) - 1
-        state_20d[18] = empty_spaces / (self.grid_size * self.grid_size)
-        state_20d[19] = (food_distance + len(self.snake) * 0.1) / (2 * self.grid_size + 10)
-        
-        return state_20d
+        return state
     
     def _is_collision(self, pos):
         """Check if position causes collision"""
@@ -274,83 +196,76 @@ class SnakeEnvironmentDQN:
     
     def step(self, action):
         """Take action and return next state, reward, done"""
+        # Update direction
         self.direction = action
         head_x, head_y = self.snake[0]
         
-        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]  # UP, DOWN, LEFT, RIGHT
         dx, dy = directions[action]
         new_head = (head_x + dx, head_y + dy)
         
         # Check collision
         if self._is_collision(new_head):
-            return self._get_enhanced_state(), -10.0, True
+            return self._get_state(), -100.0, True  # Large death penalty
         
+        # Move snake
         self.snake.insert(0, new_head)
         
-        # Check food
+        # Calculate reward
+        reward = 0
+        
+        # Check if food eaten
         if new_head == self.food:
             self.score += 1
             self.food = self._place_food()
-            reward = 10.0
+            reward = 100.0  # Large food reward
         else:
-            self.snake.pop()
-            # Improved reward shaping
-            old_dist = abs(head_x - self.food[0]) + abs(head_y - self.food[1])
-            new_dist = abs(new_head[0] - self.food[0]) + abs(new_head[1] - self.food[1])
-            reward = 0.1 if new_dist < old_dist else -0.1
+            self.snake.pop()  # Remove tail if no food eaten
+            
+            # Distance-based reward (encouraging movement toward food)
+            current_distance = self._get_food_distance()
+            if current_distance < self.prev_distance:
+                reward = 1.0  # Moving closer to food
+            elif current_distance > self.prev_distance:
+                reward = -1.0  # Moving away from food
+            else:
+                reward = -0.1  # Small penalty for not making progress
+            
+            self.prev_distance = current_distance
         
         self.steps += 1
+        
+        # Episode ends if too many steps without progress
         done = self.steps >= 1000
         
-        return self._get_enhanced_state(), reward, done
+        return self._get_state(), reward, done
 
-class EnhancedDQNAgent:
-    """Enhanced DQN Agent with PER, soft updates, and n-step returns"""
+class SimpleDQNAgent:
+    """Simplified DQN Agent focusing on fundamentals"""
     
     def __init__(self, config: DQNConfig):
         self.config = config
         self.device = torch.device(config.device)
         
-        # Networks
-        net_config = NetworkConfig(
-            input_size=20,
-            hidden_layers=config.hidden_layers,
-            output_size=4,
-            dropout=0.1
-        )
-        
-        self.q_network = DQNNetwork(net_config, dueling=config.dueling).to(self.device)
-        self.target_network = DQNNetwork(net_config, dueling=config.dueling).to(self.device)
+        # Networks - simplified architecture
+        self.q_network = SimpleDQN(11, config.hidden_size, 4).to(self.device)  # 11 input features
+        self.target_network = SimpleDQN(11, config.hidden_size, 4).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
         self.target_network.eval()
         
-        # Optimizer with learning rate scheduling
+        # Optimizer
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=config.learning_rate)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=500, gamma=0.9)
         
         # Experience replay
-        if config.use_per:
-            self.memory = PrioritizedReplayBuffer(
-                config.memory_capacity, 
-                config.per_alpha, 
-                config.per_beta,
-                self.device
-            )
-        else:
-            from neural_network_utils import ExperienceReplay
-            self.memory = ExperienceReplay(config.memory_capacity, self.device)
-        
-        # N-step buffer
-        self.n_step_buffer = NStepBuffer(config.n_step, config.discount_factor, self.device)
+        self.memory = SimpleReplayBuffer(config.memory_capacity, self.device)
         
         # Training state
         self.epsilon = config.epsilon_start
         self.steps_done = 0
-        self.beta = config.per_beta if config.use_per else 1.0
         
-        print(f"✅ Enhanced DQN Agent initialized on {self.device}")
+        print(f"✅ Simplified DQN Agent initialized on {self.device}")
         print(f"   Network: {sum(p.numel() for p in self.q_network.parameters())} parameters")
-        print(f"   Features: PER={config.use_per}, N-step={config.n_step}, Soft Updates")
+        print(f"   Input features: 11")
     
     def get_action(self, state, training=True):
         """Epsilon-greedy action selection"""
@@ -363,41 +278,16 @@ class EnhancedDQNAgent:
             return q_values.argmax().item()
     
     def store_experience(self, state, action, reward, next_state, done):
-        """Store experience with n-step returns"""
-        self.n_step_buffer.append(state, action, reward, next_state, done)
-        
-        # Get n-step transition
-        n_step_transition = self.n_step_buffer.get()
-        if n_step_transition:
-            if self.config.use_per:
-                self.memory.push(*n_step_transition)
-            else:
-                self.memory.push(*n_step_transition)
-        
-        # Clear buffer on episode end
-        if done:
-            # Process remaining transitions
-            while len(self.n_step_buffer.buffer) > 0:
-                n_step_transition = self.n_step_buffer.get()
-                if n_step_transition:
-                    if self.config.use_per:
-                        self.memory.push(*n_step_transition)
-                    else:
-                        self.memory.push(*n_step_transition)
-                self.n_step_buffer.buffer.popleft()
-            self.n_step_buffer.clear()
+        """Store experience in replay buffer"""
+        self.memory.push(state, action, reward, next_state, done)
     
     def train_step(self):
-        """Single training step with enhanced features"""
+        """Single training step"""
         if len(self.memory) < self.config.min_memory_size:
             return 0.0
         
         # Sample batch
-        if self.config.use_per:
-            states, actions, rewards, next_states, dones, indices, weights = self.memory.sample(self.config.batch_size)
-        else:
-            states, actions, rewards, next_states, dones = self.memory.sample(self.config.batch_size)
-            weights = torch.ones(self.config.batch_size, device=self.device)
+        states, actions, rewards, next_states, dones = self.memory.sample(self.config.batch_size)
         
         # Current Q values
         current_q_values = self.q_network(states).gather(1, actions.unsqueeze(1))
@@ -405,65 +295,40 @@ class EnhancedDQNAgent:
         # Next Q values
         with torch.no_grad():
             if self.config.double_dqn:
-                # Double DQN
+                # Double DQN: use main network to select actions, target network to evaluate
                 next_actions = self.q_network(next_states).argmax(1, keepdim=True)
                 next_q_values = self.target_network(next_states).gather(1, next_actions)
             else:
                 next_q_values = self.target_network(next_states).max(1)[0].unsqueeze(1)
             
-            # N-step returns already calculated in buffer
-            target_q_values = rewards.unsqueeze(1) + (self.config.discount_factor ** self.config.n_step * 
+            target_q_values = rewards.unsqueeze(1) + (self.config.discount_factor * 
                                                       next_q_values * ~dones.unsqueeze(1))
         
-        # TD errors for PER
-        td_errors = target_q_values - current_q_values
-        
-        # Weighted loss
-        loss = (weights.unsqueeze(1) * td_errors.pow(2)).mean()
+        # Compute loss
+        loss = F.mse_loss(current_q_values, target_q_values)
         
         # Optimize
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), 1.0)
-        self.optimizer.step()
         
-        # Update priorities
-        if self.config.use_per:
-            self.memory.update_priorities(indices, td_errors.detach().abs().squeeze())
+        # Gradient clipping
+        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), 1.0)
+        
+        self.optimizer.step()
         
         return loss.item()
     
-    def soft_update_target_network(self):
-        """Soft update of target network parameters"""
-        for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
-            target_param.data.copy_(
-                self.config.soft_update_tau * param.data + 
-                (1.0 - self.config.soft_update_tau) * target_param.data
-            )
-    
     def update_target_network(self):
-        """Update target network (hard or soft)"""
-        if self.config.soft_update_tau < 1.0:
-            # Soft update every step
-            self.soft_update_target_network()
-        else:
-            # Hard update periodically
-            self.target_network.load_state_dict(self.q_network.state_dict())
+        """Update target network (hard update)"""
+        self.target_network.load_state_dict(self.q_network.state_dict())
     
     def decay_epsilon(self):
         """Decay exploration rate"""
         self.epsilon = max(self.config.epsilon_end, 
                           self.epsilon * self.config.epsilon_decay)
     
-    def update_beta(self):
-        """Update importance sampling beta for PER"""
-        if self.config.use_per:
-            self.beta = min(1.0, self.beta + self.config.per_beta_increment)
-            if hasattr(self.memory, 'beta'):
-                self.memory.beta = self.beta
-    
     def save_model(self, filepath, metadata=None):
-        """Save enhanced DQN model"""
+        """Save DQN model"""
         model_data = {
             'q_network': self.q_network.state_dict(),
             'target_network': self.target_network.state_dict(),
@@ -474,10 +339,10 @@ class EnhancedDQNAgent:
             'metadata': metadata or {}
         }
         torch.save(model_data, filepath)
-        print(f"✅ Enhanced DQN model saved: {filepath}")
+        print(f"✅ Simplified DQN model saved: {filepath}")
 
 def train_dqn(config: DQNConfig):
-    """Main DQN training loop with enhancements"""
+    """Main DQN training loop - simplified and robust"""
     device = verify_gpu()
     config.device = str(device)
     
@@ -489,10 +354,10 @@ def train_dqn(config: DQNConfig):
     
     # Initialize environment and agent
     env = SnakeEnvironmentDQN(device=str(device))
-    agent = EnhancedDQNAgent(config)
+    agent = SimpleDQNAgent(config)
     metrics = TrainingMetrics()
     
-    print(f"🚀 Starting Enhanced DQN training: {config.profile_name}")
+    print(f"🚀 Starting Simplified DQN training: {config.profile_name}")
     print(f"   Target score: {config.target_score}")
     print(f"   Max episodes: {config.max_episodes}")
     
@@ -501,11 +366,12 @@ def train_dqn(config: DQNConfig):
     training_start = time.time()
     recent_scores = deque(maxlen=100)
     
-    for episode in tqdm(range(config.max_episodes), desc="Training Enhanced DQN"):
+    for episode in tqdm(range(config.max_episodes), desc="Training DQN"):
         state = env.reset()
         total_reward = 0
         episode_loss = 0
         steps = 0
+        train_steps = 0
         
         while True:
             action = agent.get_action(state, training=True)
@@ -513,41 +379,36 @@ def train_dqn(config: DQNConfig):
             
             agent.store_experience(state, action, reward, next_state, done)
             
-            # Train
-            loss = agent.train_step()
-            episode_loss += loss
+            # Train every step once we have enough experience
+            if len(agent.memory) >= config.min_memory_size:
+                loss = agent.train_step()
+                episode_loss += loss
+                train_steps += 1
+            
             total_reward += reward
             steps += 1
-            
-            # Soft update every step
-            if config.soft_update_tau < 1.0:
-                agent.update_target_network()
-            
             state = next_state
             
             if done:
                 break
         
-        # Hard update periodically (if not using soft updates)
-        if config.soft_update_tau >= 1.0 and episode % config.target_update_freq == 0:
+        # Update target network periodically
+        if episode % config.target_update_freq == 0:
             agent.update_target_network()
         
         # Update parameters
         agent.decay_epsilon()
-        agent.update_beta()
-        agent.scheduler.step()
         
         # Metrics
         recent_scores.append(env.score)
-        metrics.add_episode(env.score, episode_loss / max(steps, 1), agent.epsilon, steps, total_reward)
+        avg_loss = episode_loss / max(train_steps, 1)
+        metrics.add_episode(env.score, avg_loss, agent.epsilon, steps, total_reward)
         
         # Progress logging
         if episode % 100 == 0:
             avg_score = np.mean(recent_scores) if recent_scores else 0
-            avg_loss = metrics.get_recent_average('losses', 100)
-            current_lr = agent.scheduler.get_last_lr()[0]
             print(f"Episode {episode}: Avg Score: {avg_score:.2f}, Loss: {avg_loss:.4f}, "
-                  f"Epsilon: {agent.epsilon:.3f}, LR: {current_lr:.5f}")
+                  f"Epsilon: {agent.epsilon:.3f}, Memory: {len(agent.memory)}")
             
             # Save checkpoint
             if episode % config.checkpoint_interval == 0 and episode > 0:
@@ -596,7 +457,6 @@ def train_dqn(config: DQNConfig):
         "final_avg_score": float(np.mean(recent_scores)) if recent_scores else 0,
         "best_score": int(max(metrics.scores)) if metrics.scores else 0,
         "final_epsilon": agent.epsilon,
-        "final_beta": agent.beta if config.use_per else 1.0,
         "training_time": time.time() - training_start,
         "config": config.__dict__
     }
@@ -605,7 +465,7 @@ def train_dqn(config: DQNConfig):
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=4)
     
-    print(f"✅ Enhanced DQN training complete!")
+    print(f"✅ Simplified DQN training complete!")
     print(f"📁 Final model: {final_path}")
     if best_path:
         print(f"📁 Best model: {best_path}")
@@ -646,7 +506,7 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     axes[1,1].set_ylabel('Epsilon')
     axes[1,1].grid(True)
     
-    plt.suptitle(f'Enhanced DQN Training Curves - {profile_name}')
+    plt.suptitle(f'Simplified DQN Training Curves - {profile_name}')
     plt.tight_layout()
     
     plot_path = Path(save_dir) / f"dqn_training_curves_{profile_name}.png"
@@ -656,7 +516,7 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     print(f"✅ Training curves saved: {plot_path}")
 
 if __name__ == "__main__":
-    # Train different DQN profiles with enhanced features
+    # Train different DQN profiles with simplified approach
     profiles = {
         "aggressive": DQNConfig(
             profile_name="aggressive",
@@ -664,34 +524,31 @@ if __name__ == "__main__":
             epsilon_start=1.0,
             epsilon_decay=0.99,
             max_episodes=1500,
-            target_score=12,
-            soft_update_tau=0.01,
-            n_step=2
+            target_score=8,
+            hidden_size=64
         ),
         "balanced": DQNConfig(
             profile_name="balanced",
             learning_rate=0.0005,
-            epsilon_start=0.8,
+            epsilon_start=0.9,
             epsilon_decay=0.995,
             max_episodes=2000,
-            target_score=15,
-            soft_update_tau=0.005,
-            n_step=3
+            target_score=10,
+            hidden_size=128
         ),
         "conservative": DQNConfig(
             profile_name="conservative",
             learning_rate=0.0003,
-            epsilon_start=0.5,
+            epsilon_start=0.7,
             epsilon_decay=0.997,
             max_episodes=2500,
-            target_score=18,
-            soft_update_tau=0.001,
-            n_step=5
+            target_score=12,
+            hidden_size=256
         )
     }
     
     for name, config in profiles.items():
         print(f"\n{'='*60}")
-        print(f"🚀 Training Enhanced DQN {name.upper()} model")
+        print(f"🚀 Training Simplified DQN {name.upper()} model")
         print(f"{'='*60}")
         train_dqn(config)

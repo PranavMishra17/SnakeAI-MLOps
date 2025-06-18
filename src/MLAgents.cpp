@@ -573,7 +573,7 @@ void TrainedModelManager::scanForModels() {
             if (entry.is_regular_file()) {
                 std::string filename = entry.path().filename().string();
                 
-                // Look for dqn_*.pth files (skip best and checkpoint files)
+                // Look for dqn_*.pth files (skip checkpoint files)
                 if (filename.substr(0, 4) == "dqn_" && 
                     filename.length() > 8 && 
                     filename.substr(filename.length() - 4) == ".pth" &&

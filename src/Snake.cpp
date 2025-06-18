@@ -103,11 +103,17 @@ void Snake::render(sf::RenderWindow& window) {
     for (size_t i = 0; i < m_body.size(); ++i) {
         auto screenPos = m_grid->gridToScreen(m_body[i]);
         
-        // Different color for head
+        // Light, bright colors for snake
         if (i == 0) {
-            m_segmentShape.setFillColor(sf::Color(34, 139, 34)); // Darker green for head
+            // Head - bright lime green
+            m_segmentShape.setFillColor(sf::Color(50, 205, 50)); // Lime green
+            m_segmentShape.setOutlineThickness(2.0f);
+            m_segmentShape.setOutlineColor(sf::Color(34, 139, 34)); // Forest green outline
         } else {
-            m_segmentShape.setFillColor(sf::Color(144, 238, 144)); // Light green for body
+            // Body - light green
+            m_segmentShape.setFillColor(sf::Color(144, 238, 144)); // Light green
+            m_segmentShape.setOutlineThickness(1.0f);
+            m_segmentShape.setOutlineColor(sf::Color(107, 142, 35)); // Olive drab outline
         }
         
         m_segmentShape.setPosition(screenPos);

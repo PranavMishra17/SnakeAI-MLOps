@@ -30,30 +30,30 @@ void AgentSelection::initialize(sf::RenderWindow& window) {
     
     sf::Vector2u windowSize = window.getSize();
     
-    // Background
+    // Light background
     m_background.setSize(sf::Vector2f(static_cast<float>(windowSize.x), 
                                      static_cast<float>(windowSize.y)));
-    m_background.setFillColor(sf::Color(25, 25, 25));
+    m_background.setFillColor(sf::Color(245, 245, 220)); // Light beige
     
     // Title
     m_title = std::make_unique<sf::Text>(m_font);
     m_title->setString("Select AI Agent");
     m_title->setCharacterSize(48);
-    m_title->setFillColor(sf::Color::White);
+    m_title->setFillColor(sf::Color(47, 79, 47)); // Dark green
     m_title->setPosition(sf::Vector2f(windowSize.x / 2.0f - 200.0f, 30.0f));
     
     // Section title
     m_sectionTitle = std::make_unique<sf::Text>(m_font);
-    m_sectionTitle->setString("🤖 Available AI Agents");
+    m_sectionTitle->setString("Available AI Agents");
     m_sectionTitle->setCharacterSize(28);
-    m_sectionTitle->setFillColor(sf::Color::Cyan);
+    m_sectionTitle->setFillColor(sf::Color(70, 130, 180)); // Steel blue
     m_sectionTitle->setPosition(sf::Vector2f(windowSize.x / 2.0f - 150.0f, 100.0f));
     
     // Instructions
     m_instructions = std::make_unique<sf::Text>(m_font);
     m_instructions->setString("UP/DOWN: Navigate | ENTER: Select | ESC: Back");
     m_instructions->setCharacterSize(20);
-    m_instructions->setFillColor(sf::Color(150, 150, 150));
+    m_instructions->setFillColor(sf::Color(47, 79, 47)); // Dark green
     m_instructions->setPosition(sf::Vector2f(windowSize.x / 2.0f - 250.0f, 
                                            windowSize.y - 60.0f));
     
@@ -85,7 +85,6 @@ void AgentSelection::initializeAgents() {
     m_agents.emplace_back(basicQLearning);
 }
 
-
 void AgentSelection::loadTrainedModels() {
     auto trainedModels = m_modelManager->getAvailableModels();
     
@@ -99,9 +98,8 @@ void AgentSelection::loadTrainedModels() {
             config.isImplemented = true;
             config.modelPath = modelInfo.modelPath;
             
-            // Match actual file names: qtable_balanced.json -> "Q-Learning balanced"
             std::string profile = modelInfo.profile;
-            config.name = "Q-Learning " + profile;  // Keep lowercase to match TrainedModelManager
+            config.name = "Q-Learning " + profile;
             config.description = "Trained Q-Learning model (" + profile + " profile)";
             
             AgentMenuItem item(config);
@@ -122,7 +120,7 @@ void AgentSelection::loadTrainedModels() {
             config.modelPath = modelInfo.modelPath;
             
             std::string profile = modelInfo.profile;
-            config.name = "DQN " + profile;  // Keep lowercase
+            config.name = "DQN " + profile;
             config.description = "Deep Q-Network model (" + profile + " profile)";
             
             AgentMenuItem item(config);
@@ -143,7 +141,7 @@ void AgentSelection::loadTrainedModels() {
             config.modelPath = modelInfo.modelPath;
             
             std::string profile = modelInfo.profile;
-            config.name = "Policy Gradient " + profile;  // Keep lowercase
+            config.name = "Policy Gradient " + profile;
             config.description = "Policy gradient model (" + profile + " profile)";
             
             AgentMenuItem item(config);
@@ -164,7 +162,7 @@ void AgentSelection::loadTrainedModels() {
             config.modelPath = modelInfo.modelPath;
             
             std::string profile = modelInfo.profile;
-            config.name = "Actor-Critic " + profile;  // Keep lowercase
+            config.name = "Actor-Critic " + profile;
             config.description = "Actor-critic model (" + profile + " profile)";
             
             AgentMenuItem item(config);
@@ -192,25 +190,26 @@ void AgentSelection::loadTrainedModels() {
 void AgentSelection::createAgentDisplay(AgentMenuItem& item, float y) {
     sf::Vector2u windowSize = sf::Vector2u(1200, 800);
     
-    // Background panel (larger for trained models)
+    // Background panel with light colors
     float panelHeight = item.isTrainedModel ? 100.0f : 80.0f;
     item.background.setSize(sf::Vector2f(900.0f, panelHeight));
     item.background.setPosition(sf::Vector2f(windowSize.x / 2.0f - 450.0f, y));
-    item.background.setFillColor(sf::Color(40, 40, 40));
-    item.background.setOutlineThickness(2.0f);
-    item.background.setOutlineColor(sf::Color(80, 80, 80));
+    item.background.setFillColor(sf::Color(255, 255, 240)); // Ivory
+    item.background.setOutlineThickness(3.0f);
+    item.background.setOutlineColor(sf::Color(144, 238, 144)); // Light green
     
     // Agent name
     item.nameText = std::make_unique<sf::Text>(m_font);
     item.nameText->setString(item.config.name);
     item.nameText->setCharacterSize(24);
+    item.nameText->setFillColor(sf::Color(47, 79, 47)); // Dark green
     item.nameText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 430.0f, y + 10.0f));
     
     // Description
     item.descText = std::make_unique<sf::Text>(m_font);
     item.descText->setString(item.config.description);
     item.descText->setCharacterSize(16);
-    item.descText->setFillColor(sf::Color(180, 180, 180));
+    item.descText->setFillColor(sf::Color(25, 25, 112)); // Midnight blue
     item.descText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 430.0f, y + 40.0f));
     
     // Status
@@ -220,13 +219,13 @@ void AgentSelection::createAgentDisplay(AgentMenuItem& item, float y) {
     
     if (item.isTrainedModel) {
         statusStr = "TRAINED";
-        statusColor = sf::Color::Green;
+        statusColor = sf::Color(34, 139, 34); // Forest green
     } else if (item.config.isImplemented) {
         statusStr = "READY";
-        statusColor = sf::Color::Cyan;
+        statusColor = sf::Color(70, 130, 180); // Steel blue
     } else {
         statusStr = "COMING SOON";
-        statusColor = sf::Color::Yellow;
+        statusColor = sf::Color(255, 140, 0); // Dark orange
     }
     
     item.statusText->setString(statusStr);
@@ -238,7 +237,6 @@ void AgentSelection::createAgentDisplay(AgentMenuItem& item, float y) {
     if (item.isTrainedModel) {
         item.modelInfoText = std::make_unique<sf::Text>(m_font);
         
-        // Find model info from manager
         auto* modelInfo = m_modelManager->findModel(item.config.name);
         std::string infoStr;
         
@@ -246,7 +244,6 @@ void AgentSelection::createAgentDisplay(AgentMenuItem& item, float y) {
             infoStr = "Avg Score: " + std::to_string(modelInfo->averageScore).substr(0, 5);
             infoStr += " | Episodes: " + std::to_string(modelInfo->episodesTrained);
         } else {
-            // Extract profile info from description for display
             if (item.config.description.find("aggressive") != std::string::npos) {
                 infoStr = "Profile: Aggressive - High learning rate, bold exploration";
             } else if (item.config.description.find("balanced") != std::string::npos) {
@@ -260,31 +257,25 @@ void AgentSelection::createAgentDisplay(AgentMenuItem& item, float y) {
         
         item.modelInfoText->setString(infoStr);
         item.modelInfoText->setCharacterSize(14);
-        item.modelInfoText->setFillColor(sf::Color(200, 255, 200));
+        item.modelInfoText->setFillColor(sf::Color(34, 139, 34)); // Forest green
         item.modelInfoText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 430.0f, y + 65.0f));
     }
 }
 
-
 void AgentSelection::handleEvent(const sf::Event& event) {
-    // In SFML 3, sf::Event itself is the variant.
-    // We use getIf<T>() to check the type and get a pointer to the specific event data.
-
     if (const auto* keyPressedEvent = event.getIf<sf::Event::KeyPressed>()) {
-        // Now 'keyPressedEvent' is a pointer to sf::Event::KeyPressed,
-        // and its members are directly accessible (e.g., scancode).
-        switch (keyPressedEvent->scancode) { // Use scancode for SFML 3 Keyboard events
-            case sf::Keyboard::Scancode::Up: // Use scoped enum for SFML 3
+        switch (keyPressedEvent->scancode) {
+            case sf::Keyboard::Scancode::Up:
                 m_selectedIndex = (m_selectedIndex - 1 + m_agents.size()) % m_agents.size();
                 updateSelection();
                 spdlog::debug("AgentSelection: Selected agent index: {}", m_selectedIndex);
                 break;
-            case sf::Keyboard::Scancode::Down: // Use scoped enum for SFML 3
+            case sf::Keyboard::Scancode::Down:
                 m_selectedIndex = (m_selectedIndex + 1) % m_agents.size();
                 updateSelection();
                 spdlog::debug("AgentSelection: Selected agent index: {}", m_selectedIndex);
                 break;
-            case sf::Keyboard::Scancode::Enter: // Use scoped enum for SFML 3
+            case sf::Keyboard::Scancode::Enter:
                 if (m_agents[m_selectedIndex].config.isImplemented && m_selectionCallback) {
                     spdlog::info("AgentSelection: Selected agent: {}",
                                  m_agents[m_selectedIndex].config.name);
@@ -294,20 +285,17 @@ void AgentSelection::handleEvent(const sf::Event& event) {
                                  m_agents[m_selectedIndex].config.name);
                 }
                 break;
-            case sf::Keyboard::Scancode::Escape: // Use scoped enum for SFML 3
+            case sf::Keyboard::Scancode::Escape:
                 if (m_backCallback) {
                     spdlog::info("AgentSelection: Going back to main menu");
                     m_backCallback();
                 }
                 break;
-            default: // It's good practice to have a default in switch statements
+            default:
                 break;
         }
     }
-    // If you had other event types to handle (e.g., sf::Event::Closed, sf::Event::Resized),
-    // you would add more `if (const auto* ... = event.getIf<...>()){}` blocks.
 }
-
 
 void AgentSelection::update() {
     // Add animations or other updates here
@@ -331,29 +319,31 @@ void AgentSelection::render(sf::RenderWindow& window) {
 void AgentSelection::updateSelection() {
     for (size_t i = 0; i < m_agents.size(); ++i) {
         if (i == m_selectedIndex) {
-            // Highlight selected agent based on type
+            // Highlight selected agent with bright yellow
             sf::Color highlightColor;
             if (m_agents[i].isTrainedModel) {
-                highlightColor = sf::Color(60, 120, 100); // Green tint for trained models
+                highlightColor = sf::Color(255, 255, 0); // Bright yellow for trained models
             } else {
-                highlightColor = sf::Color(60, 100, 120); // Blue tint for fresh agents
+                highlightColor = sf::Color(255, 255, 224); // Light yellow for fresh agents
             }
             
             m_agents[i].background.setFillColor(highlightColor);
-            m_agents[i].background.setOutlineColor(sf::Color::Green);
+            m_agents[i].background.setOutlineColor(sf::Color(255, 140, 0)); // Dark orange
+            m_agents[i].background.setOutlineThickness(4.0f);
             
             if (m_agents[i].nameText) {
-                m_agents[i].nameText->setFillColor(sf::Color::White);
+                m_agents[i].nameText->setFillColor(sf::Color(139, 69, 19)); // Saddle brown
                 m_agents[i].nameText->setStyle(sf::Text::Bold);
             }
         } else {
             // Normal appearance
-            m_agents[i].background.setFillColor(sf::Color(40, 40, 40));
-            m_agents[i].background.setOutlineColor(sf::Color(80, 80, 80));
+            m_agents[i].background.setFillColor(sf::Color(255, 255, 240)); // Ivory
+            m_agents[i].background.setOutlineColor(sf::Color(144, 238, 144)); // Light green
+            m_agents[i].background.setOutlineThickness(3.0f);
             
             if (m_agents[i].nameText) {
                 sf::Color textColor = m_agents[i].config.isImplemented ? 
-                    sf::Color::White : sf::Color(120, 120, 120);
+                    sf::Color(47, 79, 47) : sf::Color(169, 169, 169); // Dark green or gray
                 m_agents[i].nameText->setFillColor(textColor);
                 m_agents[i].nameText->setStyle(sf::Text::Regular);
             }

@@ -6,7 +6,7 @@
             "episode": 6,
             "playerName": "Pranav",
             "score": 45,
-            "timestamp": "1750044107"
+            "timestamp": "1750122753"
         },
         {
             "agentType": 1,
@@ -14,7 +14,7 @@
             "episode": 2,
             "playerName": "Q-Agent",
             "score": 23,
-            "timestamp": "1750044396"
+            "timestamp": "1750122753"
         },
         {
             "agentType": 0,
@@ -22,7 +22,7 @@
             "episode": 4,
             "playerName": "PPM",
             "score": 23,
-            "timestamp": "1750044107"
+            "timestamp": "1750122753"
         },
         {
             "agentType": 0,
@@ -30,7 +30,7 @@
             "episode": 1,
             "playerName": "Pranav",
             "score": 22,
-            "timestamp": "1750044107"
+            "timestamp": "1750122753"
         },
         {
             "agentType": 0,
@@ -38,7 +38,7 @@
             "episode": 2,
             "playerName": "PPM",
             "score": 20,
-            "timestamp": "1750044107"
+            "timestamp": "1750122753"
         },
         {
             "agentType": 0,
@@ -46,7 +46,15 @@
             "episode": 1,
             "playerName": "Pranav",
             "score": 10,
-            "timestamp": "1750044107"
+            "timestamp": "1750122753"
+        },
+        {
+            "agentType": 1,
+            "efficiency": 7.0,
+            "episode": 1,
+            "playerName": "Q-Agent",
+            "score": 7,
+            "timestamp": "1750122784"
         },
         {
             "agentType": 0,
@@ -54,7 +62,7 @@
             "episode": 4,
             "playerName": "ppm",
             "score": 6,
-            "timestamp": "1750044107"
+            "timestamp": "1750122753"
         },
         {
             "agentType": 0,
@@ -62,7 +70,7 @@
             "episode": 1,
             "playerName": "ppm",
             "score": 4,
-            "timestamp": "1750044107"
+            "timestamp": "1750122753"
         },
         {
             "agentType": 0,
@@ -70,15 +78,7 @@
             "episode": 2,
             "playerName": "ppm",
             "score": 3,
-            "timestamp": "1750044107"
-        },
-        {
-            "agentType": 0,
-            "efficiency": 0.3333333432674408,
-            "episode": 3,
-            "playerName": "Pranav",
-            "score": 1,
-            "timestamp": "1750044107"
+            "timestamp": "1750122753"
         }
     ]
 }

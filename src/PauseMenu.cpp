@@ -22,115 +22,6 @@ void PauseMenu::initialize(sf::RenderWindow& window) {
             break;
         }
     }
-    
-    if (!fontLoaded) {
-        spdlog::error("PauseMenu: Failed to load any font");
-    }
-    
-    sf::Vector2u windowSize = window.getSize();
-    
-    // Semi-transparent background
-    m_background.setSize(sf::Vector2f(static_cast<float>(windowSize.x), 
-                                     static_cast<float>(windowSize.y)));
-    m_background.setFillColor(sf::Color(0, 0, 0, 150));
-    
-    // Main panel
-    m_panel.setSize(sf::Vector2f(600.0f, 500.0f));
-    m_panel.setPosition(sf::Vector2f(windowSize.x / 2.0f - 300.0f, 
-                                    windowSize.y / 2.0f - 250.0f));
-    m_panel.setFillColor(sf::Color(40, 40, 40));
-    m_panel.setOutlineThickness(3.0f);
-    m_panel.setOutlineColor(sf::Color(100, 100, 100));
-    
-    // Title
-    m_title = std::make_unique<sf::Text>(m_font);
-    m_title->setString("GAME PAUSED");
-    m_title->setCharacterSize(36);
-    m_title->setFillColor(sf::Color::Yellow);
-    m_title->setPosition(sf::Vector2f(windowSize.x / 2.0f - 120.0f, 
-                                     windowSize.y / 2.0f - 220.0f));
-    
-    // Menu items
-    m_items.clear();
-    m_items.emplace_back("Resume Game", PauseMenuOption::RESUME);
-    m_items.emplace_back("Speed Settings", PauseMenuOption::SPEED_SETTINGS);
-    m_items.emplace_back("Agent Info", PauseMenuOption::AGENT_INFO);
-    m_items.emplace_back("Restart Episode", PauseMenuOption::RESTART);
-    m_items.emplace_back("Main Menu", PauseMenuOption::MAIN_MENU);
-    
-    float startY = windowSize.y / 2.0f - 150.0f;
-    for (size_t i = 0; i < m_items.size(); ++i) {
-        m_items[i].displayText = std::make_unique<sf::Text>(m_font);
-        m_items[i].displayText->setString(m_items[i].text);
-        m_items[i].displayText->setCharacterSize(24);
-        m_items[i].displayText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 120.0f, 
-                                                        startY + i * 50.0f));
-    }
-    
-    // Info displays
-    m_speedText = std::make_unique<sf::Text>(m_font);
-    m_speedText->setCharacterSize(18);
-    m_speedText->setFillColor(sf::Color(200, 200, 200));
-    m_speedText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 280.0f, 
-                                         windowSize.y / 2.0f + 100.0f));
-    
-    m_agentInfoText = std::make_unique<sf::Text>(m_font);
-    m_agentInfoText->setCharacterSize(16);
-    m_agentInfoText->setFillColor(sf::Color(150, 200, 255));
-    m_agentInfoText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 280.0f, 
-                                             windowSize.y / 2.0f + 130.0f));
-    
-    m_statsText = std::make_unique<sf::Text>(m_font);
-    m_statsText->setCharacterSize(16);
-    m_statsText->setFillColor(sf::Color(200, 255, 200));
-    m_statsText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 280.0f, 
-                                         windowSize.y / 2.0f + 160.0f));
-    
-    updateSelection();
-    updateSpeedDisplay();
-    updateAgentInfo();
-    updateStatsDisplay();
-}
-
-void PauseMenu::handleEvent(const sf::Event& event) {
-    if (auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
-        if (m_speedEditMode) {
-            switch (keyPressed->code) {
-                case sf::Keyboard::Key::Equal: // + key
-                    m_currentSpeed = std::min(3.0f, m_currentSpeed + 0.1f);
-                    if (m_speedCallback) m_speedCallback(m_currentSpeed);
-                    updateSpeedDisplay();
-                    break;
-                case sf::Keyboard::Key::Hyphen: // - key
-                    m_currentSpeed = std::max(0.5f, m_currentSpeed - 0.1f);
-                    if (m_speedCallback) m_speedCallback(m_currentSpeed);
-                    updateSpeedDisplay();
-                    break;
-                case sf::Keyboard::Key::Enter:
-                case sf::Keyboard::Key::Escape:
-                    m_speedEditMode = false;
-                    updateSelection();
-                    break;
-            }
-        } else {
-            switch (keyPressed->code) {
-                case sf::Keyboard::Key::Up:
-                    m_selectedIndex = (m_selectedIndex - 1 + m_items.size()) % m_items.size();
-                    updateSelection();
-                    break;
-                case sf::Keyboard::Key::Down:
-                    m_selectedIndex = (m_selectedIndex + 1) % m_items.size();
-                    updateSelection();
-                    break;
-                case sf::Keyboard::Key::Enter:
-                    handleSelection();
-                    break;
-                case sf::Keyboard::Key::Escape:
-                    if (m_resumeCallback) m_resumeCallback();
-                    break;
-            }
-        }
-    }
 }
 
 void PauseMenu::handleSelection() {
@@ -177,10 +68,12 @@ void PauseMenu::updateSelection() {
     for (size_t i = 0; i < m_items.size(); ++i) {
         if (m_items[i].displayText) {
             if (i == m_selectedIndex && !m_speedEditMode) {
-                m_items[i].displayText->setFillColor(sf::Color::Cyan);
+                // Bright selection colors
+                m_items[i].displayText->setFillColor(sf::Color(255, 215, 0)); // Gold
                 m_items[i].displayText->setStyle(sf::Text::Bold);
             } else {
-                m_items[i].displayText->setFillColor(sf::Color::White);
+                // Normal light colors
+                m_items[i].displayText->setFillColor(sf::Color(47, 79, 47)); // Dark green
                 m_items[i].displayText->setStyle(sf::Text::Regular);
             }
         }
@@ -191,9 +84,9 @@ void PauseMenu::updateSpeedDisplay() {
     std::string speedStr = "Speed: " + std::to_string(m_currentSpeed).substr(0, 4) + " blocks/sec";
     if (m_speedEditMode) {
         speedStr += " (Use +/- to adjust, ENTER to confirm)";
-        m_speedText->setFillColor(sf::Color::Yellow);
+        m_speedText->setFillColor(sf::Color(255, 140, 0)); // Dark orange for edit mode
     } else {
-        m_speedText->setFillColor(sf::Color(200, 200, 200));
+        m_speedText->setFillColor(sf::Color(47, 79, 47)); // Dark green for normal
     }
     m_speedText->setString(speedStr);
 }
@@ -220,4 +113,50 @@ void PauseMenu::setGameStats(int score, int episode, float epsilon) {
     m_currentEpisode = episode;
     m_currentEpsilon = epsilon;
     updateStatsDisplay();
+}
+
+void PauseMenu::handleEvent(const sf::Event& event) {
+    if (auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
+        if (m_speedEditMode) {
+            switch (keyPressed->code) {
+                case sf::Keyboard::Key::Equal: // + key
+                    m_currentSpeed = std::min(3.0f, m_currentSpeed + 0.1f);
+                    if (m_speedCallback) m_speedCallback(m_currentSpeed);
+                    updateSpeedDisplay();
+                    break;
+                case sf::Keyboard::Key::Hyphen: // - key
+                    m_currentSpeed = std::max(0.5f, m_currentSpeed - 0.1f);
+                    if (m_speedCallback) m_speedCallback(m_currentSpeed);
+                    updateSpeedDisplay();
+                    break;
+                case sf::Keyboard::Key::Enter:
+                case sf::Keyboard::Key::Escape:
+                    m_speedEditMode = false;
+                    updateSelection();
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            switch (keyPressed->code) {
+                case sf::Keyboard::Key::Up:
+                    m_selectedIndex = (m_selectedIndex - 1 + m_items.size()) % m_items.size();
+                    updateSelection();
+                    break;
+                case sf::Keyboard::Key::Down:
+                    m_selectedIndex = (m_selectedIndex + 1) % m_items.size();
+                    updateSelection();
+                    break;
+                case sf::Keyboard::Key::Enter:
+                    handleSelection();
+                    break;
+                case sf::Keyboard::Key::Escape:
+                    if (m_resumeCallback) m_resumeCallback();
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
 }

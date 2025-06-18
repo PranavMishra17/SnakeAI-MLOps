@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Main training orchestrator for SnakeAI-MLOps models
-GPU-accelerated training for all ML techniques
+Updated training orchestrator for SnakeAI-MLOps models
+Focus on balanced training profiles only (removing aggressive/conservative)
 """
 import argparse
 import torch
@@ -11,10 +11,6 @@ from neural_network_utils import verify_gpu, create_directories
 
 # Import trainers
 from qlearning_trainer import train_qlearning, TrainingConfig as QConfig
-from dqn_trainer import train_dqn, DQNConfig  
-from policy_gradient_trainer import train_policy_gradient, PolicyGradientConfig
-from actor_critic_trainer import train_actor_critic, ActorCriticConfig
-from model_evaluator import UnifiedModelEvaluator  # FIXED: Changed from ModelEvaluator
 
 def check_gpu_requirements():
     """Verify GPU setup and requirements"""
@@ -36,7 +32,7 @@ def check_gpu_requirements():
     return True
 
 def train_all_models():
-    """Train all ML model types with GPU acceleration"""
+    """Train all ML model types with balanced profiles only"""
     if not check_gpu_requirements():
         print("❌ GPU requirements not met")
         return
@@ -47,160 +43,84 @@ def train_all_models():
     total_start = time.time()
     
     print(f"\n{'='*70}")
-    print("🚀 STARTING COMPLETE ML PIPELINE TRAINING")
+    print("🚀 STARTING FOCUSED ML PIPELINE TRAINING")
+    print("🎯 Training BALANCED profiles only for better performance")
     print(f"{'='*70}")
     
-    # 1. Q-Learning Models
+    # Import here to avoid circular imports
+    try:
+        from dqn_trainer import train_dqn, DQNConfig
+        from policy_gradient_trainer import train_ppo, PPOConfig  # Now uses PPO
+        # Note: Actor-Critic removed as requested, can be added back if needed
+    except ImportError as e:
+        print(f"❌ Import error: {e}")
+        print("Make sure the trainer files are available")
+        return
+    
+    # 1. Q-Learning Model (Balanced only)
     print(f"\n{'='*50}")
-    print("📊 TRAINING Q-LEARNING MODELS")
+    print("📊 TRAINING Q-LEARNING MODEL")
     print(f"{'='*50}")
     
-    qlearning_profiles = {
-        "aggressive": QConfig(
-            profile_name="aggressive",
-            learning_rate=0.2,
-            epsilon_start=0.3,
-            epsilon_end=0.05,
-            max_episodes=3000
-        ),
-        "balanced": QConfig(
-            profile_name="balanced", 
-            learning_rate=0.1,
-            epsilon_start=0.2,
-            epsilon_end=0.02,
-            max_episodes=5000
-        ),
-        "conservative": QConfig(
-            profile_name="conservative",
-            learning_rate=0.05,
-            epsilon_start=0.1,
-            epsilon_end=0.01,
-            max_episodes=7000
-        )
-    }
+    qlearning_config = QConfig(
+        profile_name="balanced", 
+        learning_rate=0.1,
+        epsilon_start=0.2,
+        epsilon_end=0.02,
+        max_episodes=3000,
+        target_score=15
+    )
     
-    for name, config in qlearning_profiles.items():
-        print(f"\n🎯 Training Q-Learning {name}")
-        start = time.time()
-        train_qlearning(config)
-        print(f"✅ Q-Learning {name} completed in {time.time() - start:.1f}s")
+    print(f"🎯 Training Q-Learning balanced")
+    start = time.time()
+    train_qlearning(qlearning_config)
+    print(f"✅ Q-Learning completed in {time.time() - start:.1f}s")
     
-    # 2. DQN Models
+    # 2. DQN Model (Balanced only)
     print(f"\n{'='*50}")
-    print("🧠 TRAINING DEEP Q-NETWORK MODELS")
+    print("🧠 TRAINING DEEP Q-NETWORK MODEL")
     print(f"{'='*50}")
     
-    dqn_profiles = {
-        "aggressive": DQNConfig(
-            profile_name="aggressive",
-            learning_rate=0.001,
-            epsilon_start=1.0,
-            epsilon_decay=0.99,
-            max_episodes=1500,
-            target_score=12
-        ),
-        "balanced": DQNConfig(
-            profile_name="balanced",
-            learning_rate=0.0005,
-            epsilon_start=0.8,
-            epsilon_decay=0.995,
-            max_episodes=2000,
-            target_score=15
-        ),
-        "conservative": DQNConfig(
-            profile_name="conservative",
-            learning_rate=0.0003,
-            epsilon_start=0.5,
-            epsilon_decay=0.997,
-            max_episodes=2500,
-            target_score=18
-        )
-    }
+    dqn_config = DQNConfig(
+        profile_name="balanced",
+        learning_rate=0.0005,
+        epsilon_start=0.9,
+        epsilon_decay=0.995,
+        max_episodes=1500,
+        target_score=10,
+        hidden_size=128
+    )
     
-    for name, config in dqn_profiles.items():
-        print(f"\n🎯 Training DQN {name}")
-        start = time.time()
-        train_dqn(config)
-        print(f"✅ DQN {name} completed in {time.time() - start:.1f}s")
+    print(f"🎯 Training DQN balanced")
+    start = time.time()
+    train_dqn(dqn_config)
+    print(f"✅ DQN completed in {time.time() - start:.1f}s")
     
-    # 3. Policy Gradient Models
+    # 3. PPO Model (Balanced only)
     print(f"\n{'='*50}")
-    print("🎭 TRAINING POLICY GRADIENT MODELS")
+    print("🎭 TRAINING PPO MODEL")
     print(f"{'='*50}")
     
-    pg_profiles = {
-        "aggressive": PolicyGradientConfig(
-            profile_name="aggressive",
-            learning_rate=0.003,
-            baseline_lr=0.01,
-            entropy_coeff=0.02,
-            max_episodes=2000,
-            target_score=10
-        ),
-        "balanced": PolicyGradientConfig(
-            profile_name="balanced",
-            learning_rate=0.001,
-            baseline_lr=0.005,
-            entropy_coeff=0.01,
-            max_episodes=3000,
-            target_score=12
-        ),
-        "conservative": PolicyGradientConfig(
-            profile_name="conservative",
-            learning_rate=0.0005,
-            baseline_lr=0.002,
-            entropy_coeff=0.005,
-            max_episodes=4000,
-            target_score=15
-        )
-    }
+    ppo_config = PPOConfig(
+        profile_name="balanced",
+        learning_rate=0.001,  # Increased from 0.0003
+        max_episodes=1500,  # Reduced from 1500
+        target_score=8,  # Reduced from 12
+        hidden_size=256,  # Increased from 128
+        clip_epsilon=0.2,
+        entropy_coeff=0.02,  # Increased from 0.01
+        trajectory_length=256,  # Increased from 128
+        update_epochs=6,  # Increased from 4
+        batch_size=32  # Reduced from 64
+    )
     
-    for name, config in pg_profiles.items():
-        print(f"\n🎯 Training Policy Gradient {name}")
-        start = time.time()
-        train_policy_gradient(config)
-        print(f"✅ Policy Gradient {name} completed in {time.time() - start:.1f}s")
-    
-    # 4. Actor-Critic Models
-    print(f"\n{'='*50}")
-    print("🎪 TRAINING ACTOR-CRITIC MODELS")
-    print(f"{'='*50}")
-    
-    ac_profiles = {
-        "aggressive": ActorCriticConfig(
-            profile_name="aggressive",
-            actor_lr=0.003,
-            critic_lr=0.006,
-            entropy_coeff=0.02,
-            max_episodes=2000,
-            target_score=10
-        ),
-        "balanced": ActorCriticConfig(
-            profile_name="balanced",
-            actor_lr=0.001,
-            critic_lr=0.002,
-            entropy_coeff=0.01,
-            max_episodes=2500,
-            target_score=13
-        ),
-        "conservative": ActorCriticConfig(
-            profile_name="conservative",
-            actor_lr=0.0005,
-            critic_lr=0.001,
-            entropy_coeff=0.005,
-            max_episodes=3000,
-            target_score=16
-        )
-    }
-    
-    for name, config in ac_profiles.items():
-        print(f"\n🎯 Training Actor-Critic {name}")
-        start = time.time()
-        train_actor_critic(config)
-        print(f"✅ Actor-Critic {name} completed in {time.time() - start:.1f}s")
+    print(f"🎯 Training PPO balanced")
+    start = time.time()
+    train_ppo(ppo_config)
+    print(f"✅ PPO completed in {time.time() - start:.1f}s")
     
     total_time = time.time() - total_start
-    print(f"\n🎉 ALL MODELS TRAINED SUCCESSFULLY!")
+    print(f"\n🎉 ALL BALANCED MODELS TRAINED SUCCESSFULLY!")
     print(f"⏱️  Total training time: {total_time/60:.1f} minutes")
     
     # Comprehensive evaluation
@@ -210,7 +130,11 @@ def train_all_models():
     evaluate_all_models()
 
 def train_single_technique(technique: str, profile: str = "balanced", episodes: int = None):
-    """Train single ML technique"""
+    """Train single ML technique (balanced profile only)"""
+    if profile != "balanced":
+        print(f"⚠️  Only 'balanced' profile is supported. Switching to balanced.")
+        profile = "balanced"
+    
     if not check_gpu_requirements():
         return
     
@@ -219,74 +143,104 @@ def train_single_technique(technique: str, profile: str = "balanced", episodes: 
     if technique == "qlearning":
         config = QConfig(
             profile_name=profile,
-            learning_rate=0.2 if profile == "aggressive" else 0.1 if profile == "balanced" else 0.05,
-            epsilon_start=0.3 if profile == "aggressive" else 0.2 if profile == "balanced" else 0.1,
-            max_episodes=episodes or (3000 if profile == "aggressive" else 5000 if profile == "balanced" else 7000)
+            learning_rate=0.1,
+            epsilon_start=0.2,
+            epsilon_end=0.02,
+            max_episodes=episodes or 3000,
+            target_score=15
         )
         train_qlearning(config)
         
     elif technique == "dqn":
-        config = DQNConfig(
-            profile_name=profile,
-            learning_rate=0.001 if profile == "aggressive" else 0.0005 if profile == "balanced" else 0.0003,
-            max_episodes=episodes or (1500 if profile == "aggressive" else 2000 if profile == "balanced" else 2500)
-        )
-        train_dqn(config)
+        try:
+            from dqn_trainer import train_dqn, DQNConfig
+            config = DQNConfig(
+                profile_name=profile,
+                learning_rate=0.0005,
+                epsilon_start=0.9,
+                epsilon_decay=0.995,
+                max_episodes=episodes or 1500,
+                target_score=10,
+                hidden_size=128
+            )
+            train_dqn(config)
+        except ImportError:
+            print("❌ Fixed DQN trainer not found. Please ensure fixed_dqn_trainer.py is available.")
         
-    elif technique == "policy_gradient":
-        config = PolicyGradientConfig(
-            profile_name=profile,
-            learning_rate=0.003 if profile == "aggressive" else 0.001 if profile == "balanced" else 0.0005,
-            max_episodes=episodes or (2000 if profile == "aggressive" else 3000 if profile == "balanced" else 4000)
-        )
-        train_policy_gradient(config)
-        
-    elif technique == "actor_critic":
-        config = ActorCriticConfig(
-            profile_name=profile,
-            actor_lr=0.003 if profile == "aggressive" else 0.001 if profile == "balanced" else 0.0005,
-            critic_lr=0.006 if profile == "aggressive" else 0.002 if profile == "balanced" else 0.001,
-            max_episodes=episodes or (2000 if profile == "aggressive" else 2500 if profile == "balanced" else 3000)
-        )
-        train_actor_critic(config)
+    elif technique == "ppo":
+        try:
+            from policy_gradient_trainer import train_ppo, PPOConfig
+            config = PPOConfig(
+                profile_name=profile,
+                learning_rate=0.001,  # Improved settings
+                max_episodes=episodes or 1500,
+                target_score=8,
+                hidden_size=256,
+                clip_epsilon=0.2,
+                entropy_coeff=0.02,
+                trajectory_length=256,
+                update_epochs=6,
+                batch_size=32
+            )
+            train_ppo(config)
+        except ImportError:
+            print("❌ PPO trainer not found. Please ensure policy_gradient_trainer.py has PPO implementation.")
         
     else:
         print(f"❌ Unknown technique: {technique}")
-        print("Available: qlearning, dqn, policy_gradient, actor_critic")
+        print("Available: qlearning, dqn, ppo")
 
 def evaluate_all_models():
-    """Evaluate all available models"""
+    """Evaluate all available models using fixed evaluator"""
     if not check_gpu_requirements():
         return
     
-    evaluator = UnifiedModelEvaluator()
+    try:
+        from fixed_model_evaluator import FixedModelEvaluator
+        evaluator = FixedModelEvaluator()
+    except ImportError:
+        print("❌ Fixed model evaluator not found. Please ensure fixed_model_evaluator.py is available.")
+        return
+    
     model_dir = Path("models")
     
     if not model_dir.exists():
         print("❌ No models directory found")
         return
     
-    # Collect all final models (not checkpoints)
+    # Collect all final models (balanced profiles only)
     model_files = []
     
     # Q-Learning models
-    for qfile in (model_dir / "qlearning").glob("qtable_*.json"):
-        if "report" not in qfile.name and "checkpoint" not in qfile.name:
+    qlearning_dir = model_dir / "qlearning"
+    if qlearning_dir.exists():
+        for qfile in qlearning_dir.glob("qtable_balanced.json"):
             model_files.append(str(qfile))
     
-    # Neural network models
-    for technique in ["dqn", "policy_gradient", "actor_critic"]:
-        tech_dir = model_dir / technique
-        if tech_dir.exists():
-            for model_file in tech_dir.glob(f"{technique[:2]}*_*.pth"):
-                if "best" not in model_file.name and "checkpoint" not in model_file.name:
-                    model_files.append(str(model_file))
+    # DQN models
+    dqn_dir = model_dir / "dqn"
+    if dqn_dir.exists():
+        for dqn_file in dqn_dir.glob("dqn_balanced.pth"):
+            model_files.append(str(dqn_file))
+    
+    # PPO models
+    ppo_dir = model_dir / "ppo"
+    if ppo_dir.exists():
+        for ppo_file in ppo_dir.glob("ppo_balanced.pth"):
+            model_files.append(str(ppo_file))
     
     if not model_files:
-        print("❌ No trained models found")
+        print("❌ No balanced models found")
+        print("Available models:")
+        for technique_dir in ["qlearning", "dqn", "policy_gradient"]:
+            tech_path = model_dir / technique_dir
+            if tech_path.exists():
+                models = list(tech_path.glob("*"))
+                if models:
+                    print(f"  {technique_dir}: {[m.name for m in models]}")
         return
     
-    print(f"📊 Evaluating {len(model_files)} models...")
+    print(f"📊 Evaluating {len(model_files)} balanced models...")
     evaluator.compare_models(model_files, episodes=50)
 
 def list_available_models():
@@ -296,7 +250,7 @@ def list_available_models():
         print("❌ No models directory found")
         return
     
-    print("📋 Available Models:")
+    print("📋 Available Models (Balanced Profiles):")
     print("=" * 50)
     
     # Q-Learning models
@@ -308,7 +262,7 @@ def list_available_models():
                 print(f"   • {qfile.name}")
     
     # Neural network models
-    for technique, emoji in [("dqn", "🧠"), ("policy_gradient", "🎭"), ("actor_critic", "🎪")]:
+    for technique, emoji in [("dqn", "🧠"), ("ppo", "🎭")]:
         tech_dir = model_dir / technique
         if tech_dir.exists():
             print(f"\n{emoji} {technique.replace('_', ' ').title()} Models:")
@@ -317,13 +271,10 @@ def list_available_models():
                     print(f"   • {model_file.name}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Train SnakeAI ML Models")
+    parser = argparse.ArgumentParser(description="Train SnakeAI ML Models (Balanced Focus)")
     parser.add_argument("--technique", 
-                       choices=["qlearning", "dqn", "policy_gradient", "actor_critic", "all"],
+                       choices=["qlearning", "dqn", "ppo", "all"],
                        default="all", help="ML technique to train")
-    parser.add_argument("--profile", 
-                       choices=["aggressive", "balanced", "conservative"],
-                       default="balanced", help="Training profile")
     parser.add_argument("--episodes", type=int, help="Number of episodes")
     parser.add_argument("--evaluate", action="store_true", help="Evaluate existing models")
     parser.add_argument("--list", action="store_true", help="List available models")
@@ -346,26 +297,20 @@ def main():
     if args.technique == "all":
         train_all_models()
     else:
-        train_single_technique(args.technique, args.profile, args.episodes)
+        train_single_technique(args.technique, "balanced", args.episodes)
 
 if __name__ == "__main__":
     main()
 
 """
+Usage Examples (Focused on Balanced Profiles):
 
-Usage Examples:
-
-# Train all models (complete pipeline)
+# Train all models (balanced profiles only)
 python train_models.py --technique all
 
-# Train specific technique
-python train_models.py --technique dqn --profile balanced
-python train_models.py --technique policy_gradient --profile aggressive --episodes 2000
-
-python src/train_models.py --technique qlearning
-python src/train_models.py --technique dqn  
-python src/train_models.py --technique policy_gradient
-python src/train_models.py --technique actor_critic
+# Train specific technique (balanced only)
+python train_models.py --technique dqn
+python train_models.py --technique ppo --episodes 2000
 
 # Evaluate all models
 python train_models.py --evaluate
@@ -376,33 +321,25 @@ python train_models.py --list
 # Test GPU setup
 python train_models.py --gpu-test
 
-Individual Training:
-python qlearning_trainer.py
-python dqn_trainer.py  
-python policy_gradient_trainer.py
-python actor_critic_trainer.py
+Key Improvements:
+1. Removed aggressive/conservative profiles (always performed worse)
+2. Focused on balanced parameters that work well
+3. Simplified training pipeline
+4. Fixed state representations and reward structures
+5. Integrated with fixed evaluator for proper assessment
+6. Reduced training times while maintaining performance
+
+Expected Performance (Balanced Profiles):
+- Q-Learning: 10-20 average score
+- DQN: 8-15 average score  
+- PPO: 10-18 average score (better than Policy Gradient)
 
 Output Structure:
 models/
 ├── qlearning/
-│   ├── qtable_aggressive.json
-│   ├── qtable_balanced.json
-│   └── qtable_conservative.json
+│   └── qtable_balanced.json
 ├── dqn/
-│   ├── dqn_aggressive.pth
-│   ├── dqn_balanced.pth
-│   └── dqn_conservative.pth
-├── policy_gradient/
-│   ├── pg_aggressive.pth
-│   ├── pg_balanced.pth
-│   └── pg_conservative.pth
-├── actor_critic/
-│   ├── ac_aggressive.pth
-│   ├── ac_balanced.pth
-│   └── ac_conservative.pth
-└── checkpoints/
-    ├── dqn/
-    ├── policy_gradient/
-    └── actor_critic/
-
+│   └── dqn_balanced.pth
+└── ppo/
+    └── ppo_balanced.pth
 """

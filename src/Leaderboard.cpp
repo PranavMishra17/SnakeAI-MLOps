@@ -27,49 +27,52 @@ void Leaderboard::initialize(sf::RenderWindow& window) {
     if (!fontLoaded) {
         spdlog::error("Leaderboard: Failed to load any font");
     }
+    
     sf::Vector2u windowSize = window.getSize();
-    // Background
+    
+    // Light background
     m_background.setSize(sf::Vector2f(static_cast<float>(windowSize.x), 
                                      static_cast<float>(windowSize.y)));
-    m_background.setFillColor(sf::Color(20, 20, 30));
+    m_background.setFillColor(sf::Color(245, 245, 220)); // Light beige
     
-    // Title
+    // Title without emoji
     m_title = std::make_unique<sf::Text>(m_font);
-    m_title->setString("🏆 LEADERBOARD 🏆");
+    m_title->setString("LEADERBOARD");
     m_title->setCharacterSize(48);
-    m_title->setFillColor(sf::Color::Yellow);
+    m_title->setFillColor(sf::Color(255, 140, 0)); // Dark orange
     m_title->setPosition(sf::Vector2f(windowSize.x / 2.0f - 200.0f, 30.0f));
     
     // Instructions
     m_instructions = std::make_unique<sf::Text>(m_font);
     m_instructions->setString("ESC: Back to Menu");
     m_instructions->setCharacterSize(20);
-    m_instructions->setFillColor(sf::Color(150, 150, 150));
+    m_instructions->setFillColor(sf::Color(47, 79, 47)); // Dark green
     m_instructions->setPosition(sf::Vector2f(50.0f, windowSize.y - 50.0f));
     
     // Name input prompt
     m_namePrompt = std::make_unique<sf::Text>(m_font);
     m_namePrompt->setString("Enter your name (ENTER to confirm):");
     m_namePrompt->setCharacterSize(24);
-    m_namePrompt->setFillColor(sf::Color::White);
+    m_namePrompt->setFillColor(sf::Color(47, 79, 47)); // Dark green
     m_namePrompt->setPosition(sf::Vector2f(windowSize.x / 2.0f - 250.0f, windowSize.y / 2.0f - 100.0f));
     
     // Input text display
     m_inputText = std::make_unique<sf::Text>(m_font);
     m_inputText->setCharacterSize(32);
-    m_inputText->setFillColor(sf::Color::Cyan);
+    m_inputText->setFillColor(sf::Color(70, 130, 180)); // Steel blue
     m_inputText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 150.0f, windowSize.y / 2.0f - 50.0f));
     
     // Input box
     m_inputBox.setSize(sf::Vector2f(300.0f, 50.0f));
     m_inputBox.setPosition(sf::Vector2f(windowSize.x / 2.0f - 150.0f, windowSize.y / 2.0f - 60.0f));
-    m_inputBox.setFillColor(sf::Color(40, 40, 40));
-    m_inputBox.setOutlineThickness(2.0f);
-    m_inputBox.setOutlineColor(sf::Color::Cyan);
+    m_inputBox.setFillColor(sf::Color(255, 255, 240)); // Ivory
+    m_inputBox.setOutlineThickness(3.0f);
+    m_inputBox.setOutlineColor(sf::Color(70, 130, 180)); // Steel blue
     
     loadLeaderboard();
     updateDisplay();
 }
+
 void Leaderboard::handleEvent(const sf::Event& event) {
     if (auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
         if (keyPressed->code == sf::Keyboard::Key::Escape) {
@@ -199,7 +202,7 @@ void Leaderboard::updateDisplay() {
     auto header = std::make_unique<sf::Text>(m_font);
     header->setString("Rank  Player Name              Agent Type      Score  Episode  Efficiency");
     header->setCharacterSize(18);
-    header->setFillColor(sf::Color(200, 200, 200));
+    header->setFillColor(sf::Color(47, 79, 47)); // Dark green
     header->setPosition(sf::Vector2f(50.0f, startY));
     m_entryTexts.push_back(std::move(header));
     
@@ -226,10 +229,11 @@ void Leaderboard::updateDisplay() {
         entryText->setString(line);
         entryText->setCharacterSize(16);
         
-        sf::Color color = sf::Color::White;
-        if (i == 0) color = sf::Color::Yellow;
-        else if (i == 1) color = sf::Color(192, 192, 192);
-        else if (i == 2) color = sf::Color(205, 127, 50);
+        // Light, bright ranking colors
+        sf::Color color = sf::Color(47, 79, 47); // Default dark green
+        if (i == 0) color = sf::Color(255, 215, 0); // Gold
+        else if (i == 1) color = sf::Color(192, 192, 192); // Silver
+        else if (i == 2) color = sf::Color(205, 127, 50); // Bronze
         
         entryText->setFillColor(color);
         entryText->setPosition(sf::Vector2f(50.0f, startY + 40.0f + i * 30.0f));
@@ -241,7 +245,7 @@ void Leaderboard::updateDisplay() {
         auto emptyText = std::make_unique<sf::Text>(m_font);
         emptyText->setString("No scores yet! Be the first to play!");
         emptyText->setCharacterSize(24);
-        emptyText->setFillColor(sf::Color(150, 150, 150));
+        emptyText->setFillColor(sf::Color(70, 130, 180)); // Steel blue
         emptyText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 200.0f, windowSize.y / 2.0f));
         m_entryTexts.push_back(std::move(emptyText));
     }

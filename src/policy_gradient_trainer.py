@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Enhanced Policy Gradient (REINFORCE) trainer for SnakeAI-MLOps
-Implements: GAE, reward normalization, entropy scheduling
+PPO (Proximal Policy Optimization) trainer for SnakeAI-MLOps
+Replaces Policy Gradient with more stable and efficient PPO algorithm
 """
 import torch
 import torch.nn as nn
@@ -17,96 +17,94 @@ import time
 from collections import deque
 
 from neural_network_utils import (
-    PolicyNetwork, ValueNetwork, NetworkConfig,
     verify_gpu, create_directories, save_model,
     TrainingMetrics
 )
 
 @dataclass
-class PolicyGradientConfig:
-    """Enhanced Policy Gradient training configuration"""
+class PPOConfig:
+    """PPO training configuration"""
     profile_name: str = "balanced"
-    max_episodes: int = 3000
-    learning_rate: float = 0.001
-    baseline_lr: float = 0.005
+    max_episodes: int = 1500  # Reduced episodes
+    learning_rate: float = 0.001  # Increased learning rate
     discount_factor: float = 0.99
     
-    # Enhanced features
-    use_baseline: bool = True
-    use_gae: bool = True  # Generalized Advantage Estimation
-    gae_lambda: float = 0.95  # GAE lambda parameter
-    entropy_coeff: float = 0.01
-    entropy_decay: float = 0.999  # Entropy coefficient decay
-    min_entropy_coeff: float = 0.001
-    value_coeff: float = 0.5
-    reward_normalization: bool = True
-    gradient_clip: float = 1.0
+    # PPO specific parameters
+    clip_epsilon: float = 0.2  # PPO clipping parameter
+    entropy_coeff: float = 0.02  # Increased entropy for more exploration
+    value_coeff: float = 0.5  # Value loss coefficient
     
-    # Learning rate scheduling
-    use_lr_scheduler: bool = True
-    lr_decay_step: int = 500
-    lr_decay_gamma: float = 0.9
+    # Training parameters
+    update_epochs: int = 6  # More epochs per update
+    batch_size: int = 32  # Smaller batch size for more updates
+    trajectory_length: int = 256  # Longer trajectories
     
     # Network architecture
-    hidden_layers: list = None
+    hidden_size: int = 256  # Larger network
     
     # Training settings
     device: str = "cuda"
-    checkpoint_interval: int = 300
-    target_score: int = 12
-    batch_episodes: int = 4  # Collect multiple episodes before update
-    
-    def __post_init__(self):
-        if self.hidden_layers is None:
-            self.hidden_layers = [128, 64]
+    checkpoint_interval: int = 150
+    target_score: int = 8  # More realistic target
 
-class RunningMeanStd:
-    """Running mean and standard deviation for reward normalization"""
+class SimplePolicyNetwork(nn.Module):
+    """Simple policy network for discrete actions"""
     
-    def __init__(self, epsilon=1e-4, shape=()):
-        self.mean = np.zeros(shape, 'float64')
-        self.var = np.ones(shape, 'float64')
-        self.count = epsilon
+    def __init__(self, input_size, hidden_size, output_size):
+        super(SimplePolicyNetwork, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, output_size)
         
-    def update(self, x):
-        batch_mean = np.mean(x, axis=0)
-        batch_var = np.var(x, axis=0)
-        batch_count = x.shape[0]
-        self.update_from_moments(batch_mean, batch_var, batch_count)
-        
-    def update_from_moments(self, batch_mean, batch_var, batch_count):
-        delta = batch_mean - self.mean
-        tot_count = self.count + batch_count
-        
-        new_mean = self.mean + delta * batch_count / tot_count
-        m_a = self.var * self.count
-        m_b = batch_var * batch_count
-        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / tot_count
-        new_var = M2 / tot_count
-        
-        self.mean = new_mean
-        self.var = new_var
-        self.count = tot_count
-        
-    def normalize(self, x):
-        return (x - self.mean) / np.sqrt(self.var + 1e-8)
+        # Initialize weights properly
+        for layer in [self.fc1, self.fc2, self.fc3]:
+            nn.init.xavier_uniform_(layer.weight)
+            nn.init.zeros_(layer.bias)
+    
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return F.softmax(x, dim=-1)  # Return action probabilities
 
-class SnakeEnvironmentPG:
-    """Snake environment for Policy Gradient training"""
+class SimpleValueNetwork(nn.Module):
+    """Simple value network for baseline"""
     
-    def __init__(self, grid_size=20, device='cuda'):
+    def __init__(self, input_size, hidden_size):
+        super(SimpleValueNetwork, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, 1)
+        
+        # Initialize weights
+        for layer in [self.fc1, self.fc2, self.fc3]:
+            nn.init.xavier_uniform_(layer.weight)
+            nn.init.zeros_(layer.bias)
+    
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x).squeeze(-1)
+
+class SnakeEnvironmentPPO:
+    """Snake environment optimized for PPO training"""
+    
+    def __init__(self, grid_size=15, device='cuda'):  # Smaller grid for easier learning
         self.grid_size = grid_size
         self.device = torch.device(device)
         self.reset()
     
     def reset(self):
         """Reset environment and return initial state"""
-        self.snake = [(10, 10), (10, 9)]
+        center = self.grid_size // 2
+        self.snake = [(center, center), (center, center-1)]  # Start in center
         self.direction = 3  # RIGHT
         self.food = self._place_food()
         self.score = 0
         self.steps = 0
-        return self._get_enhanced_state()
+        self.prev_distance = self._get_food_distance()
+        self.steps_without_food = 0  # Track progress
+        return self._get_state()
     
     def _place_food(self):
         """Place food randomly avoiding snake"""
@@ -116,77 +114,56 @@ class SnakeEnvironmentPG:
             if pos not in self.snake:
                 return pos
     
-    def _get_enhanced_state(self):
-        """Get 20D enhanced state for neural networks"""
+    def _get_food_distance(self):
+        """Get Manhattan distance to food"""
+        head_x, head_y = self.snake[0]
+        food_x, food_y = self.food
+        return abs(head_x - food_x) + abs(head_y - food_y)
+    
+    def _get_state(self):
+        """Get 11D state representation (same as DQN for consistency)"""
         head_x, head_y = self.snake[0]
         food_x, food_y = self.food
         
-        # Basic danger detection
-        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+        # Direction vectors
+        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]  # UP, DOWN, LEFT, RIGHT
         current_dir = directions[self.direction]
         
-        straight_pos = (head_x + current_dir[0], head_y + current_dir[1])
-        danger_straight = self._is_collision(straight_pos)
+        # Check dangers in all directions
+        danger_straight = self._is_collision((head_x + current_dir[0], head_y + current_dir[1]))
+        danger_left = self._is_collision((head_x + directions[(self.direction - 1) % 4][0], 
+                                         head_y + directions[(self.direction - 1) % 4][1]))
+        danger_right = self._is_collision((head_x + directions[(self.direction + 1) % 4][0], 
+                                          head_y + directions[(self.direction + 1) % 4][1]))
         
-        left_dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
-        left_dir = left_dirs[self.direction]
-        left_pos = (head_x + left_dir[0], head_y + left_dir[1])
-        danger_left = self._is_collision(left_pos)
-        
-        right_dirs = [(1, 0), (-1, 0), (0, -1), (0, 1)]
-        right_dir = right_dirs[self.direction]
-        right_pos = (head_x + right_dir[0], head_y + right_dir[1])
-        danger_right = self._is_collision(right_pos)
-        
-        # Food direction
+        # Food direction relative to head
         food_left = food_x < head_x
         food_right = food_x > head_x
         food_up = food_y < head_y
         food_down = food_y > head_y
         
-        # Enhanced 20D state
-        state = torch.zeros(20, dtype=torch.float32, device=self.device)
-        
-        # Basic features (8D)
-        state[0] = float(danger_straight)
-        state[1] = float(danger_left)
-        state[2] = float(danger_right)
-        state[3] = float(self.direction / 3.0)
-        state[4] = float(food_left)
-        state[5] = float(food_right)
-        state[6] = float(food_up)
-        state[7] = float(food_down)
-        
         # Enhanced features
-        food_distance = abs(head_x - food_x) + abs(head_y - food_y)
-        state[8] = food_distance / (2 * self.grid_size)
+        food_distance = self._get_food_distance()
+        normalized_distance = food_distance / (2 * self.grid_size)
         
-        # Wall distances
-        state[9] = head_y / self.grid_size
-        state[10] = (self.grid_size - 1 - head_y) / self.grid_size
-        state[11] = head_x / self.grid_size
-        state[12] = (self.grid_size - 1 - head_x) / self.grid_size
+        # Snake length and empty spaces
+        snake_length = len(self.snake) / (self.grid_size * self.grid_size)
+        empty_spaces = (self.grid_size * self.grid_size - len(self.snake) - 1) / (self.grid_size * self.grid_size)
         
-        # Body density in quadrants
-        quadrant_counts = [0, 0, 0, 0]
-        half_size = self.grid_size // 2
-        for seg_x, seg_y in self.snake[1:]:
-            quadrant = 0
-            if seg_x >= half_size:
-                quadrant += 1
-            if seg_y >= half_size:
-                quadrant += 2
-            quadrant_counts[quadrant] += 1
-        
-        quadrant_size = half_size * half_size
-        for i in range(4):
-            state[13 + i] = quadrant_counts[i] / quadrant_size
-        
-        # Additional features
-        state[17] = len(self.snake) / (self.grid_size * self.grid_size)
-        empty_spaces = self.grid_size * self.grid_size - len(self.snake) - 1
-        state[18] = empty_spaces / (self.grid_size * self.grid_size)
-        state[19] = (food_distance + len(self.snake) * 0.1) / (2 * self.grid_size + 10)
+        # Create 11D state vector
+        state = torch.tensor([
+            float(danger_straight),
+            float(danger_left), 
+            float(danger_right),
+            float(self.direction / 3.0),  # normalized direction
+            float(food_left),
+            float(food_right),
+            float(food_up),
+            float(food_down),
+            normalized_distance,
+            snake_length,
+            empty_spaces
+        ], dtype=torch.float32, device=self.device)
         
         return state
     
@@ -202,395 +179,358 @@ class SnakeEnvironmentPG:
         self.direction = action
         head_x, head_y = self.snake[0]
         
-        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]  # UP, DOWN, LEFT, RIGHT
         dx, dy = directions[action]
         new_head = (head_x + dx, head_y + dy)
         
         # Check collision
         if self._is_collision(new_head):
-            return self._get_enhanced_state(), -10.0, True
+            return self._get_state(), -100.0, True  # Death penalty
         
+        # Move snake
         self.snake.insert(0, new_head)
         
-        # Check food
+        # Calculate reward
+        reward = 0
+        
+        # Check if food eaten
         if new_head == self.food:
             self.score += 1
             self.food = self._place_food()
-            reward = 10.0
+            reward = 50.0  # Increased food reward
+            self.steps_without_food = 0  # Reset counter
         else:
-            self.snake.pop()
-            # Distance-based reward
-            old_dist = abs(head_x - self.food[0]) + abs(head_y - self.food[1])
-            new_dist = abs(new_head[0] - self.food[0]) + abs(new_head[1] - self.food[1])
-            reward = 0.1 if new_dist < old_dist else -0.05
+            self.snake.pop()  # Remove tail if no food eaten
+            self.steps_without_food += 1
+            
+            # Improved distance-based reward
+            current_distance = self._get_food_distance()
+            if current_distance < self.prev_distance:
+                reward = 2.0  # Increased reward for getting closer
+            elif current_distance > self.prev_distance:
+                reward = -1.0  # Penalty for moving away
+            else:
+                reward = -0.2  # Small penalty for not making progress
+            
+            self.prev_distance = current_distance
+        
+        # Small living bonus to encourage survival
+        reward += 0.1
+        
+        # Penalty for taking too long to find food
+        if self.steps_without_food > 100:
+            reward -= 1.0
         
         self.steps += 1
-        done = self.steps >= 1000
+        done = (self.steps >= 2000 or  # Max episode length
+                self.steps_without_food > 200)  # Timeout if no progress
         
-        return self._get_enhanced_state(), reward, done
+        return self._get_state(), reward, done
 
-class EnhancedPolicyGradientAgent:
-    """Enhanced REINFORCE agent with GAE and reward normalization"""
+class PPOAgent:
+    """PPO agent with clipped surrogate objective"""
     
-    def __init__(self, config: PolicyGradientConfig):
+    def __init__(self, config: PPOConfig):
         self.config = config
         self.device = torch.device(config.device)
         
         # Networks
-        net_config = NetworkConfig(
-            input_size=20,
-            hidden_layers=config.hidden_layers,
-            output_size=4,
-            dropout=0.1
+        self.policy_network = SimplePolicyNetwork(11, config.hidden_size, 4).to(self.device)
+        self.value_network = SimpleValueNetwork(11, config.hidden_size).to(self.device)
+        
+        # Shared optimizer for both networks
+        self.optimizer = optim.Adam(
+            list(self.policy_network.parameters()) + list(self.value_network.parameters()),
+            lr=config.learning_rate
         )
         
-        self.policy_network = PolicyNetwork(net_config).to(self.device)
+        # Trajectory storage
+        self.states = []
+        self.actions = []
+        self.rewards = []
+        self.values = []
+        self.log_probs = []
+        self.dones = []
         
-        if config.use_baseline:
-            self.value_network = ValueNetwork(net_config).to(self.device)
-            self.value_optimizer = optim.Adam(self.value_network.parameters(), lr=config.baseline_lr)
-            
-            if config.use_lr_scheduler:
-                self.value_scheduler = optim.lr_scheduler.StepLR(
-                    self.value_optimizer, 
-                    step_size=config.lr_decay_step, 
-                    gamma=config.lr_decay_gamma
-                )
-        
-        # Optimizer
-        self.policy_optimizer = optim.Adam(self.policy_network.parameters(), lr=config.learning_rate)
-        
-        if config.use_lr_scheduler:
-            self.policy_scheduler = optim.lr_scheduler.StepLR(
-                self.policy_optimizer, 
-                step_size=config.lr_decay_step, 
-                gamma=config.lr_decay_gamma
-            )
-        
-        # Reward normalization
-        if config.reward_normalization:
-            self.reward_rms = RunningMeanStd()
-        
-        # Episode storage for batch updates
-        self.batch_states = []
-        self.batch_actions = []
-        self.batch_rewards = []
-        self.batch_log_probs = []
-        self.batch_values = []
-        self.batch_dones = []
-        
-        # Current entropy coefficient
-        self.entropy_coeff = config.entropy_coeff
-        
-        print(f"✅ Enhanced Policy Gradient Agent initialized on {self.device}")
+        print(f"✅ PPO Agent initialized on {self.device}")
         print(f"   Policy Network: {sum(p.numel() for p in self.policy_network.parameters())} parameters")
-        if config.use_baseline:
-            print(f"   Value Network: {sum(p.numel() for p in self.value_network.parameters())} parameters")
-        print(f"   Features: GAE={config.use_gae}, Reward Norm={config.reward_normalization}")
+        print(f"   Value Network: {sum(p.numel() for p in self.value_network.parameters())} parameters")
+        print(f"   PPO Features: clip_eps={config.clip_epsilon}, entropy={config.entropy_coeff}")
     
-    def get_action(self, state):
-        """Sample action from policy"""
+    def get_action_and_value(self, state):
+        """Get action and value for given state"""
         with torch.no_grad():
             action_probs = self.policy_network(state.unsqueeze(0))
+            value = self.value_network(state.unsqueeze(0))
+            
             action_dist = torch.distributions.Categorical(action_probs)
             action = action_dist.sample()
             log_prob = action_dist.log_prob(action)
             
-            # Get value if using baseline
-            value = None
-            if self.config.use_baseline:
-                value = self.value_network(state.unsqueeze(0)).squeeze()
-            
-            return action.item(), log_prob.item(), value
+            return action.item(), log_prob.item(), value.item()
     
-    def store_episode(self, states, actions, rewards, log_probs, values, dones):
-        """Store episode data for batch update"""
-        self.batch_states.extend(states)
-        self.batch_actions.extend(actions)
-        self.batch_rewards.extend(rewards)
-        self.batch_log_probs.extend(log_probs)
-        if values[0] is not None:
-            self.batch_values.extend(values)
-        self.batch_dones.extend(dones)
+    def get_action(self, state):
+        """Get action for evaluation (greedy)"""
+        with torch.no_grad():
+            action_probs = self.policy_network(state.unsqueeze(0))
+            return torch.argmax(action_probs).item()
     
-    def compute_gae(self, rewards, values, next_values, dones, gamma=0.99, lam=0.95):
+    def store_transition(self, state, action, reward, value, log_prob, done):
+        """Store transition in trajectory buffer"""
+        self.states.append(state)
+        self.actions.append(action)
+        self.rewards.append(reward)
+        self.values.append(value)
+        self.log_probs.append(log_prob)
+        self.dones.append(done)
+    
+    def compute_gae(self, rewards, values, dones, last_value):
         """Compute Generalized Advantage Estimation"""
         advantages = []
+        returns = []
         gae = 0
+        
+        # Add last value for bootstrapping
+        values = values + [last_value]
         
         for t in reversed(range(len(rewards))):
             if t == len(rewards) - 1:
-                next_value = next_values
+                next_non_terminal = 1.0 - dones[t]
+                next_value = last_value
             else:
+                next_non_terminal = 1.0 - dones[t]
                 next_value = values[t + 1]
             
-            delta = rewards[t] + gamma * next_value * (1 - dones[t]) - values[t]
-            gae = delta + gamma * lam * (1 - dones[t]) * gae
-            advantages.insert(0, gae)
+            delta = rewards[t] + self.config.discount_factor * next_value * next_non_terminal - values[t]
+            gae = delta + self.config.discount_factor * 0.95 * next_non_terminal * gae  # GAE lambda = 0.95
             
-        return torch.tensor(advantages, dtype=torch.float32, device=self.device)
+            advantages.insert(0, gae)
+            returns.insert(0, gae + values[t])
+        
+        return advantages, returns
     
-    def compute_returns(self, rewards, gamma=0.99):
-        """Compute discounted returns"""
-        returns = []
-        G = 0
-        for reward in reversed(rewards):
-            G = reward + gamma * G
-            returns.insert(0, G)
-        return torch.tensor(returns, dtype=torch.float32, device=self.device)
-    
-    def train_batch(self):
-        """Train on collected batch of episodes"""
-        if not self.batch_rewards:
-            return 0.0, 0.0
+    def update(self):
+        """PPO update using collected trajectory"""
+        if len(self.states) < self.config.batch_size:  # Changed from trajectory_length
+            return 0.0, 0.0, 0.0
         
         # Convert to tensors
-        states = torch.stack(self.batch_states)
-        actions = torch.tensor(self.batch_actions, dtype=torch.long, device=self.device)
-        rewards = torch.tensor(self.batch_rewards, dtype=torch.float32, device=self.device)
-        log_probs = torch.tensor(self.batch_log_probs, device=self.device)
-        dones = torch.tensor(self.batch_dones, dtype=torch.float32, device=self.device)
+        states = torch.stack(self.states)
+        actions = torch.tensor(self.actions, device=self.device, dtype=torch.long)
+        old_log_probs = torch.tensor(self.log_probs, device=self.device)
         
-        # Normalize rewards if enabled
-        if self.config.reward_normalization:
-            rewards_np = rewards.cpu().numpy()
-            self.reward_rms.update(rewards_np)
-            normalized_rewards = self.reward_rms.normalize(rewards_np)
-            rewards = torch.tensor(normalized_rewards, dtype=torch.float32, device=self.device)
-        
-        policy_loss = 0.0
-        value_loss = 0.0
-        
-        if self.config.use_baseline and self.config.use_gae:
-            # Compute GAE
-            values = torch.tensor(self.batch_values, device=self.device)
-            with torch.no_grad():
-                # Bootstrap value for last state
-                last_value = 0  # Assuming episodes end naturally
-                advantages = self.compute_gae(
-                    rewards, values, last_value, dones, 
-                    self.config.discount_factor, self.config.gae_lambda
-                )
-                returns = advantages + values
-        else:
-            # Standard returns computation
-            returns = self.compute_returns(rewards.cpu().numpy(), self.config.discount_factor)
-            
-            if self.config.use_baseline:
-                values = self.value_network(states).squeeze()
-                advantages = returns - values.detach()
+        # Get last value for GAE
+        with torch.no_grad():
+            if self.dones[-1]:
+                last_value = 0.0
             else:
-                advantages = returns
+                last_value = self.value_network(states[-1].unsqueeze(0)).item()
+        
+        # Compute advantages and returns
+        advantages, returns = self.compute_gae(self.rewards, self.values, self.dones, last_value)
+        advantages = torch.tensor(advantages, device=self.device, dtype=torch.float32)
+        returns = torch.tensor(returns, device=self.device, dtype=torch.float32)
         
         # Normalize advantages
-        if len(advantages) > 1:
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         
-        # Policy loss
-        policy_loss = -(log_probs * advantages.detach()).mean()
+        # PPO updates
+        total_policy_loss = 0
+        total_value_loss = 0
+        total_entropy = 0
         
-        # Entropy bonus
-        action_probs = self.policy_network(states)
-        entropy = -(action_probs * torch.log(action_probs + 1e-8)).sum(dim=-1).mean()
-        entropy_loss = -self.entropy_coeff * entropy
+        # Create mini-batches
+        batch_size = self.config.batch_size
+        indices = torch.randperm(len(states))
         
-        # Value loss
-        if self.config.use_baseline:
-            if not self.config.use_gae:
-                values = self.value_network(states).squeeze()
-            value_loss = F.mse_loss(values, returns.detach())
-            
-            # Update value network
-            self.value_optimizer.zero_grad()
-            value_loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.value_network.parameters(), self.config.gradient_clip)
-            self.value_optimizer.step()
+        for epoch in range(self.config.update_epochs):
+            for start in range(0, len(states), batch_size):
+                end = start + batch_size
+                batch_indices = indices[start:end]
+                
+                if len(batch_indices) < 8:  # Skip very small batches
+                    continue
+                
+                batch_states = states[batch_indices]
+                batch_actions = actions[batch_indices]
+                batch_old_log_probs = old_log_probs[batch_indices]
+                batch_advantages = advantages[batch_indices]
+                batch_returns = returns[batch_indices]
+                
+                # Forward pass
+                action_probs = self.policy_network(batch_states)
+                action_dist = torch.distributions.Categorical(action_probs)
+                new_log_probs = action_dist.log_prob(batch_actions)
+                entropy = action_dist.entropy().mean()
+                
+                values = self.value_network(batch_states).squeeze()
+                
+                # PPO policy loss with clipping
+                ratio = torch.exp(new_log_probs - batch_old_log_probs)
+                surr1 = ratio * batch_advantages
+                surr2 = torch.clamp(ratio, 1 - self.config.clip_epsilon, 1 + self.config.clip_epsilon) * batch_advantages
+                policy_loss = -torch.min(surr1, surr2).mean()
+                
+                # Value loss
+                value_loss = F.mse_loss(values, batch_returns)
+                
+                # Total loss
+                total_loss = (policy_loss + 
+                             self.config.value_coeff * value_loss - 
+                             self.config.entropy_coeff * entropy)
+                
+                # Backward pass
+                self.optimizer.zero_grad()
+                total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(
+                    list(self.policy_network.parameters()) + list(self.value_network.parameters()), 
+                    0.5  # Gradient clipping
+                )
+                self.optimizer.step()
+                
+                total_policy_loss += policy_loss.item()
+                total_value_loss += value_loss.item()
+                total_entropy += entropy.item()
         
-        # Total policy loss
-        total_loss = policy_loss + entropy_loss
+        # Clear trajectory
+        self.clear_trajectory()
         
-        # Update policy network
-        self.policy_optimizer.zero_grad()
-        total_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.policy_network.parameters(), self.config.gradient_clip)
-        self.policy_optimizer.step()
-        
-        # Clear batch
-        self.batch_states.clear()
-        self.batch_actions.clear()
-        self.batch_rewards.clear()
-        self.batch_log_probs.clear()
-        self.batch_values.clear()
-        self.batch_dones.clear()
-        
-        return policy_loss.item(), value_loss.item() if self.config.use_baseline else 0.0
+        num_updates = self.config.update_epochs * max(1, (len(states) // batch_size))
+        return (total_policy_loss / num_updates, 
+                total_value_loss / num_updates, 
+                total_entropy / num_updates)
     
-    def update_entropy_coeff(self):
-        """Decay entropy coefficient"""
-        self.entropy_coeff = max(
-            self.config.min_entropy_coeff,
-            self.entropy_coeff * self.config.entropy_decay
-        )
-    
-    def update_schedulers(self):
-        """Update learning rate schedulers"""
-        if self.config.use_lr_scheduler:
-            self.policy_scheduler.step()
-            if self.config.use_baseline:
-                self.value_scheduler.step()
+    def clear_trajectory(self):
+        """Clear stored trajectory"""
+        self.states.clear()
+        self.actions.clear()
+        self.rewards.clear()
+        self.values.clear()
+        self.log_probs.clear()
+        self.dones.clear()
     
     def save_model(self, filepath, metadata=None):
-        """Save enhanced policy gradient model"""
+        """Save PPO model"""
         model_data = {
             'policy_network': self.policy_network.state_dict(),
-            'policy_optimizer': self.policy_optimizer.state_dict(),
+            'value_network': self.value_network.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
             'config': self.config.__dict__,
-            'entropy_coeff': self.entropy_coeff,
             'metadata': metadata or {}
         }
         
-        if self.config.use_baseline:
-            model_data['value_network'] = self.value_network.state_dict()
-            model_data['value_optimizer'] = self.value_optimizer.state_dict()
-        
-        if self.config.reward_normalization:
-            model_data['reward_rms'] = {
-                'mean': self.reward_rms.mean,
-                'var': self.reward_rms.var,
-                'count': self.reward_rms.count
-            }
-        
         torch.save(model_data, filepath)
-        print(f"✅ Enhanced Policy Gradient model saved: {filepath}")
+        print(f"✅ PPO model saved: {filepath}")
 
-def train_policy_gradient(config: PolicyGradientConfig):
-    """Main Policy Gradient training loop with enhancements"""
+def train_ppo(config: PPOConfig):
+    """Main PPO training loop - stable and efficient"""
     device = verify_gpu()
     config.device = str(device)
     
     # Setup directories
     base_dir = Path("models")
-    model_dir = base_dir / "policy_gradient"
-    checkpoint_dir = base_dir / "checkpoints" / "policy_gradient"
+    model_dir = base_dir / "ppo"
+    checkpoint_dir = base_dir / "checkpoints" / "ppo"
     create_directories(str(base_dir))
     
     # Initialize environment and agent
-    env = SnakeEnvironmentPG(device=str(device))
-    agent = EnhancedPolicyGradientAgent(config)
+    env = SnakeEnvironmentPPO(device=str(device))
+    agent = PPOAgent(config)
     metrics = TrainingMetrics()
     
-    print(f"🚀 Starting Enhanced Policy Gradient training: {config.profile_name}")
+    print(f"🚀 Starting PPO training: {config.profile_name}")
     print(f"   Target score: {config.target_score}")
     print(f"   Max episodes: {config.max_episodes}")
-    print(f"   Using GAE: {config.use_gae}")
-    print(f"   Batch size: {config.batch_episodes}")
+    print(f"   Trajectory length: {config.trajectory_length}")
     
     best_score = 0
+    best_path = None
     training_start = time.time()
     recent_scores = deque(maxlen=100)
-    episode_count = 0
     
-    for batch_idx in tqdm(range(config.max_episodes // config.batch_episodes), desc="Training Policy Gradient"):
-        batch_scores = []
+    episode = 0
+    total_steps = 0
+    
+    pbar = tqdm(total=config.max_episodes, desc="Training PPO")
+    
+    while episode < config.max_episodes:
+        state = env.reset()
+        episode_reward = 0
+        steps = 0
         
-        # Collect batch of episodes
-        for _ in range(config.batch_episodes):
-            state = env.reset()
-            total_reward = 0
-            steps = 0
+        # Collect trajectory
+        while True:
+            action, log_prob, value = agent.get_action_and_value(state)
+            next_state, reward, done = env.step(action)
             
-            # Episode storage
-            episode_states = []
-            episode_actions = []
-            episode_rewards = []
-            episode_log_probs = []
-            episode_values = []
-            episode_dones = []
+            agent.store_transition(state, action, reward, value, log_prob, done)
             
-            # Collect episode
-            while True:
-                action, log_prob, value = agent.get_action(state)
-                next_state, reward, done = env.step(action)
-                
-                episode_states.append(state)
-                episode_actions.append(action)
-                episode_rewards.append(reward)
-                episode_log_probs.append(log_prob)
-                episode_values.append(value.item() if value is not None else None)
-                episode_dones.append(float(done))
-                
-                total_reward += reward
-                steps += 1
-                state = next_state
-                
-                if done:
-                    break
+            episode_reward += reward
+            steps += 1
+            total_steps += 1
+            state = next_state
             
-            # Store episode in batch
-            agent.store_episode(
-                episode_states, episode_actions, episode_rewards,
-                episode_log_probs, episode_values, episode_dones
-            )
-            
-            batch_scores.append(env.score)
-            recent_scores.append(env.score)
-            metrics.add_episode(env.score, 0.0, agent.entropy_coeff, steps, total_reward)
-            episode_count += 1
+            # Update when we have enough data or episode ends
+            if len(agent.states) >= config.trajectory_length or done:
+                policy_loss, value_loss, entropy = agent.update()
+                break
         
-        # Train on batch
-        policy_loss, value_loss = agent.train_batch()
+        # Metrics
+        recent_scores.append(env.score)
+        metrics.add_episode(env.score, policy_loss, entropy, steps, episode_reward)
         
-        # Update parameters
-        agent.update_entropy_coeff()
-        agent.update_schedulers()
+        episode += 1
+        pbar.update(1)
         
         # Progress logging
-        if batch_idx % (100 // config.batch_episodes) == 0:
+        if episode % 100 == 0:
             avg_score = np.mean(recent_scores) if recent_scores else 0
-            current_lr = agent.policy_scheduler.get_last_lr()[0] if config.use_lr_scheduler else config.learning_rate
-            print(f"Episode {episode_count}: Avg Score: {avg_score:.2f}, "
-                  f"Policy Loss: {policy_loss:.4f}, Value Loss: {value_loss:.4f}, "
-                  f"Entropy: {agent.entropy_coeff:.4f}, LR: {current_lr:.5f}")
+            avg_loss = metrics.get_recent_average('losses', 100)
+            avg_entropy = metrics.get_recent_average('epsilons', 100)  # Using epsilon field for entropy
+            
+            print(f"Episode {episode}: Avg Score: {avg_score:.2f}, "
+                  f"Policy Loss: {avg_loss:.4f}, Entropy: {avg_entropy:.4f}")
             
             # Save checkpoint
-            if episode_count % config.checkpoint_interval < config.batch_episodes:
-                checkpoint_path = checkpoint_dir / f"pg_{config.profile_name}_ep{episode_count}.pth"
+            if episode % config.checkpoint_interval == 0 and episode > 0:
+                checkpoint_path = checkpoint_dir / f"ppo_{config.profile_name}_ep{episode}.pth"
                 agent.save_model(checkpoint_path, {
-                    'episode': episode_count,
+                    'episode': episode,
                     'avg_score': avg_score,
                     'training_time': time.time() - training_start
                 })
         
         # Save best model
-        max_batch_score = max(batch_scores)
-        if max_batch_score > best_score:
-            best_score = max_batch_score
-            best_path = model_dir / f"pg_{config.profile_name}_best.pth"
+        if env.score > best_score:
+            best_score = env.score
+            best_path = model_dir / f"ppo_{config.profile_name}_best.pth"
             agent.save_model(best_path, {
-                'episode': episode_count,
+                'episode': episode,
                 'best_score': best_score,
                 'training_time': time.time() - training_start
             })
         
         # Early stopping
         if len(recent_scores) >= 100 and np.mean(recent_scores) >= config.target_score:
-            print(f"✅ Target score reached at episode {episode_count}")
+            print(f"✅ Target score reached at episode {episode}")
             break
     
+    pbar.close()
+    
     # Save final model
-    final_path = model_dir / f"pg_{config.profile_name}.pth"
+    final_path = model_dir / f"ppo_{config.profile_name}.pth"
     agent.save_model(final_path, {
-        'final_episode': episode_count,
+        'final_episode': episode,
         'final_avg_score': np.mean(recent_scores) if recent_scores else 0,
         'total_training_time': time.time() - training_start,
         'total_episodes': len(metrics.scores)
     })
     
     # Save metrics
-    metrics_path = model_dir / f"pg_{config.profile_name}_metrics.json"
+    metrics_path = model_dir / f"ppo_{config.profile_name}_metrics.json"
     metrics.save_metrics(str(metrics_path))
     
-    # Generate plots
+    # Generate training plots
     plot_training_curves(metrics, config.profile_name, str(model_dir))
     
     # Training report
@@ -599,19 +539,23 @@ def train_policy_gradient(config: PolicyGradientConfig):
         "episodes": len(metrics.scores),
         "final_avg_score": float(np.mean(recent_scores)) if recent_scores else 0,
         "best_score": int(max(metrics.scores)) if metrics.scores else 0,
-        "final_entropy_coeff": agent.entropy_coeff,
         "training_time": time.time() - training_start,
         "config": config.__dict__
     }
     
-    report_path = model_dir / f"pg_{config.profile_name}_report.json"
+    report_path = model_dir / f"ppo_{config.profile_name}_report.json"
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=4)
     
-    print(f"✅ Enhanced Policy Gradient training complete!")
+    print(f"✅ PPO training complete!")
     print(f"📁 Final model: {final_path}")
-    print(f"📁 Best model: {best_path}")
+    if best_path:
+        print(f"📁 Best model: {best_path}")
     print(f"📊 Report: {report_path}")
+
+# Alias for compatibility
+train_policy_gradient = train_ppo
+PolicyGradientConfig = PPOConfig
 
 def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: str):
     """Plot training curves"""
@@ -624,7 +568,7 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     axes[0,0].set_ylabel('Score')
     axes[0,0].grid(True)
     
-    # Running average
+    # Running average scores
     window = 100
     if len(metrics.scores) >= window:
         running_avg = [np.mean(metrics.scores[max(0, i-window):i+1]) for i in range(len(metrics.scores))]
@@ -634,11 +578,11 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
         axes[0,1].set_ylabel('Average Score')
         axes[0,1].grid(True)
     
-    # Entropy coefficient decay
-    axes[1,0].plot(metrics.epsilons)  # Using epsilon field for entropy
-    axes[1,0].set_title('Entropy Coefficient')
+    # Policy loss
+    axes[1,0].plot(metrics.losses)
+    axes[1,0].set_title('Policy Loss')
     axes[1,0].set_xlabel('Episode')
-    axes[1,0].set_ylabel('Coefficient')
+    axes[1,0].set_ylabel('Loss')
     axes[1,0].grid(True)
     
     # Episode lengths
@@ -648,52 +592,30 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     axes[1,1].set_ylabel('Steps')
     axes[1,1].grid(True)
     
-    plt.suptitle(f'Enhanced Policy Gradient Training Curves - {profile_name}')
+    plt.suptitle(f'PPO Training Curves - {profile_name}')
     plt.tight_layout()
     
-    plot_path = Path(save_dir) / f"pg_training_curves_{profile_name}.png"
+    plot_path = Path(save_dir) / f"ppo_training_curves_{profile_name}.png"
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     
     print(f"✅ Training curves saved: {plot_path}")
 
 if __name__ == "__main__":
-    # Train different Policy Gradient profiles with enhancements
-    profiles = {
-        "aggressive": PolicyGradientConfig(
-            profile_name="aggressive",
-            learning_rate=0.003,
-            baseline_lr=0.01,
-            entropy_coeff=0.02,
-            max_episodes=2000,
-            target_score=10,
-            batch_episodes=2,
-            gae_lambda=0.9
-        ),
-        "balanced": PolicyGradientConfig(
-            profile_name="balanced",
-            learning_rate=0.001,
-            baseline_lr=0.005,
-            entropy_coeff=0.01,
-            max_episodes=3000,
-            target_score=12,
-            batch_episodes=4,
-            gae_lambda=0.95
-        ),
-        "conservative": PolicyGradientConfig(
-            profile_name="conservative",
-            learning_rate=0.0005,
-            baseline_lr=0.002,
-            entropy_coeff=0.005,
-            max_episodes=4000,
-            target_score=15,
-            batch_episodes=8,
-            gae_lambda=0.98
-        )
-    }
+    # Train PPO balanced profile with improved settings
+    config = PPOConfig(
+        profile_name="balanced",
+        learning_rate=0.001,  # Increased learning rate
+        max_episodes=1500,
+        target_score=8,  # More realistic
+        hidden_size=256,  # Larger network
+        clip_epsilon=0.2,
+        entropy_coeff=0.02,  # More exploration
+        trajectory_length=256,  # Longer trajectories
+        update_epochs=6,  # More training per trajectory
+        batch_size=32  # Smaller batches for more frequent updates
+    )
     
-    for name, config in profiles.items():
-        print(f"\n{'='*60}")
-        print(f"🚀 Training Enhanced Policy Gradient {name.upper()} model")
-        print(f"{'='*60}")
-        train_policy_gradient(config)
+    print(f"🚀 Training Improved PPO BALANCED model")
+    print(f"{'='*60}")
+    train_ppo(config)

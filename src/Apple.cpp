@@ -9,7 +9,9 @@ Apple::Apple(Grid* grid)
     
     float cellSize = m_grid->getCellSize();
     m_shape.setRadius(cellSize / 2.0f * 0.8f);
-    m_shape.setFillColor(sf::Color::Red);
+    m_shape.setFillColor(sf::Color(255, 99, 71)); // Tomato red - bright and light
+    m_shape.setOutlineThickness(2.0f);
+    m_shape.setOutlineColor(sf::Color(220, 20, 60)); // Crimson outline
     m_shape.setOrigin(sf::Vector2f(m_shape.getRadius(), m_shape.getRadius()));
 }
 

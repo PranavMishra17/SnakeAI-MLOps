@@ -11,11 +11,13 @@ struct MenuItem {
     std::unique_ptr<sf::Text> displayText;
     std::unique_ptr<sf::Text> explanationText;
     sf::RectangleShape explanationBox;
+    sf::RectangleShape buttonBackground;
     bool selected;
     bool isPlayMode;
+    bool isSpecialAction; // For quit, leaderboard, etc.
     
-    MenuItem(const std::string& t, GameMode m, const std::string& exp = "", bool isPlay = true) 
-        : text(t), mode(m), explanation(exp), selected(false), isPlayMode(isPlay) {}
+    MenuItem(const std::string& t, GameMode m, const std::string& exp = "", bool isPlay = true, bool special = false) 
+        : text(t), mode(m), explanation(exp), selected(false), isPlayMode(isPlay), isSpecialAction(special) {}
 };
 
 enum class MenuSection {
@@ -34,6 +36,8 @@ public:
     void setSelectionCallback(std::function<void(GameMode)> callback);
     void setSettingsCallback(std::function<void()> callback);
     void setHowToPlayCallback(std::function<void()> callback);
+    void setLeaderboardCallback(std::function<void()> callback);
+    void setQuitCallback(std::function<void()> callback);
     
 private:
     std::vector<MenuItem> m_mainItems;
@@ -49,6 +53,8 @@ private:
     std::function<void(GameMode)> m_selectionCallback;
     std::function<void()> m_settingsCallback;
     std::function<void()> m_howToPlayCallback;
+    std::function<void()> m_leaderboardCallback;
+    std::function<void()> m_quitCallback;
     
     void updateSelection();
     void setupMainMenu();

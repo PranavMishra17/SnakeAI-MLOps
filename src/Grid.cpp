@@ -15,21 +15,21 @@ void Grid::initialize(sf::RenderWindow& window) {
     m_gridOrigin.x = (windowSize.x - gridTotalSize) / 2.0f;
     m_gridOrigin.y = (windowSize.y - gridTotalSize) / 2.0f;
     
-    // Create background
+    // Light background for grid
     m_background.setSize(sf::Vector2f(gridTotalSize, gridTotalSize));
     m_background.setPosition(m_gridOrigin);
-    m_background.setFillColor(sf::Color(50, 50, 50));
-    m_background.setOutlineThickness(2.0f);
-    m_background.setOutlineColor(sf::Color(100, 100, 100));
+    m_background.setFillColor(sf::Color(250, 250, 250)); // Very light gray/white
+    m_background.setOutlineThickness(3.0f);
+    m_background.setOutlineColor(sf::Color(144, 238, 144)); // Light green border
     
-    // Create grid lines
+    // Create grid lines with light colors
     m_gridLines.clear();
     
     // Vertical lines
     for (int i = 0; i <= m_gridSize; ++i) {
         sf::RectangleShape line(sf::Vector2f(1.0f, gridTotalSize));
         line.setPosition(sf::Vector2f(m_gridOrigin.x + i * m_cellSize, m_gridOrigin.y));
-        line.setFillColor(sf::Color(80, 80, 80));
+        line.setFillColor(sf::Color(173, 216, 230)); // Light blue grid lines
         m_gridLines.push_back(line);
     }
     
@@ -37,7 +37,7 @@ void Grid::initialize(sf::RenderWindow& window) {
     for (int i = 0; i <= m_gridSize; ++i) {
         sf::RectangleShape line(sf::Vector2f(gridTotalSize, 1.0f));
         line.setPosition(sf::Vector2f(m_gridOrigin.x, m_gridOrigin.y + i * m_cellSize));
-        line.setFillColor(sf::Color(80, 80, 80));
+        line.setFillColor(sf::Color(173, 216, 230)); // Light blue grid lines
         m_gridLines.push_back(line);
     }
 }
