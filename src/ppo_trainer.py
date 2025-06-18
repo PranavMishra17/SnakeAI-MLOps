@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PPO (Proximal Policy Optimization) trainer for SnakeAI-MLOps
-Replaces Policy Gradient with more stable and efficient PPO algorithm
+Clean PPO implementation with proper model saving to models/ppo/
 """
 import torch
 import torch.nn as nn
@@ -25,27 +25,27 @@ from neural_network_utils import (
 class PPOConfig:
     """PPO training configuration"""
     profile_name: str = "balanced"
-    max_episodes: int = 1500  # Reduced episodes
-    learning_rate: float = 0.001  # Increased learning rate
+    max_episodes: int = 1500
+    learning_rate: float = 0.001
     discount_factor: float = 0.99
     
     # PPO specific parameters
-    clip_epsilon: float = 0.2  # PPO clipping parameter
-    entropy_coeff: float = 0.02  # Increased entropy for more exploration
-    value_coeff: float = 0.5  # Value loss coefficient
+    clip_epsilon: float = 0.2
+    entropy_coeff: float = 0.02
+    value_coeff: float = 0.5
     
     # Training parameters
-    update_epochs: int = 6  # More epochs per update
-    batch_size: int = 32  # Smaller batch size for more updates
-    trajectory_length: int = 256  # Longer trajectories
+    update_epochs: int = 6
+    batch_size: int = 32
+    trajectory_length: int = 256
     
     # Network architecture
-    hidden_size: int = 256  # Larger network
+    hidden_size: int = 256
     
     # Training settings
     device: str = "cuda"
     checkpoint_interval: int = 150
-    target_score: int = 8  # More realistic target
+    target_score: int = 8
 
 class SimplePolicyNetwork(nn.Module):
     """Simple policy network for discrete actions"""
@@ -65,7 +65,7 @@ class SimplePolicyNetwork(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
-        return F.softmax(x, dim=-1)  # Return action probabilities
+        return F.softmax(x, dim=-1)
 
 class SimpleValueNetwork(nn.Module):
     """Simple value network for baseline"""
@@ -89,7 +89,7 @@ class SimpleValueNetwork(nn.Module):
 class SnakeEnvironmentPPO:
     """Snake environment optimized for PPO training"""
     
-    def __init__(self, grid_size=15, device='cuda'):  # Smaller grid for easier learning
+    def __init__(self, grid_size=15, device='cuda'):
         self.grid_size = grid_size
         self.device = torch.device(device)
         self.reset()
@@ -97,13 +97,13 @@ class SnakeEnvironmentPPO:
     def reset(self):
         """Reset environment and return initial state"""
         center = self.grid_size // 2
-        self.snake = [(center, center), (center, center-1)]  # Start in center
+        self.snake = [(center, center), (center, center-1)]
         self.direction = 3  # RIGHT
         self.food = self._place_food()
         self.score = 0
         self.steps = 0
         self.prev_distance = self._get_food_distance()
-        self.steps_without_food = 0  # Track progress
+        self.steps_without_food = 0
         return self._get_state()
     
     def _place_food(self):
@@ -121,7 +121,7 @@ class SnakeEnvironmentPPO:
         return abs(head_x - food_x) + abs(head_y - food_y)
     
     def _get_state(self):
-        """Get 11D state representation (same as DQN for consistency)"""
+        """Get 11D state representation"""
         head_x, head_y = self.snake[0]
         food_x, food_y = self.food
         
@@ -155,7 +155,7 @@ class SnakeEnvironmentPPO:
             float(danger_straight),
             float(danger_left), 
             float(danger_right),
-            float(self.direction / 3.0),  # normalized direction
+            float(self.direction / 3.0),
             float(food_left),
             float(food_right),
             float(food_up),
@@ -179,13 +179,13 @@ class SnakeEnvironmentPPO:
         self.direction = action
         head_x, head_y = self.snake[0]
         
-        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]  # UP, DOWN, LEFT, RIGHT
+        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
         dx, dy = directions[action]
         new_head = (head_x + dx, head_y + dy)
         
         # Check collision
         if self._is_collision(new_head):
-            return self._get_state(), -100.0, True  # Death penalty
+            return self._get_state(), -100.0, True
         
         # Move snake
         self.snake.insert(0, new_head)
@@ -197,33 +197,32 @@ class SnakeEnvironmentPPO:
         if new_head == self.food:
             self.score += 1
             self.food = self._place_food()
-            reward = 50.0  # Increased food reward
-            self.steps_without_food = 0  # Reset counter
+            reward = 50.0
+            self.steps_without_food = 0
         else:
-            self.snake.pop()  # Remove tail if no food eaten
+            self.snake.pop()
             self.steps_without_food += 1
             
-            # Improved distance-based reward
+            # Distance-based reward
             current_distance = self._get_food_distance()
             if current_distance < self.prev_distance:
-                reward = 2.0  # Increased reward for getting closer
+                reward = 2.0
             elif current_distance > self.prev_distance:
-                reward = -1.0  # Penalty for moving away
+                reward = -1.0
             else:
-                reward = -0.2  # Small penalty for not making progress
+                reward = -0.2
             
             self.prev_distance = current_distance
         
-        # Small living bonus to encourage survival
+        # Living bonus
         reward += 0.1
         
-        # Penalty for taking too long to find food
+        # Penalty for taking too long
         if self.steps_without_food > 100:
             reward -= 1.0
         
         self.steps += 1
-        done = (self.steps >= 2000 or  # Max episode length
-                self.steps_without_food > 200)  # Timeout if no progress
+        done = (self.steps >= 2000 or self.steps_without_food > 200)
         
         return self._get_state(), reward, done
 
@@ -238,7 +237,7 @@ class PPOAgent:
         self.policy_network = SimplePolicyNetwork(11, config.hidden_size, 4).to(self.device)
         self.value_network = SimpleValueNetwork(11, config.hidden_size).to(self.device)
         
-        # Shared optimizer for both networks
+        # Shared optimizer
         self.optimizer = optim.Adam(
             list(self.policy_network.parameters()) + list(self.value_network.parameters()),
             lr=config.learning_rate
@@ -255,7 +254,6 @@ class PPOAgent:
         print(f"✅ PPO Agent initialized on {self.device}")
         print(f"   Policy Network: {sum(p.numel() for p in self.policy_network.parameters())} parameters")
         print(f"   Value Network: {sum(p.numel() for p in self.value_network.parameters())} parameters")
-        print(f"   PPO Features: clip_eps={config.clip_epsilon}, entropy={config.entropy_coeff}")
     
     def get_action_and_value(self, state):
         """Get action and value for given state"""
@@ -290,7 +288,6 @@ class PPOAgent:
         returns = []
         gae = 0
         
-        # Add last value for bootstrapping
         values = values + [last_value]
         
         for t in reversed(range(len(rewards))):
@@ -302,7 +299,7 @@ class PPOAgent:
                 next_value = values[t + 1]
             
             delta = rewards[t] + self.config.discount_factor * next_value * next_non_terminal - values[t]
-            gae = delta + self.config.discount_factor * 0.95 * next_non_terminal * gae  # GAE lambda = 0.95
+            gae = delta + self.config.discount_factor * 0.95 * next_non_terminal * gae
             
             advantages.insert(0, gae)
             returns.insert(0, gae + values[t])
@@ -311,7 +308,7 @@ class PPOAgent:
     
     def update(self):
         """PPO update using collected trajectory"""
-        if len(self.states) < self.config.batch_size:  # Changed from trajectory_length
+        if len(self.states) < self.config.batch_size:
             return 0.0, 0.0, 0.0
         
         # Convert to tensors
@@ -348,7 +345,7 @@ class PPOAgent:
                 end = start + batch_size
                 batch_indices = indices[start:end]
                 
-                if len(batch_indices) < 8:  # Skip very small batches
+                if len(batch_indices) < 8:
                     continue
                 
                 batch_states = states[batch_indices]
@@ -384,7 +381,7 @@ class PPOAgent:
                 total_loss.backward()
                 torch.nn.utils.clip_grad_norm_(
                     list(self.policy_network.parameters()) + list(self.value_network.parameters()), 
-                    0.5  # Gradient clipping
+                    0.5
                 )
                 self.optimizer.step()
                 
@@ -410,7 +407,7 @@ class PPOAgent:
         self.dones.clear()
     
     def save_model(self, filepath, metadata=None):
-        """Save PPO model"""
+        """Save PPO model to models/ppo/ directory"""
         model_data = {
             'policy_network': self.policy_network.state_dict(),
             'value_network': self.value_network.state_dict(),
@@ -423,11 +420,11 @@ class PPOAgent:
         print(f"✅ PPO model saved: {filepath}")
 
 def train_ppo(config: PPOConfig):
-    """Main PPO training loop - stable and efficient"""
+    """Main PPO training loop"""
     device = verify_gpu()
     config.device = str(device)
     
-    # Setup directories
+    # Setup directories - FIXED: Use models/ppo/ directory
     base_dir = Path("models")
     model_dir = base_dir / "ppo"
     checkpoint_dir = base_dir / "checkpoints" / "ppo"
@@ -441,7 +438,6 @@ def train_ppo(config: PPOConfig):
     print(f"🚀 Starting PPO training: {config.profile_name}")
     print(f"   Target score: {config.target_score}")
     print(f"   Max episodes: {config.max_episodes}")
-    print(f"   Trajectory length: {config.trajectory_length}")
     
     best_score = 0
     best_path = None
@@ -449,7 +445,6 @@ def train_ppo(config: PPOConfig):
     recent_scores = deque(maxlen=100)
     
     episode = 0
-    total_steps = 0
     
     pbar = tqdm(total=config.max_episodes, desc="Training PPO")
     
@@ -467,7 +462,6 @@ def train_ppo(config: PPOConfig):
             
             episode_reward += reward
             steps += 1
-            total_steps += 1
             state = next_state
             
             # Update when we have enough data or episode ends
@@ -485,11 +479,7 @@ def train_ppo(config: PPOConfig):
         # Progress logging
         if episode % 100 == 0:
             avg_score = np.mean(recent_scores) if recent_scores else 0
-            avg_loss = metrics.get_recent_average('losses', 100)
-            avg_entropy = metrics.get_recent_average('epsilons', 100)  # Using epsilon field for entropy
-            
-            print(f"Episode {episode}: Avg Score: {avg_score:.2f}, "
-                  f"Policy Loss: {avg_loss:.4f}, Entropy: {avg_entropy:.4f}")
+            print(f"Episode {episode}: Avg Score: {avg_score:.2f}")
             
             # Save checkpoint
             if episode % config.checkpoint_interval == 0 and episode > 0:
@@ -530,9 +520,6 @@ def train_ppo(config: PPOConfig):
     metrics_path = model_dir / f"ppo_{config.profile_name}_metrics.json"
     metrics.save_metrics(str(metrics_path))
     
-    # Generate training plots
-    plot_training_curves(metrics, config.profile_name, str(model_dir))
-    
     # Training report
     report = {
         "profile": config.profile_name,
@@ -551,71 +538,21 @@ def train_ppo(config: PPOConfig):
     print(f"📁 Final model: {final_path}")
     if best_path:
         print(f"📁 Best model: {best_path}")
-    print(f"📊 Report: {report_path}")
-
-# Alias for compatibility
-train_policy_gradient = train_ppo
-PolicyGradientConfig = PPOConfig
-
-def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: str):
-    """Plot training curves"""
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-    
-    # Scores
-    axes[0,0].plot(metrics.scores)
-    axes[0,0].set_title('Episode Scores')
-    axes[0,0].set_xlabel('Episode')
-    axes[0,0].set_ylabel('Score')
-    axes[0,0].grid(True)
-    
-    # Running average scores
-    window = 100
-    if len(metrics.scores) >= window:
-        running_avg = [np.mean(metrics.scores[max(0, i-window):i+1]) for i in range(len(metrics.scores))]
-        axes[0,1].plot(running_avg)
-        axes[0,1].set_title(f'Running Average Scores (window={window})')
-        axes[0,1].set_xlabel('Episode')
-        axes[0,1].set_ylabel('Average Score')
-        axes[0,1].grid(True)
-    
-    # Policy loss
-    axes[1,0].plot(metrics.losses)
-    axes[1,0].set_title('Policy Loss')
-    axes[1,0].set_xlabel('Episode')
-    axes[1,0].set_ylabel('Loss')
-    axes[1,0].grid(True)
-    
-    # Episode lengths
-    axes[1,1].plot(metrics.episode_lengths)
-    axes[1,1].set_title('Episode Lengths')
-    axes[1,1].set_xlabel('Episode')
-    axes[1,1].set_ylabel('Steps')
-    axes[1,1].grid(True)
-    
-    plt.suptitle(f'PPO Training Curves - {profile_name}')
-    plt.tight_layout()
-    
-    plot_path = Path(save_dir) / f"ppo_training_curves_{profile_name}.png"
-    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-    plt.close()
-    
-    print(f"✅ Training curves saved: {plot_path}")
 
 if __name__ == "__main__":
-    # Train PPO balanced profile with improved settings
+    # Train PPO balanced profile
     config = PPOConfig(
         profile_name="balanced",
-        learning_rate=0.001,  # Increased learning rate
+        learning_rate=0.001,
         max_episodes=1500,
-        target_score=8,  # More realistic
-        hidden_size=256,  # Larger network
+        target_score=8,
+        hidden_size=256,
         clip_epsilon=0.2,
-        entropy_coeff=0.02,  # More exploration
-        trajectory_length=256,  # Longer trajectories
-        update_epochs=6,  # More training per trajectory
-        batch_size=32  # Smaller batches for more frequent updates
+        entropy_coeff=0.02,
+        trajectory_length=256,
+        update_epochs=6,
+        batch_size=32
     )
     
-    print(f"🚀 Training Improved PPO BALANCED model")
-    print(f"{'='*60}")
+    print(f"🚀 Training PPO BALANCED model")
     train_ppo(config)

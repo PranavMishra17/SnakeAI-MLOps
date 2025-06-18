@@ -379,16 +379,17 @@ std::string DQNAgent::getModelInfo() const {
     return "Enhanced DQN placeholder - uses intelligent decision making";
 }
 
-// Enhanced Policy Gradient Agent
-PolicyGradientAgent::PolicyGradientAgent() : m_rng(std::random_device{}()) {
-    spdlog::info("PolicyGradientAgent: Initialized (enhanced intelligent placeholder)");
+// Enhanced PPO Agent Implementation (replaces PolicyGradientAgent)
+PPOAgent::PPOAgent() : m_rng(std::random_device{}()) {
+    spdlog::info("PPOAgent: Initialized (enhanced intelligent placeholder)");
+    spdlog::info("PPOAgent: Using probabilistic decision making with PPO-style exploration");
 }
 
-Direction PolicyGradientAgent::getAction(const EnhancedState& state, bool training) {
-    // Policy gradient behavior - more exploratory but still intelligent
+Direction PPOAgent::getAction(const EnhancedState& state, bool training) {
+    // PPO behavior - more exploratory but still intelligent
     const auto& basic = state.basic;
     
-    // Calculate action probabilities based on state
+    // Calculate action probabilities based on state (PPO-style)
     std::array<float, 4> actionProbs = {0.25f, 0.25f, 0.25f, 0.25f}; // Base equal probability
     
     // Reduce probability of dangerous actions
@@ -431,18 +432,18 @@ Direction PolicyGradientAgent::getAction(const EnhancedState& state, bool traini
     return static_cast<Direction>(0); // Fallback
 }
 
-bool PolicyGradientAgent::loadModel(const std::string& path) {
-    spdlog::info("PolicyGradientAgent: Model file detected: {}", path);
-    spdlog::info("PolicyGradientAgent: Using probabilistic decision making");
+bool PPOAgent::loadModel(const std::string& path) {
+    spdlog::info("PPOAgent: Model file detected: {}", path);
+    spdlog::info("PPOAgent: Using probabilistic decision making");
     return true;
 }
 
-std::string PolicyGradientAgent::getAgentInfo() const {
-    return "Policy Gradient (Probabilistic) | Stochastic action selection";
+std::string PPOAgent::getAgentInfo() const {
+    return "PPO (Probabilistic) | Proximal Policy Optimization style decisions";
 }
 
-std::string PolicyGradientAgent::getModelInfo() const {
-    return "Enhanced Policy Gradient placeholder - probabilistic decisions";
+std::string PPOAgent::getModelInfo() const {
+    return "Enhanced PPO placeholder - probabilistic action selection";
 }
 
 // Enhanced Actor-Critic Agent
@@ -599,33 +600,31 @@ void TrainedModelManager::scanForModels() {
         }
     }
     
-    // Scan for Policy Gradient models
-    auto pgDir = std::filesystem::path(m_modelsDirectory) / "policy_gradient";
-    if (std::filesystem::exists(pgDir)) {
-        for (const auto& entry : std::filesystem::directory_iterator(pgDir)) {
+    // Scan for PPO models (CHANGED: from policy_gradient to ppo)
+    auto ppoDir = std::filesystem::path(m_modelsDirectory) / "ppo";
+    if (std::filesystem::exists(ppoDir)) {
+        for (const auto& entry : std::filesystem::directory_iterator(ppoDir)) {
             if (entry.is_regular_file()) {
                 std::string filename = entry.path().filename().string();
                 
-                // Look for pg_*.pth files
-                if (filename.substr(0, 3) == "pg_" && 
-                    filename.length() > 7 && 
+                if (filename.substr(0, 4) == "ppo_" && 
+                    filename.length() > 8 && 
                     filename.substr(filename.length() - 4) == ".pth" &&
                     filename.find("best") == std::string::npos &&
                     filename.find("checkpoint") == std::string::npos) {
                     
-                    // Extract profile: pg_aggressive.pth -> "aggressive"
-                    std::string profile = filename.substr(3, filename.length() - 7);
+                    std::string profile = filename.substr(4, filename.length() - 8);
                     
                     TrainedModelInfo info;
-                    info.name = "Policy Gradient " + profile;
+                    info.name = "PPO " + profile;
                     info.profile = profile;
                     info.modelPath = entry.path().string();
-                    info.modelType = "policy_gradient";
-                    info.description = "Policy gradient model (" + profile + " profile)";
+                    info.modelType = "ppo";
+                    info.description = "PPO model (" + profile + " profile)";
                     info.isLoaded = false;
                     
                     m_availableModels.push_back(info);
-                    spdlog::info("TrainedModelManager: Found policy_gradient model: {} ({})", 
+                    spdlog::info("TrainedModelManager: Found PPO model: {} ({})", 
                                  profile, info.modelPath);
                 }
             }
@@ -722,7 +721,7 @@ void TrainedModelManager::createModelInfoFiles() {
     spdlog::debug("TrainedModelManager: Model info files creation not implemented");
 }
 
-// Enhanced Agent Factory Implementation
+// Updated Agent Factory
 std::unique_ptr<IAgent> AgentFactory::createAgent(const AgentConfig& config) {
     spdlog::info("AgentFactory: Creating agent of type: {} ({})", 
                  static_cast<int>(config.type), config.getAgentTypeString());
@@ -732,8 +731,8 @@ std::unique_ptr<IAgent> AgentFactory::createAgent(const AgentConfig& config) {
             return std::make_unique<QLearningAgentEnhanced>(config.learningRate, config.discountFactor, config.epsilon);
         case AgentType::DEEP_Q_NETWORK:
             return std::make_unique<DQNAgent>();
-        case AgentType::POLICY_GRADIENT:
-            return std::make_unique<PolicyGradientAgent>();
+        case AgentType::PPO:  // CHANGED: POLICY_GRADIENT -> PPO
+            return std::make_unique<PPOAgent>();
         case AgentType::ACTOR_CRITIC:
             return std::make_unique<ActorCriticAgent>();
         default:
@@ -765,8 +764,8 @@ std::unique_ptr<IAgent> AgentFactory::createTrainedAgent(const std::string& mode
             auto agent = std::make_unique<DQNAgent>();
             agent->loadModel(modelInfo->modelPath); // This just logs that model was detected
             return agent;
-        } else if (modelInfo->modelType == "policy_gradient") {
-            auto agent = std::make_unique<PolicyGradientAgent>();
+        } else if (modelInfo->modelType == "ppo") {
+            auto agent = std::make_unique<PPOAgent>();
             agent->loadModel(modelInfo->modelPath);
             return agent;
         } else if (modelInfo->modelType == "actor_critic") {
@@ -778,6 +777,8 @@ std::unique_ptr<IAgent> AgentFactory::createTrainedAgent(const std::string& mode
     
     return nullptr;
 }
+
+
 
 // State Generator Implementation (unchanged)
 // Add this to the end of MLAgents.cpp

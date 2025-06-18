@@ -20,7 +20,7 @@ void UnifiedDataCollector::setAgentType(AgentType agentType) {
             m_dataType = AgentDataType::Q_LEARNING;
             break;
         case AgentType::DEEP_Q_NETWORK:
-        case AgentType::POLICY_GRADIENT:
+        case AgentType::PPO:
         case AgentType::ACTOR_CRITIC:
             m_dataType = AgentDataType::NEURAL_NETWORK;
             break;

@@ -31,7 +31,7 @@ struct TrainedModelInfo {
     std::string profile;
     std::string modelPath;
     std::string description;
-    std::string modelType;  // "qlearning", "dqn", "policy_gradient", "actor_critic"
+    std::string modelType;  // "qlearning", "dqn", "ppo", "actor_critic"
     float averageScore = 0.0f;
     int episodesTrained = 0;
     bool isLoaded = false;
@@ -109,13 +109,13 @@ public:
     std::string getModelInfo() const override;
 };
 
-// Enhanced Policy Gradient Agent with Probabilistic Behavior
-class PolicyGradientAgent : public IAgent {
+// Enhanced PPO Agent with Probabilistic Behavior (CHANGED: Policy Gradient -> PPO)
+class PPOAgent : public IAgent {
 private:
     mutable std::mt19937 m_rng;
     
 public:
-    PolicyGradientAgent();
+    PPOAgent();
     Direction getAction(const EnhancedState& state, bool training = true) override;
     void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
     void saveModel(const std::string& path) override {}
@@ -176,7 +176,7 @@ public:
     size_t getQlearningModelCount() const { return getModelsByType("qlearning").size(); }
     size_t getNeuralNetworkModelCount() const { 
         return getModelsByType("dqn").size() + 
-               getModelsByType("policy_gradient").size() + 
+               getModelsByType("ppo").size() +   // CHANGED: policy_gradient -> ppo
                getModelsByType("actor_critic").size(); 
     }
 };
@@ -191,13 +191,13 @@ public:
     // Create agents by type
     static std::unique_ptr<IAgent> createQLearningAgent(const std::string& profile = "balanced");
     static std::unique_ptr<IAgent> createDQNAgent(const std::string& profile = "balanced");
-    static std::unique_ptr<IAgent> createPolicyGradientAgent(const std::string& profile = "balanced");
+    static std::unique_ptr<IAgent> createPPOAgent(const std::string& profile = "balanced");      // CHANGED: createPolicyGradientAgent -> createPPOAgent
     static std::unique_ptr<IAgent> createActorCriticAgent(const std::string& profile = "balanced");
     
     // Utility functions
     static bool isModelTypeSupported(const std::string& modelType) {
         return modelType == "qlearning" || modelType == "dqn" || 
-               modelType == "policy_gradient" || modelType == "actor_critic";
+               modelType == "ppo" || modelType == "actor_critic";  // CHANGED: policy_gradient -> ppo
     }
     
     static bool isFullyImplemented(const std::string& modelType) {
@@ -205,7 +205,7 @@ public:
     }
     
     static std::string getSupportedTechniques() {
-        return "Q-Learning (full C++ support), DQN/Policy Gradient/Actor-Critic (intelligent C++ placeholders)";
+        return "Q-Learning (full C++ support), DQN/PPO/Actor-Critic (intelligent C++ placeholders)";  // CHANGED: Policy Gradient -> PPO
     }
 };
 

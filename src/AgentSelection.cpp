@@ -132,23 +132,23 @@ void AgentSelection::loadTrainedModels() {
         }
     }
     
-    // Add Policy Gradient models
+    // Add PPO models
     for (const auto& modelInfo : trainedModels) {
-        if (modelInfo.modelType == "policy_gradient") {
+        if (modelInfo.modelType == "ppo") {
             AgentConfig config;
-            config.type = AgentType::POLICY_GRADIENT;
+            config.type = AgentType::PPO;
             config.isImplemented = true;
             config.modelPath = modelInfo.modelPath;
             
             std::string profile = modelInfo.profile;
-            config.name = "Policy Gradient " + profile;
-            config.description = "Policy gradient model (" + profile + " profile)";
+            config.name = "PPO " + profile;
+            config.description = "PPO model (" + profile + " profile)";
             
             AgentMenuItem item(config);
             item.isTrainedModel = true;
             m_agents.push_back(std::move(item));
             
-            spdlog::info("AgentSelection: Added Policy Gradient model: {} ({})", 
+            spdlog::info("AgentSelection: Added PPO model: {} ({})", 
                          config.name, profile);
         }
     }

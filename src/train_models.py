@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Updated training orchestrator for SnakeAI-MLOps models
-Focus on balanced training profiles only (removing aggressive/conservative)
+Main training orchestrator for SnakeAI-MLOps models
+Trains Q-Learning, DQN, PPO, and Actor-Critic models
 """
 import argparse
 import torch
@@ -13,7 +13,7 @@ from neural_network_utils import verify_gpu, create_directories
 from qlearning_trainer import train_qlearning, TrainingConfig as QConfig
 
 def check_gpu_requirements():
-    """Verify GPU setup and requirements"""
+    """Verify GPU setup"""
     print("🔍 Checking GPU requirements...")
     
     if not torch.cuda.is_available():
@@ -21,43 +21,38 @@ def check_gpu_requirements():
         return False
     
     device = verify_gpu()
-    
-    # Memory check
     total_memory = torch.cuda.get_device_properties(0).total_memory
     
-    if total_memory < 2e9:  # Less than 2GB
+    if total_memory < 2e9:
         print(f"⚠️  Warning: Low GPU memory ({total_memory/1e9:.1f}GB)")
     
     print(f"✅ GPU Ready: {total_memory/1e9:.1f}GB total")
     return True
 
 def train_all_models():
-    """Train all ML model types with balanced profiles only"""
+    """Train all ML model types with balanced profiles"""
     if not check_gpu_requirements():
         print("❌ GPU requirements not met")
         return
     
-    # Create directory structure
     create_directories("models")
-    
     total_start = time.time()
     
     print(f"\n{'='*70}")
-    print("🚀 STARTING FOCUSED ML PIPELINE TRAINING")
-    print("🎯 Training BALANCED profiles only for better performance")
+    print("🚀 STARTING UNIFIED ML PIPELINE TRAINING")
+    print("🎯 Training BALANCED profiles: Q-Learning, DQN, PPO, Actor-Critic")
     print(f"{'='*70}")
     
     # Import here to avoid circular imports
     try:
         from dqn_trainer import train_dqn, DQNConfig
-        from policy_gradient_trainer import train_ppo, PPOConfig  # Now uses PPO
-        # Note: Actor-Critic removed as requested, can be added back if needed
+        from ppo_trainer import train_ppo, PPOConfig  # Updated import
+        from actor_critic_trainer import train_actor_critic, ActorCriticConfig
     except ImportError as e:
         print(f"❌ Import error: {e}")
-        print("Make sure the trainer files are available")
         return
     
-    # 1. Q-Learning Model (Balanced only)
+    # 1. Q-Learning Model
     print(f"\n{'='*50}")
     print("📊 TRAINING Q-LEARNING MODEL")
     print(f"{'='*50}")
@@ -71,12 +66,11 @@ def train_all_models():
         target_score=15
     )
     
-    print(f"🎯 Training Q-Learning balanced")
     start = time.time()
     train_qlearning(qlearning_config)
     print(f"✅ Q-Learning completed in {time.time() - start:.1f}s")
     
-    # 2. DQN Model (Balanced only)
+    # 2. DQN Model
     print(f"\n{'='*50}")
     print("🧠 TRAINING DEEP Q-NETWORK MODEL")
     print(f"{'='*50}")
@@ -91,48 +85,66 @@ def train_all_models():
         hidden_size=128
     )
     
-    print(f"🎯 Training DQN balanced")
     start = time.time()
     train_dqn(dqn_config)
     print(f"✅ DQN completed in {time.time() - start:.1f}s")
     
-    # 3. PPO Model (Balanced only)
+    # 3. PPO Model
     print(f"\n{'='*50}")
     print("🎭 TRAINING PPO MODEL")
     print(f"{'='*50}")
     
     ppo_config = PPOConfig(
         profile_name="balanced",
-        learning_rate=0.001,  # Increased from 0.0003
-        max_episodes=1500,  # Reduced from 1500
-        target_score=8,  # Reduced from 12
-        hidden_size=256,  # Increased from 128
+        learning_rate=0.001,
+        max_episodes=1500,
+        target_score=8,
+        hidden_size=256,
         clip_epsilon=0.2,
-        entropy_coeff=0.02,  # Increased from 0.01
-        trajectory_length=256,  # Increased from 128
-        update_epochs=6,  # Increased from 4
-        batch_size=32  # Reduced from 64
+        entropy_coeff=0.02,
+        trajectory_length=256,
+        update_epochs=6,
+        batch_size=32
     )
     
-    print(f"🎯 Training PPO balanced")
     start = time.time()
     train_ppo(ppo_config)
     print(f"✅ PPO completed in {time.time() - start:.1f}s")
     
+    # 4. Actor-Critic Model
+    print(f"\n{'='*50}")
+    print("🎪 TRAINING ACTOR-CRITIC MODEL")
+    print(f"{'='*50}")
+    
+    ac_config = ActorCriticConfig(
+        profile_name="balanced",
+        actor_lr=0.001,
+        critic_lr=0.002,
+        entropy_coeff=0.01,
+        max_episodes=2500,
+        target_score=13,
+        n_step=5,
+        gae_lambda=0.95
+    )
+    
+    start = time.time()
+    train_actor_critic(ac_config)
+    print(f"✅ Actor-Critic completed in {time.time() - start:.1f}s")
+    
     total_time = time.time() - total_start
-    print(f"\n🎉 ALL BALANCED MODELS TRAINED SUCCESSFULLY!")
+    print(f"\n🎉 ALL MODELS TRAINED SUCCESSFULLY!")
     print(f"⏱️  Total training time: {total_time/60:.1f} minutes")
     
-    # Comprehensive evaluation
+    # Evaluation
     print(f"\n{'='*50}")
     print("📊 EVALUATING ALL TRAINED MODELS")
     print(f"{'='*50}")
     evaluate_all_models()
 
 def train_single_technique(technique: str, profile: str = "balanced", episodes: int = None):
-    """Train single ML technique (balanced profile only)"""
+    """Train single ML technique"""
     if profile != "balanced":
-        print(f"⚠️  Only 'balanced' profile is supported. Switching to balanced.")
+        print(f"⚠️  Only 'balanced' profile supported. Using balanced.")
         profile = "balanced"
     
     if not check_gpu_requirements():
@@ -165,14 +177,14 @@ def train_single_technique(technique: str, profile: str = "balanced", episodes: 
             )
             train_dqn(config)
         except ImportError:
-            print("❌ Fixed DQN trainer not found. Please ensure fixed_dqn_trainer.py is available.")
+            print("❌ DQN trainer not found")
         
     elif technique == "ppo":
         try:
-            from policy_gradient_trainer import train_ppo, PPOConfig
+            from ppo_trainer import train_ppo, PPOConfig
             config = PPOConfig(
                 profile_name=profile,
-                learning_rate=0.001,  # Improved settings
+                learning_rate=0.001,
                 max_episodes=episodes or 1500,
                 target_score=8,
                 hidden_size=256,
@@ -184,22 +196,37 @@ def train_single_technique(technique: str, profile: str = "balanced", episodes: 
             )
             train_ppo(config)
         except ImportError:
-            print("❌ PPO trainer not found. Please ensure policy_gradient_trainer.py has PPO implementation.")
+            print("❌ PPO trainer not found")
+        
+    elif technique == "actor_critic":
+        try:
+            from actor_critic_trainer import train_actor_critic, ActorCriticConfig
+            config = ActorCriticConfig(
+                profile_name=profile,
+                actor_lr=0.001,
+                critic_lr=0.002,
+                entropy_coeff=0.01,
+                max_episodes=episodes or 2500,
+                target_score=13
+            )
+            train_actor_critic(config)
+        except ImportError:
+            print("❌ Actor-Critic trainer not found")
         
     else:
         print(f"❌ Unknown technique: {technique}")
-        print("Available: qlearning, dqn, ppo")
+        print("Available: qlearning, dqn, ppo, actor_critic")
 
 def evaluate_all_models():
-    """Evaluate all available models using fixed evaluator"""
+    """Evaluate all available models using unified evaluator"""
     if not check_gpu_requirements():
         return
     
     try:
-        from fixed_model_evaluator import FixedModelEvaluator
-        evaluator = FixedModelEvaluator()
+        from evaluator import UnifiedModelEvaluator
+        evaluator = UnifiedModelEvaluator()
     except ImportError:
-        print("❌ Fixed model evaluator not found. Please ensure fixed_model_evaluator.py is available.")
+        print("❌ Unified evaluator not found")
         return
     
     model_dir = Path("models")
@@ -208,7 +235,7 @@ def evaluate_all_models():
         print("❌ No models directory found")
         return
     
-    # Collect all final models (balanced profiles only)
+    # Find all balanced models
     model_files = []
     
     # Q-Learning models
@@ -217,27 +244,15 @@ def evaluate_all_models():
         for qfile in qlearning_dir.glob("qtable_balanced.json"):
             model_files.append(str(qfile))
     
-    # DQN models
-    dqn_dir = model_dir / "dqn"
-    if dqn_dir.exists():
-        for dqn_file in dqn_dir.glob("dqn_balanced.pth"):
-            model_files.append(str(dqn_file))
-    
-    # PPO models
-    ppo_dir = model_dir / "ppo"
-    if ppo_dir.exists():
-        for ppo_file in ppo_dir.glob("ppo_balanced.pth"):
-            model_files.append(str(ppo_file))
+    # Neural network models
+    for technique in ["dqn", "ppo", "actor_critic"]:
+        tech_dir = model_dir / technique
+        if tech_dir.exists():
+            for model_file in tech_dir.glob(f"*_balanced.pth"):
+                model_files.append(str(model_file))
     
     if not model_files:
         print("❌ No balanced models found")
-        print("Available models:")
-        for technique_dir in ["qlearning", "dqn", "policy_gradient"]:
-            tech_path = model_dir / technique_dir
-            if tech_path.exists():
-                models = list(tech_path.glob("*"))
-                if models:
-                    print(f"  {technique_dir}: {[m.name for m in models]}")
         return
     
     print(f"📊 Evaluating {len(model_files)} balanced models...")
@@ -250,7 +265,7 @@ def list_available_models():
         print("❌ No models directory found")
         return
     
-    print("📋 Available Models (Balanced Profiles):")
+    print("📋 Available Models:")
     print("=" * 50)
     
     # Q-Learning models
@@ -262,18 +277,18 @@ def list_available_models():
                 print(f"   • {qfile.name}")
     
     # Neural network models
-    for technique, emoji in [("dqn", "🧠"), ("ppo", "🎭")]:
+    for technique, emoji in [("dqn", "🧠"), ("ppo", "🎭"), ("actor_critic", "🎪")]:
         tech_dir = model_dir / technique
         if tech_dir.exists():
-            print(f"\n{emoji} {technique.replace('_', ' ').title()} Models:")
+            print(f"\n{emoji} {technique.upper()} Models:")
             for model_file in tech_dir.glob("*.pth"):
                 if "checkpoint" not in model_file.name:
                     print(f"   • {model_file.name}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Train SnakeAI ML Models (Balanced Focus)")
+    parser = argparse.ArgumentParser(description="Train SnakeAI ML Models")
     parser.add_argument("--technique", 
-                       choices=["qlearning", "dqn", "ppo", "all"],
+                       choices=["qlearning", "dqn", "ppo", "actor_critic", "all"],
                        default="all", help="ML technique to train")
     parser.add_argument("--episodes", type=int, help="Number of episodes")
     parser.add_argument("--evaluate", action="store_true", help="Evaluate existing models")
@@ -303,12 +318,12 @@ if __name__ == "__main__":
     main()
 
 """
-Usage Examples (Focused on Balanced Profiles):
+Usage Examples:
 
-# Train all models (balanced profiles only)
+# Train all models (balanced profiles)
 python train_models.py --technique all
 
-# Train specific technique (balanced only)
+# Train specific technique
 python train_models.py --technique dqn
 python train_models.py --technique ppo --episodes 2000
 
@@ -321,18 +336,11 @@ python train_models.py --list
 # Test GPU setup
 python train_models.py --gpu-test
 
-Key Improvements:
-1. Removed aggressive/conservative profiles (always performed worse)
-2. Focused on balanced parameters that work well
-3. Simplified training pipeline
-4. Fixed state representations and reward structures
-5. Integrated with fixed evaluator for proper assessment
-6. Reduced training times while maintaining performance
-
-Expected Performance (Balanced Profiles):
+Expected Performance:
 - Q-Learning: 10-20 average score
 - DQN: 8-15 average score  
-- PPO: 10-18 average score (better than Policy Gradient)
+- PPO: 10-18 average score
+- Actor-Critic: 12-20 average score
 
 Output Structure:
 models/
@@ -340,6 +348,8 @@ models/
 │   └── qtable_balanced.json
 ├── dqn/
 │   └── dqn_balanced.pth
-└── ppo/
-    └── ppo_balanced.pth
+├── ppo/
+│   └── ppo_balanced.pth
+└── actor_critic/
+    └── ac_balanced.pth
 """

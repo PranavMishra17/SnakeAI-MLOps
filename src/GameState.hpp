@@ -24,9 +24,9 @@ enum class GameMode {
 enum class AgentType {
     HUMAN,
     Q_LEARNING,
-    DEEP_Q_NETWORK,     // Placeholder
-    POLICY_GRADIENT,    // Placeholder
-    ACTOR_CRITIC,       // Placeholder
+    DEEP_Q_NETWORK,     
+    PPO,                // CHANGED: Policy Gradient -> PPO
+    ACTOR_CRITIC,       
     GENETIC_ALGORITHM   // Placeholder
 };
 
@@ -102,8 +102,6 @@ struct EnhancedState {
 };
 
 // Reward system
-// Replace the existing Reward struct around line 105 in GameState.hpp with:
-
 struct Reward {
     static constexpr float EAT_FOOD = 10.0f;
     static constexpr float DEATH = -10.0f;
@@ -132,7 +130,7 @@ struct LeaderboardEntry {
             case AgentType::HUMAN: return "Human";
             case AgentType::Q_LEARNING: return "Q-Learning";
             case AgentType::DEEP_Q_NETWORK: return "DQN";
-            case AgentType::POLICY_GRADIENT: return "Policy Gradient";
+            case AgentType::PPO: return "PPO";  // CHANGED: Policy Gradient -> PPO
             case AgentType::ACTOR_CRITIC: return "Actor-Critic";
             case AgentType::GENETIC_ALGORITHM: return "Genetic Algorithm";
             default: return "Unknown";
@@ -164,7 +162,7 @@ struct AgentConfig {
             case AgentType::HUMAN: return "Human";
             case AgentType::Q_LEARNING: return "Q-Learning";
             case AgentType::DEEP_Q_NETWORK: return "DQN";
-            case AgentType::POLICY_GRADIENT: return "Policy Gradient";
+            case AgentType::PPO: return "PPO";  // CHANGED: Policy Gradient -> PPO
             case AgentType::ACTOR_CRITIC: return "Actor-Critic";
             case AgentType::GENETIC_ALGORITHM: return "Genetic Algorithm";
             default: return "Unknown";

@@ -30,7 +30,7 @@ def test_imports():
         from dqn_trainer import train_dqn, DQNConfig, DQNAgent
         print("✅ DQN trainer")
         
-        from policy_gradient_trainer import train_policy_gradient, PolicyGradientConfig
+        from ppo_trainer import train_policy_gradient, PolicyGradientConfig
         print("✅ Policy Gradient trainer")
         
         from actor_critic_trainer import train_actor_critic, ActorCriticConfig

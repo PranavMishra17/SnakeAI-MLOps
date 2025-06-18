@@ -178,7 +178,7 @@ std::string Leaderboard::getDefaultName(AgentType agentType) {
         case AgentType::HUMAN: return "Anonymous";
         case AgentType::Q_LEARNING: return "Q-Agent";
         case AgentType::DEEP_Q_NETWORK: return "DQN-Agent";
-        case AgentType::POLICY_GRADIENT: return "PG-Agent";
+        case AgentType::PPO: return "PPO-Agent";
         case AgentType::ACTOR_CRITIC: return "AC-Agent";
         case AgentType::GENETIC_ALGORITHM: return "GA-Agent";
         default: return "Unknown";
