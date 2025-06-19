@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""
+Updated Q-Learning trainer for SnakeAI-MLOps with configurable grid sizes
+GPU-accelerated with consistent grid options for fair comparison
+"""
 import torch
 import numpy as np
 import json
@@ -30,6 +34,7 @@ def verify_gpu():
 
 @dataclass
 class TrainingConfig:
+    """Updated training configuration with grid size options"""
     profile_name: str = "balanced"
     max_episodes: int = 5000
     learning_rate: float = 0.1
@@ -39,18 +44,21 @@ class TrainingConfig:
     epsilon_decay: float = 0.995
     target_score: int = 20
     checkpoint_interval: int = 100
+    grid_size: int = 10  # Added configurable grid size
     device: str = "cuda"
 
 class SnakeEnvironment:
-    """Simplified Snake environment for training"""
-    def __init__(self, grid_size=20, device='cuda'):
+    """Updated Snake environment with configurable grid size"""
+    def __init__(self, grid_size=10, device='cuda'):
         self.grid_size = grid_size
         self.device = torch.device(device)
+        print(f"✅ Snake Environment: {grid_size}x{grid_size} grid")
         self.reset()
     
     def reset(self):
         """Reset environment state"""
-        self.snake = [(10, 10), (10, 9)]  # Head, body
+        center = self.grid_size // 2
+        self.snake = [(center, center), (center, center-1)]  # Head, body
         self.direction = 3  # RIGHT
         self.food = self._place_food()
         self.score = 0
@@ -142,12 +150,14 @@ class SnakeEnvironment:
             reward = 1.0 if new_dist < old_dist else -1.0
         
         self.steps += 1
-        done = self.steps >= 1000  # Max steps
+        # Adjust max steps based on grid size
+        max_steps = self.grid_size * 50  # Scales with grid size
+        done = self.steps >= max_steps
         
         return self._get_state(), reward, done
 
 class QLearningAgent:
-    """GPU-accelerated Q-Learning agent"""
+    """GPU-accelerated Q-Learning agent with improved performance"""
     def __init__(self, config: TrainingConfig):
         self.config = config
         self.device = torch.device(config.device)
@@ -158,6 +168,7 @@ class QLearningAgent:
         self.epsilon = config.epsilon_start
         
         print(f"✅ Q-Learning Agent initialized on {self.device}")
+        print(f"   Grid size: {config.grid_size}x{config.grid_size}")
     
     def encode_state(self, state):
         """Convert 8D state to single index for Q-table"""
@@ -209,9 +220,7 @@ class QLearningAgent:
         """Decay exploration rate"""
         self.epsilon = max(self.config.epsilon_end, 
                           self.epsilon * self.config.epsilon_decay)
-        
-    # Add this method to QLearningAgent class in qlearning_trainer.py:
-
+    
     def load_model(self, filepath):
         """Load Q-table from JSON file"""
         try:
@@ -253,7 +262,7 @@ class QLearningAgent:
         
         # Convert to C++ compatible format
         q_table_dict = {}
-        for state_idx in range(512):  # Updated for 9-bit states
+        for state_idx in range(512):  # 9-bit states
             if torch.any(self.q_table[state_idx] != 0):  # Only save non-zero entries
                 # Convert index back to state string for C++ compatibility
                 state_str = format(state_idx, '09b')  # 9-bit binary string
@@ -264,7 +273,13 @@ class QLearningAgent:
             "hyperparameters": {
                 "learningRate": self.config.learning_rate,
                 "discountFactor": self.config.discount_factor,
-                "epsilon": self.epsilon
+                "epsilon": self.epsilon,
+                "gridSize": self.config.grid_size  # Added grid size
+            },
+            "metadata": {
+                "profile": self.config.profile_name,
+                "gridSize": self.config.grid_size,
+                "totalStates": len(q_table_dict)
             }
         }
         
@@ -274,28 +289,30 @@ class QLearningAgent:
         print(f"✅ Model saved: {filepath}")
 
 def train_qlearning(config: TrainingConfig):
-    """Main training function with GPU acceleration"""
+    """Main training function with configurable grid size"""
     device = verify_gpu()
     config.device = str(device)
     
-    # FIXED: Setup paths with proper directory structure
-    model_dir = Path("models/qlearning")  # Changed: ensure qlearning subdirectory
+    # Setup paths with proper directory structure
+    model_dir = Path("models/qlearning")
     checkpoint_dir = model_dir / f"{config.profile_name}_checkpoints"
-    model_dir.mkdir(parents=True, exist_ok=True)  # Create parents
+    model_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     
-    # Initialize environment and agent
-    env = SnakeEnvironment(device=str(device))
+    # Initialize environment and agent with configurable grid
+    env = SnakeEnvironment(grid_size=config.grid_size, device=str(device))
     agent = QLearningAgent(config)
     
     # Training metrics
     scores = []
     epsilons = []
     
-    print(f"🚀 Starting training: {config.profile_name}")
+    print(f"🚀 Starting Q-Learning training: {config.profile_name}")
+    print(f"   Grid: {config.grid_size}x{config.grid_size}")
+    print(f"   Target score: {config.target_score}")
     
     # Training loop
-    for episode in tqdm(range(config.max_episodes), desc="Training"):
+    for episode in tqdm(range(config.max_episodes), desc="Training Q-Learning"):
         state = env.reset()
         total_reward = 0
         
@@ -322,14 +339,14 @@ def train_qlearning(config: TrainingConfig):
             # Save checkpoint
             if episode % config.checkpoint_interval == 0:
                 checkpoint_path = checkpoint_dir / f"qtable_{config.profile_name}_ep{episode}.json"
-                agent.save_model(str(checkpoint_path))  # Convert to string
+                agent.save_model(str(checkpoint_path))
         
         # Early stopping
         if episode >= 100 and np.mean(scores[-100:]) >= config.target_score:
             print(f"✅ Target score reached at episode {episode}")
             break
     
-    # FIXED: Save final model to correct path
+    # Save final model
     final_path = model_dir / f"qtable_{config.profile_name}.json"
     agent.save_model(str(final_path))
     
@@ -340,6 +357,7 @@ def train_qlearning(config: TrainingConfig):
         "final_avg_score": float(np.mean(scores[-100:])),
         "max_score": int(max(scores)),
         "final_epsilon": agent.epsilon,
+        "grid_size": config.grid_size,
         "config": config.__dict__
     }
     
@@ -352,7 +370,7 @@ def train_qlearning(config: TrainingConfig):
     
     plt.subplot(1, 2, 1)
     plt.plot(scores)
-    plt.title(f'Training Scores - {config.profile_name}')
+    plt.title(f'Q-Learning Scores - {config.profile_name} ({config.grid_size}x{config.grid_size})')
     plt.xlabel('Episode')
     plt.ylabel('Score')
     
@@ -364,35 +382,40 @@ def train_qlearning(config: TrainingConfig):
     
     plt.tight_layout()
     plt.savefig(model_dir / f"training_curves_{config.profile_name}.png")
-    print(f"✅ Training complete!")
+    print(f"✅ Q-Learning training complete!")
     print(f"📁 Final model: {final_path}")
     print(f"📁 Checkpoints: {checkpoint_dir}/")
     print(f"📊 Report: {report_path}")
 
-
 if __name__ == "__main__":
-    # Train different profiles
+    # Train different profiles with varying grid sizes
     profiles = {
         "aggressive": TrainingConfig(
             profile_name="aggressive",
             learning_rate=0.2,
             epsilon_start=0.3,
             epsilon_end=0.05,
-            max_episodes=3000
+            max_episodes=2000,
+            grid_size=8,  # Smaller grid for faster learning
+            target_score=8
         ),
         "balanced": TrainingConfig(
             profile_name="balanced", 
             learning_rate=0.1,
             epsilon_start=0.2,
             epsilon_end=0.02,
-            max_episodes=5000
+            max_episodes=3000,
+            grid_size=10,  # Medium grid
+            target_score=12
         ),
         "conservative": TrainingConfig(
             profile_name="conservative",
             learning_rate=0.05,
             epsilon_start=0.1,
             epsilon_end=0.01,
-            max_episodes=7000
+            max_episodes=4000,
+            grid_size=12,  # Larger grid
+            target_score=15
         )
     }
     
@@ -401,3 +424,63 @@ if __name__ == "__main__":
         print(f"Training {name} model")
         print(f"{'='*50}")
         train_qlearning(config)
+
+"""
+USAGE EXAMPLES:
+===============
+
+# Import and train Q-Learning model
+from qlearning_trainer import train_qlearning, TrainingConfig
+
+# Quick training with default settings
+config = TrainingConfig(profile_name="test", max_episodes=1000)
+train_qlearning(config)
+
+# Custom configuration with small grid for fast learning
+config = TrainingConfig(
+    profile_name="custom",
+    learning_rate=0.15,
+    grid_size=8,           # Small grid for faster convergence
+    max_episodes=2000,
+    target_score=8,
+    epsilon_start=0.3,
+    epsilon_decay=0.99
+)
+train_qlearning(config)
+
+# Large grid for challenging environment
+config = TrainingConfig(
+    profile_name="challenge",
+    grid_size=15,          # Large grid
+    max_episodes=5000,
+    target_score=20,
+    learning_rate=0.1
+)
+train_qlearning(config)
+
+# Load and evaluate existing model
+from qlearning_trainer import QLearningAgent, SnakeEnvironment
+
+config = TrainingConfig(profile_name="evaluation", grid_size=10)
+agent = QLearningAgent(config)
+agent.load_model("models/qlearning/qtable_balanced.json")
+
+env = SnakeEnvironment(grid_size=10)
+state = env.reset()
+action = agent.get_action(state, training=False)  # No exploration
+
+# Train from command line
+python qlearning_trainer.py
+
+# Key features:
+# - Configurable grid sizes (8x8 to 20x20)
+# - GPU acceleration for Q-table operations
+# - C++ compatible model format
+# - Automatic scaling of episode length with grid size
+# - Comprehensive training metrics and plots
+
+# Performance expectations by grid size:
+# - 8x8 grid: ~8-12 average score, fast convergence
+# - 10x10 grid: ~10-15 average score, good balance
+# - 12x12+ grid: ~12-20+ average score, slower learning
+"""

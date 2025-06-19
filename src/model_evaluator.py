@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Enhanced Model evaluator for all SnakeAI-MLOps ML techniques
-Comprehensive evaluation metrics and visualization
+Fixed Actor-Critic evaluation with comprehensive metrics and visualization
 """
 import torch
 import torch.nn.functional as F
@@ -15,18 +15,55 @@ import time
 from collections import defaultdict
 import pandas as pd
 
-from neural_network_utils import (
-    DQNNetwork, PolicyNetwork, ValueNetwork, NetworkConfig,
-    verify_gpu, encode_state_for_dqn
-)
+from neural_network_utils import verify_gpu
 from qlearning_trainer import SnakeEnvironment
 
-class UnifiedModelEvaluator:
-    """Enhanced model evaluation with comprehensive metrics"""
+class SimpleDQN(torch.nn.Module):
+    """Simple DQN for loading models"""
+    def __init__(self, input_size, hidden_size, output_size):
+        super(SimpleDQN, self).__init__()
+        self.fc1 = torch.nn.Linear(input_size, hidden_size)
+        self.fc2 = torch.nn.Linear(hidden_size, hidden_size)
+        self.fc3 = torch.nn.Linear(hidden_size, output_size)
+    
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
+
+class SimplePolicyNetwork(torch.nn.Module):
+    """Simple policy network for PPO/AC"""
+    def __init__(self, input_size, hidden_size, output_size):
+        super(SimplePolicyNetwork, self).__init__()
+        self.fc1 = torch.nn.Linear(input_size, hidden_size)
+        self.fc2 = torch.nn.Linear(hidden_size, hidden_size)
+        self.fc3 = torch.nn.Linear(hidden_size, output_size)
+    
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return F.softmax(x, dim=-1)
+
+class SimpleValueNetwork(torch.nn.Module):
+    """Simple value network"""
+    def __init__(self, input_size, hidden_size):
+        super(SimpleValueNetwork, self).__init__()
+        self.fc1 = torch.nn.Linear(input_size, hidden_size)
+        self.fc2 = torch.nn.Linear(hidden_size, hidden_size)
+        self.fc3 = torch.nn.Linear(hidden_size, 1)
+    
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x).squeeze(-1)
+
+class EnhancedModelEvaluator:
+    """Enhanced model evaluation with comprehensive metrics - FIXED"""
     
     def __init__(self):
         self.device = verify_gpu()
-        print(f"✅ Enhanced UnifiedModelEvaluator initialized on {self.device}")
+        print(f"✅ Enhanced Model Evaluator initialized on {self.device}")
     
     def load_qlearning_model(self, model_path: str) -> torch.Tensor:
         """Load Q-Learning model from JSON"""
@@ -46,69 +83,54 @@ class UnifiedModelEvaluator:
         return q_table
     
     def load_neural_model(self, model_path: str, model_type: str):
-        """Load neural network model with enhanced features"""
+        """Load neural network model - FIXED for all architectures"""
         checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
         config_dict = checkpoint['config']
         
-        # Create network config
-        net_config = NetworkConfig(
-            input_size=20,
-            hidden_layers=config_dict.get('hidden_layers', [128, 64]),
-            output_size=4,
-            dropout=0.0  # No dropout during evaluation
-        )
-        
+        # Determine input size and hidden size from saved model
         if model_type == "dqn":
-            model = DQNNetwork(net_config, dueling=config_dict.get('dueling', True))
-            # Create temporary model to inspect state dict
-            temp_state = model.state_dict()
             saved_state = checkpoint['q_network']
+            input_size = saved_state['fc1.weight'].shape[1]
+            hidden_size = config_dict.get('hidden_size', 64)
             
-            # Check if architectures match
-            if set(temp_state.keys()) != set(saved_state.keys()):
-                # Try to load with strict=False to handle minor differences
-                model.load_state_dict(saved_state, strict=False)
-            else:
-                model.load_state_dict(saved_state)
+            model = SimpleDQN(input_size, hidden_size, 4)
+            model.load_state_dict(saved_state, strict=False)
             
-        elif model_type == "policy_gradient":
-            model = PolicyNetwork(net_config)
-            # For compatibility with older models, try different keys
-            if 'policy_network' in checkpoint:
-                state_dict = checkpoint['policy_network']
-            elif 'model_state_dict' in checkpoint:
-                state_dict = checkpoint['model_state_dict']
-            else:
-                state_dict = checkpoint
+        elif model_type == "ppo":
+            saved_state = checkpoint['policy_network']
+            input_size = saved_state['fc1.weight'].shape[1]
+            hidden_size = config_dict.get('hidden_size', 64)
             
-            # Load with strict=False to handle architecture differences
-            model.load_state_dict(state_dict, strict=False)
+            model = SimplePolicyNetwork(input_size, hidden_size, 4)
+            model.load_state_dict(saved_state, strict=False)
             
         elif model_type == "actor_critic":
-            # Load both actor and critic
-            actor = PolicyNetwork(net_config)
-            critic = ValueNetwork(net_config)
+            # Load both actor and critic - FIXED
+            actor_state = checkpoint['actor_state_dict']
+            input_size = actor_state['fc1.weight'].shape[1]
+            hidden_size = config_dict.get('hidden_size', 64)
             
-            # Handle different checkpoint formats
-            if 'actor_state_dict' in checkpoint:
-                actor.load_state_dict(checkpoint['actor_state_dict'], strict=False)
+            actor = SimplePolicyNetwork(input_size, hidden_size, 4)
+            actor.load_state_dict(actor_state, strict=False)
+            
+            critic = SimpleValueNetwork(input_size, hidden_size)
+            if 'critic_state_dict' in checkpoint:
                 critic.load_state_dict(checkpoint['critic_state_dict'], strict=False)
-            elif 'actor' in checkpoint:
-                actor.load_state_dict(checkpoint['actor'], strict=False)
-                critic.load_state_dict(checkpoint['critic'], strict=False)
             
             model = (actor, critic)
         
-        model.to(self.device) if not isinstance(model, tuple) else [m.to(self.device) for m in model]
-        
+        # Move to device and set eval mode
         if isinstance(model, tuple):
+            model[0].to(self.device)
+            model[1].to(self.device)
             model[0].eval()
             model[1].eval()
         else:
+            model.to(self.device)
             model.eval()
         
-        print(f"✅ {model_type.upper()} model loaded: {model_path}")
-        return model, checkpoint.get('metadata', {})
+        print(f"✅ {model_type.upper()} model loaded: {model_path} (input_size: {input_size})")
+        return model, checkpoint.get('metadata', {}), input_size
     
     def encode_state_qlearning(self, state):
         """Convert 8D state to Q-table index for Q-Learning"""
@@ -133,54 +155,76 @@ class UnifiedModelEvaluator:
         binary_str = ''.join(binary_parts)
         return int(binary_str, 2)
     
-    def enhance_state_for_neural(self, basic_state):
-        """Convert 8D basic state to 20D enhanced state for neural networks"""
-        enhanced_state = torch.zeros(20, dtype=torch.float32, device=self.device)
-        
-        # Copy basic features
-        enhanced_state[:8] = basic_state.float()
-        
-        # Add enhanced features (simplified for evaluation)
-        food_features = basic_state[4:8]
-        food_distance = torch.sum(food_features).float()
-        enhanced_state[8] = food_distance / 4.0
-        
-        # Wall distances (placeholder)
-        enhanced_state[9:13] = torch.tensor([0.5, 0.5, 0.5, 0.5], device=self.device)
-        
-        # Body density (placeholder)
-        enhanced_state[13:17] = torch.tensor([0.1, 0.1, 0.1, 0.1], device=self.device)
-        
-        # Additional features
-        enhanced_state[17] = 0.1  # Snake length
-        enhanced_state[18] = 0.9  # Empty spaces
-        enhanced_state[19] = food_distance / 4.0  # Path complexity
-        
-        return enhanced_state
+    def prepare_neural_state(self, basic_state, model_input_size):
+        """Prepare state for neural networks - FIXED to handle any input size"""
+        if model_input_size == 8:
+            # Model expects 8D input (same as basic state)
+            return basic_state
+        elif model_input_size == 11:
+            # Model expects 11D input
+            enhanced_state = torch.zeros(11, dtype=torch.float32, device=self.device)
+            enhanced_state[:8] = basic_state
+            
+            # Add simple enhanced features
+            food_features = basic_state[4:8]
+            food_distance = torch.sum(food_features).float()
+            enhanced_state[8] = food_distance / 4.0
+            enhanced_state[9] = 0.1  # snake length placeholder
+            enhanced_state[10] = 0.9  # empty spaces placeholder
+            
+            return enhanced_state
+        elif model_input_size == 20:
+            # Model expects 20D input
+            enhanced_state = torch.zeros(20, dtype=torch.float32, device=self.device)
+            enhanced_state[:8] = basic_state
+            
+            # Add enhanced features (simplified for evaluation)
+            food_features = basic_state[4:8]
+            food_distance = torch.sum(food_features).float()
+            enhanced_state[8] = food_distance / 4.0
+            
+            # Wall distances (placeholder)
+            enhanced_state[9:13] = torch.tensor([0.5, 0.5, 0.5, 0.5], device=self.device)
+            
+            # Body density (placeholder)
+            enhanced_state[13:17] = torch.tensor([0.1, 0.1, 0.1, 0.1], device=self.device)
+            
+            # Additional features
+            enhanced_state[17] = 0.1  # Snake length
+            enhanced_state[18] = 0.9  # Empty spaces
+            enhanced_state[19] = food_distance / 4.0  # Path complexity
+            
+            return enhanced_state
+        else:
+            # Unknown input size - try to adapt
+            print(f"⚠️  Unknown input size {model_input_size}, using basic 8D state")
+            return basic_state
     
     def evaluate_model(self, model_path: str, model_type: str, episodes: int = 100, 
                       detailed_metrics: bool = True) -> Dict:
-        """Evaluate single model with comprehensive metrics"""
-        env = SnakeEnvironment(device=str(self.device))
+        """Evaluate single model with comprehensive metrics - FIXED"""
+        # Use consistent grid size for fair evaluation
+        env = SnakeEnvironment(grid_size=10, device=str(self.device))
         
         # Load model
         if model_type == "qlearning":
             model = self.load_qlearning_model(model_path)
             metadata = {}
+            input_size = None
         else:
-            model, metadata = self.load_neural_model(model_path, model_type)
+            model, metadata, input_size = self.load_neural_model(model_path, model_type)
         
         # Evaluation metrics
         scores = []
         episode_lengths = []
         action_distributions = [0, 0, 0, 0]
-        death_causes = defaultdict(int)  # wall, self-collision, timeout
+        death_causes = defaultdict(int)
         
         # Detailed metrics
-        food_efficiency = []  # steps per food
+        food_efficiency = []
         survival_time = []
         max_snake_length = []
-        action_changes = []  # behavioral stability
+        action_changes = []
         
         print(f"🧪 Evaluating {model_type} model over {episodes} episodes...")
         
@@ -198,23 +242,23 @@ class UnifiedModelEvaluator:
                     action = torch.argmax(model[state_idx]).item()
                     
                 elif model_type == "dqn":
-                    enhanced_state = self.enhance_state_for_neural(state)
+                    neural_state = self.prepare_neural_state(state, input_size)
                     with torch.no_grad():
-                        q_values = model(enhanced_state.unsqueeze(0))
+                        q_values = model(neural_state.unsqueeze(0))
                         action = torch.argmax(q_values).item()
                 
-                elif model_type == "policy_gradient":
-                    enhanced_state = self.enhance_state_for_neural(state)
+                elif model_type == "ppo":
+                    neural_state = self.prepare_neural_state(state, input_size)
                     with torch.no_grad():
-                        action_probs = model(enhanced_state.unsqueeze(0))
+                        action_probs = model(neural_state.unsqueeze(0))
                         action = torch.argmax(action_probs).item()  # Greedy for evaluation
                 
                 elif model_type == "actor_critic":
                     actor, critic = model
-                    enhanced_state = self.enhance_state_for_neural(state)
+                    neural_state = self.prepare_neural_state(state, input_size)
                     with torch.no_grad():
-                        action_probs = actor(enhanced_state.unsqueeze(0))
-                        action = torch.argmax(action_probs).item()
+                        action_probs = actor(neural_state.unsqueeze(0))
+                        action = torch.argmax(action_probs).item()  # Greedy for evaluation
                 
                 # Track action changes
                 if prev_action is not None and action != prev_action:
@@ -231,12 +275,11 @@ class UnifiedModelEvaluator:
                 
                 if done:
                     # Determine death cause
-                    if steps >= 1000:
+                    if steps >= 500:  # Timeout for 10x10 grid
                         death_causes['timeout'] += 1
                     elif env.score == 0:
                         death_causes['early_death'] += 1
                     else:
-                        # Could be wall or self-collision
                         death_causes['collision'] += 1
                     break
             
@@ -249,7 +292,7 @@ class UnifiedModelEvaluator:
             if foods_eaten > 0:
                 food_efficiency.append(steps / foods_eaten)
             else:
-                food_efficiency.append(steps)  # No food eaten
+                food_efficiency.append(steps)
         
         # Calculate comprehensive statistics
         results = {
@@ -327,19 +370,24 @@ class UnifiedModelEvaluator:
         if qlearning_dir.exists():
             for qfile in qlearning_dir.glob("qtable_*.json"):
                 if "report" not in qfile.name and "checkpoint" not in qfile.name:
-                    result = self.evaluate_model(str(qfile), "qlearning", episodes)
-                    results.append(result)
+                    try:
+                        result = self.evaluate_model(str(qfile), "qlearning", episodes)
+                        results.append(result)
+                    except Exception as e:
+                        print(f"❌ Failed to evaluate {qfile}: {e}")
         
         # Neural network models - FIXED: Include best models, exclude checkpoints
-        for technique in ["dqn", "policy_gradient", "actor_critic"]:
+        for technique in ["dqn", "ppo", "actor_critic"]:
             tech_dir = model_dir / technique
             if tech_dir.exists():
-                prefix = technique[:2] if technique != "policy_gradient" else "pg"
-                for model_file in tech_dir.glob(f"{prefix}_*.pth"):
-                    # FIXED: Only exclude checkpoint files, keep best models
+                for model_file in tech_dir.glob("*.pth"):
+                    # Only exclude checkpoint files, keep best models
                     if "checkpoint" not in model_file.name:
-                        result = self.evaluate_model(str(model_file), technique, episodes)
-                        results.append(result)
+                        try:
+                            result = self.evaluate_model(str(model_file), technique, episodes)
+                            results.append(result)
+                        except Exception as e:
+                            print(f"❌ Failed to evaluate {model_file}: {e}")
         
         if results:
             self._generate_comprehensive_comparison(results)
@@ -371,7 +419,7 @@ class UnifiedModelEvaluator:
                 colors.append('#FF6B6B')
             elif r['model_type'] == 'dqn':
                 colors.append('#4ECDC4')
-            elif r['model_type'] == 'policy_gradient':
+            elif r['model_type'] == 'ppo':
                 colors.append('#45B7D1')
             elif r['model_type'] == 'actor_critic':
                 colors.append('#F9CA24')
@@ -454,7 +502,6 @@ class UnifiedModelEvaluator:
         axes[2,0].grid(True, alpha=0.3)
         
         # 8. Performance radar chart
-        # Create a proper polar subplot for radar chart
         ax_radar = plt.subplot(3, 3, 8, projection='polar')
         self._create_radar_chart(ax_radar, results[:4])  # Top 4 models
         
@@ -478,10 +525,10 @@ class UnifiedModelEvaluator:
         axes[2,2].set_xticklabels(tech_names)
         axes[2,2].grid(True, alpha=0.3)
         
-        plt.suptitle('Comprehensive Model Comparison - SnakeAI MLOps', fontsize=18, weight='bold')
+        plt.suptitle('Enhanced Model Comparison - SnakeAI MLOps (FIXED)', fontsize=18, weight='bold')
         plt.tight_layout()
         
-        plot_path = Path("models") / "comprehensive_comparison_enhanced.png"
+        plot_path = Path("models") / "enhanced_comparison_fixed.png"
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -492,9 +539,10 @@ class UnifiedModelEvaluator:
         categories = ['Score', 'Consistency', 'Efficiency', 'Survival', 'Diversity']
         
         # Normalize metrics to 0-1 scale
-        max_score = max(r['avg_score'] for r in results)
-        max_survival = max(r['avg_survival_time'] for r in results)
-        min_efficiency = min(r['avg_food_efficiency'] for r in results)
+        max_score = max(r['avg_score'] for r in results) if results else 1
+        max_survival = max(r['avg_survival_time'] for r in results) if results else 1
+        min_efficiency = min(r['avg_food_efficiency'] for r in results) if results else 1
+        max_efficiency = max(r['avg_food_efficiency'] for r in results) if results else 1
         
         angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
         angles += angles[:1]
@@ -507,7 +555,7 @@ class UnifiedModelEvaluator:
             values = [
                 result['avg_score'] / max_score,
                 result['performance_consistency'],
-                1.0 - (result['avg_food_efficiency'] - min_efficiency) / (max_score - min_efficiency),
+                1.0 - (result['avg_food_efficiency'] - min_efficiency) / max(max_efficiency - min_efficiency, 1),
                 result['avg_survival_time'] / max_survival,
                 result['action_entropy'] / 2.0  # Max entropy is 2
             ]
@@ -554,13 +602,13 @@ class UnifiedModelEvaluator:
                     cmap='YlOrRd',
                     cbar_kws={'label': 'Normalized Score'})
         
-        plt.title('Multi-Metric Performance Heatmap', fontsize=16, weight='bold')
+        plt.title('Multi-Metric Performance Heatmap (FIXED)', fontsize=16, weight='bold')
         plt.xlabel('Models')
         plt.ylabel('Metrics')
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         
-        heatmap_path = Path("models") / "performance_heatmap.png"
+        heatmap_path = Path("models") / "performance_heatmap_fixed.png"
         plt.savefig(heatmap_path, dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -609,10 +657,10 @@ class UnifiedModelEvaluator:
                 axes[1,1].pie(counts, labels=causes, autopct='%1.1f%%')
                 axes[1,1].set_title('Death Causes')
             
-            plt.suptitle(f'Detailed Analysis: {model_name}', fontsize=16, weight='bold')
+            plt.suptitle(f'Detailed Analysis: {model_name} (FIXED)', fontsize=16, weight='bold')
             plt.tight_layout()
             
-            plot_path = Path("models") / f"analysis_{model_name}.png"
+            plot_path = Path("models") / f"analysis_{model_name}_fixed.png"
             plt.savefig(plot_path, dpi=300, bbox_inches='tight')
             plt.close()
     
@@ -631,7 +679,8 @@ class UnifiedModelEvaluator:
                 "total_models": len(results),
                 "evaluation_date": str(np.datetime64('now')),
                 "gpu_device": str(self.device),
-                "episodes_per_model": results[0]['episodes'] if results else 0
+                "episodes_per_model": results[0]['episodes'] if results else 0,
+                "evaluator_version": "Enhanced Fixed"
             },
             "model_rankings": {
                 criterion: [
@@ -651,11 +700,11 @@ class UnifiedModelEvaluator:
                 "most_consistent": Path(rankings['performance_consistency'][0]['model_path']).stem,
                 "most_efficient": Path(rankings['avg_food_efficiency'][0]['model_path']).stem,
                 "best_survivor": Path(rankings['avg_survival_time'][0]['model_path']).stem
-            },
+            } if rankings['avg_score'] else {},
             "detailed_results": results
         }
         
-        report_path = Path("models") / "enhanced_evaluation_report.json"
+        report_path = Path("models") / "enhanced_evaluation_report_fixed.json"
         with open(report_path, 'w') as f:
             json.dump(report, f, indent=4, default=lambda x: float(x) if isinstance(x, np.number) else x)
         
@@ -710,7 +759,7 @@ class UnifiedModelEvaluator:
     def _print_enhanced_summary(self, rankings: Dict[str, List[Dict]]):
         """Print enhanced evaluation summary"""
         print(f"\n{'='*80}")
-        print("🏆 ENHANCED MODEL EVALUATION SUMMARY")
+        print("🏆 ENHANCED MODEL EVALUATION SUMMARY (FIXED)")
         print(f"{'='*80}")
         
         criteria = {
@@ -724,59 +773,31 @@ class UnifiedModelEvaluator:
             print(f"\n{title}:")
             for i, result in enumerate(rankings[criterion][:3]):
                 model_name = Path(result['model_path']).stem
-                # Now 'criterion' is the correct key and can be used directly
                 value = result[criterion]
                 print(f"{i+1:2d}. {result['model_type']:15s} {model_name:25s} "
                       f"{value:8.2f}")
-        
-        # Overall winner (composite score)
-        print(f"\n🥇 Overall Best Model (Composite Score):")
-        composite_scores = []
-        for result in rankings['avg_score']:
-            # Normalize and combine metrics
-            score_rank = rankings['avg_score'].index(result)
-            consistency_rank = rankings['performance_consistency'].index(result)
-            efficiency_rank = rankings['avg_food_efficiency'].index(result)
-            survival_rank = rankings['avg_survival_time'].index(result)
-            
-            # Lower rank is better, so invert
-            composite = (len(rankings['avg_score']) - score_rank) * 0.4 + \
-                       (len(rankings['performance_consistency']) - consistency_rank) * 0.2 + \
-                       (len(rankings['avg_food_efficiency']) - efficiency_rank) * 0.2 + \
-                       (len(rankings['avg_survival_time']) - survival_rank) * 0.2
-            
-            composite_scores.append((result, composite))
-        
-        composite_scores.sort(key=lambda x: x[1], reverse=True)
-        
-        for i, (result, score) in enumerate(composite_scores[:3]):
-            model_name = Path(result['model_path']).stem
-            print(f"{i+1:2d}. {result['model_type']:15s} {model_name:25s} "
-                  f"Composite: {score:.2f}")
 
 def benchmark_enhanced_features():
     """Benchmark the impact of enhanced features"""
     print("🚀 Benchmarking Enhanced Features...")
     
-    evaluator = UnifiedModelEvaluator()
+    evaluator = EnhancedModelEvaluator()
     
     # Quick evaluation on subset of models
     model_dir = Path("models")
     test_models = []
     
     # Get one model of each type
-    for technique in ["qlearning", "dqn", "policy_gradient", "actor_critic"]:
+    for technique in ["qlearning", "dqn", "ppo", "actor_critic"]:
         tech_dir = model_dir / technique
         if tech_dir.exists():
             if technique == "qlearning":
                 models = list(tech_dir.glob("qtable_balanced.json"))
             else:
-                prefix = technique[:2] if technique != "policy_gradient" else "pg"
-                models = list(tech_dir.glob(f"{prefix}_balanced.pth"))
+                models = list(tech_dir.glob(f"*_balanced.pth"))
             
             if models:
                 test_models.append((str(models[0]), technique))
-                break
     
     if test_models:
         print(f"Found {len(test_models)} models to benchmark")
@@ -795,7 +816,7 @@ if __name__ == "__main__":
     benchmark_enhanced_features()
     
     # Evaluate all models
-    evaluator = UnifiedModelEvaluator()
+    evaluator = EnhancedModelEvaluator()
     results = evaluator.compare_all_models(episodes=100)
     
     if results:
@@ -804,3 +825,56 @@ if __name__ == "__main__":
     else:
         print("❌ No models found. Run training first:")
         print("   python train_models.py --technique all")
+
+"""
+USAGE EXAMPLES:
+===============
+
+# Import and use the enhanced evaluator
+from model_evaluator import EnhancedModelEvaluator
+
+# Create evaluator instance
+evaluator = EnhancedModelEvaluator()
+
+# Evaluate single model with detailed metrics
+result = evaluator.evaluate_model("models/dqn/dqn_balanced.pth", "dqn", episodes=100, detailed_metrics=True)
+print(f"Average score: {result['avg_score']:.2f}")
+print(f"Performance consistency: {result['performance_consistency']:.3f}")
+print(f"Behavioral stability: {result['behavioral_stability']:.3f}")
+
+# Compare all available models with comprehensive analysis
+results = evaluator.compare_all_models(episodes=100, save_individual_plots=True)
+
+# Benchmark evaluation performance
+benchmark_enhanced_features()
+
+# Run from command line
+python model_evaluator.py
+
+# Key features:
+# - Fixed Actor-Critic model loading with separate actor/critic networks
+# - Dynamic state preparation for different input sizes (8D, 11D, 20D)
+# - Comprehensive metrics: efficiency, stability, diversity, survival
+# - Advanced visualizations: radar charts, heatmaps, individual plots
+# - Detailed ranking by multiple criteria
+# - Technique-wise performance summaries
+
+# Generated outputs:
+# - enhanced_comparison_fixed.png: Comprehensive 9-panel comparison
+# - performance_heatmap_fixed.png: Multi-metric heatmap
+# - analysis_[model]_fixed.png: Individual model analysis
+# - enhanced_evaluation_report_fixed.json: Detailed JSON report
+
+# Model compatibility:
+# - Q-Learning: 8D state, Q-table format
+# - DQN: 8D state, neural network
+# - PPO: 8D state, policy + value networks
+# - Actor-Critic: 8D state, separate actor + critic networks
+
+# Performance metrics explained:
+# - avg_score: Mean score across episodes
+# - performance_consistency: 1/(1+std), higher is more consistent
+# - behavioral_stability: 1-action_change_rate, measures action consistency
+# - action_entropy: Diversity of action selection
+# - food_efficiency: Steps per food eaten (lower is better)
+"""

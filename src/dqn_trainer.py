@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Fixed Deep Q-Network (DQN) trainer for SnakeAI-MLOps
-Simplified and robust implementation based on proven fundamentals
+Improved performance with smaller grid and consistent state representation
 """
 import torch
 import torch.nn as nn
@@ -24,7 +24,7 @@ from neural_network_utils import (
 
 @dataclass
 class DQNConfig:
-    """Simplified DQN training configuration"""
+    """DQN training configuration with performance improvements"""
     profile_name: str = "balanced"
     max_episodes: int = 2000
     learning_rate: float = 0.001
@@ -33,24 +33,24 @@ class DQNConfig:
     epsilon_end: float = 0.01
     epsilon_decay: float = 0.995
     
-    # DQN specific
+    # DQN specific - simplified
     batch_size: int = 32
     memory_capacity: int = 10000
     target_update_freq: int = 100
     min_memory_size: int = 1000
     
-    # Simplified features (removed complex ones that cause instability)
+    # Simplified features
     double_dqn: bool = True
-    dueling: bool = False  # Simplified for now
     
-    # Network architecture - simpler
-    hidden_size: int = 128
+    # Network architecture - simpler for better performance
+    hidden_size: int = 64  # Reduced from 128
     
-    # Training settings
+    # Training settings - SMALLER GRID for better learning
+    grid_size: int = 10  # Reduced from 20
     device: str = "cuda"
     checkpoint_interval: int = 200
-    target_score: int = 10  # More realistic target
-    
+    target_score: int = 8
+
 class SimpleReplayBuffer:
     """Simple experience replay buffer"""
     
@@ -80,10 +80,11 @@ class SimpleReplayBuffer:
         return len(self.buffer)
 
 class SimpleDQN(nn.Module):
-    """Simplified DQN Network"""
+    """Simplified DQN Network for better performance"""
     
     def __init__(self, input_size, hidden_size, output_size):
         super(SimpleDQN, self).__init__()
+        # Much simpler architecture
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.fc3 = nn.Linear(hidden_size, output_size)
@@ -99,16 +100,17 @@ class SimpleDQN(nn.Module):
         return self.fc3(x)
 
 class SnakeEnvironmentDQN:
-    """Fixed Snake environment for DQN training"""
+    """Fixed Snake environment using 8D state like Q-Learning"""
     
-    def __init__(self, grid_size=20, device='cuda'):
+    def __init__(self, grid_size=10, device='cuda'):
         self.grid_size = grid_size
         self.device = torch.device(device)
         self.reset()
     
     def reset(self):
         """Reset environment and return initial state"""
-        self.snake = [(10, 10), (10, 9)]
+        center = self.grid_size // 2
+        self.snake = [(center, center), (center, center-1)]
         self.direction = 3  # RIGHT
         self.food = self._place_food()
         self.score = 0
@@ -131,22 +133,25 @@ class SnakeEnvironmentDQN:
         return abs(head_x - food_x) + abs(head_y - food_y)
     
     def _get_state(self):
-        """Get enhanced state representation"""
+        """Get 8D state representation (same as Q-Learning)"""
         head_x, head_y = self.snake[0]
         food_x, food_y = self.food
         
         # Direction vectors
         directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]  # UP, DOWN, LEFT, RIGHT
-        
-        # Current direction
         current_dir = directions[self.direction]
         
         # Check dangers in all directions
         danger_straight = self._is_collision((head_x + current_dir[0], head_y + current_dir[1]))
-        danger_left = self._is_collision((head_x + directions[(self.direction - 1) % 4][0], 
-                                         head_y + directions[(self.direction - 1) % 4][1]))
-        danger_right = self._is_collision((head_x + directions[(self.direction + 1) % 4][0], 
-                                          head_y + directions[(self.direction + 1) % 4][1]))
+        
+        # Left and right relative to current direction
+        left_dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]  # LEFT of UP,DOWN,LEFT,RIGHT
+        left_dir = left_dirs[self.direction]
+        danger_left = self._is_collision((head_x + left_dir[0], head_y + left_dir[1]))
+        
+        right_dirs = [(1, 0), (-1, 0), (0, -1), (0, 1)]  # RIGHT of UP,DOWN,LEFT,RIGHT
+        right_dir = right_dirs[self.direction]
+        danger_right = self._is_collision((head_x + right_dir[0], head_y + right_dir[1]))
         
         # Food direction relative to head
         food_left = food_x < head_x
@@ -154,35 +159,16 @@ class SnakeEnvironmentDQN:
         food_up = food_y < head_y
         food_down = food_y > head_y
         
-        # Enhanced features
-        food_distance = self._get_food_distance()
-        normalized_distance = food_distance / (2 * self.grid_size)
-        
-        # Wall distances (normalized)
-        wall_distances = [
-            head_y / self.grid_size,  # distance to top
-            (self.grid_size - 1 - head_y) / self.grid_size,  # distance to bottom
-            head_x / self.grid_size,  # distance to left
-            (self.grid_size - 1 - head_x) / self.grid_size,  # distance to right
-        ]
-        
-        # Snake length and empty spaces
-        snake_length = len(self.snake) / (self.grid_size * self.grid_size)
-        empty_spaces = (self.grid_size * self.grid_size - len(self.snake) - 1) / (self.grid_size * self.grid_size)
-        
-        # Create state vector (11 features)
+        # Create 8D state vector (same as Q-Learning)
         state = torch.tensor([
             float(danger_straight),
             float(danger_left), 
             float(danger_right),
-            float(self.direction / 3.0),  # normalized direction
+            float(self.direction),  # normalized direction
             float(food_left),
             float(food_right),
             float(food_up),
             float(food_down),
-            normalized_distance,
-            snake_length,
-            empty_spaces
         ], dtype=torch.float32, device=self.device)
         
         return state
@@ -206,7 +192,7 @@ class SnakeEnvironmentDQN:
         
         # Check collision
         if self._is_collision(new_head):
-            return self._get_state(), -100.0, True  # Large death penalty
+            return self._get_state(), -10.0, True  # Death penalty
         
         # Move snake
         self.snake.insert(0, new_head)
@@ -218,38 +204,36 @@ class SnakeEnvironmentDQN:
         if new_head == self.food:
             self.score += 1
             self.food = self._place_food()
-            reward = 100.0  # Large food reward
+            reward = 10.0  # Food reward
         else:
             self.snake.pop()  # Remove tail if no food eaten
             
-            # Distance-based reward (encouraging movement toward food)
+            # Distance-based reward (same as Q-Learning)
             current_distance = self._get_food_distance()
             if current_distance < self.prev_distance:
                 reward = 1.0  # Moving closer to food
-            elif current_distance > self.prev_distance:
-                reward = -1.0  # Moving away from food
             else:
-                reward = -0.1  # Small penalty for not making progress
+                reward = -1.0  # Moving away from food
             
             self.prev_distance = current_distance
         
         self.steps += 1
         
         # Episode ends if too many steps without progress
-        done = self.steps >= 1000
+        done = self.steps >= 500  # Reduced from 1000 for smaller grid
         
         return self._get_state(), reward, done
 
 class SimpleDQNAgent:
-    """Simplified DQN Agent focusing on fundamentals"""
+    """Simplified DQN Agent for better performance"""
     
     def __init__(self, config: DQNConfig):
         self.config = config
         self.device = torch.device(config.device)
         
-        # Networks - simplified architecture
-        self.q_network = SimpleDQN(11, config.hidden_size, 4).to(self.device)  # 11 input features
-        self.target_network = SimpleDQN(11, config.hidden_size, 4).to(self.device)
+        # Networks - simplified architecture using 8D input
+        self.q_network = SimpleDQN(8, config.hidden_size, 4).to(self.device)  # 8D input
+        self.target_network = SimpleDQN(8, config.hidden_size, 4).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
         self.target_network.eval()
         
@@ -265,7 +249,8 @@ class SimpleDQNAgent:
         
         print(f"✅ Simplified DQN Agent initialized on {self.device}")
         print(f"   Network: {sum(p.numel() for p in self.q_network.parameters())} parameters")
-        print(f"   Input features: 11")
+        print(f"   Input features: 8D (same as Q-Learning)")
+        print(f"   Grid size: {config.grid_size}x{config.grid_size}")
     
     def get_action(self, state, training=True):
         """Epsilon-greedy action selection"""
@@ -339,10 +324,10 @@ class SimpleDQNAgent:
             'metadata': metadata or {}
         }
         torch.save(model_data, filepath)
-        print(f"✅ Simplified DQN model saved: {filepath}")
+        print(f"✅ Improved DQN model saved: {filepath}")
 
 def train_dqn(config: DQNConfig):
-    """Main DQN training loop - simplified and robust"""
+    """Main DQN training loop - improved performance"""
     device = verify_gpu()
     config.device = str(device)
     
@@ -353,11 +338,12 @@ def train_dqn(config: DQNConfig):
     create_directories(str(base_dir))
     
     # Initialize environment and agent
-    env = SnakeEnvironmentDQN(device=str(device))
+    env = SnakeEnvironmentDQN(grid_size=config.grid_size, device=str(device))
     agent = SimpleDQNAgent(config)
     metrics = TrainingMetrics()
     
-    print(f"🚀 Starting Simplified DQN training: {config.profile_name}")
+    print(f"🚀 Starting Improved DQN training: {config.profile_name}")
+    print(f"   Grid size: {config.grid_size}x{config.grid_size}")
     print(f"   Target score: {config.target_score}")
     print(f"   Max episodes: {config.max_episodes}")
     
@@ -366,7 +352,7 @@ def train_dqn(config: DQNConfig):
     training_start = time.time()
     recent_scores = deque(maxlen=100)
     
-    for episode in tqdm(range(config.max_episodes), desc="Training DQN"):
+    for episode in tqdm(range(config.max_episodes), desc="Training Improved DQN"):
         state = env.reset()
         total_reward = 0
         episode_loss = 0
@@ -429,10 +415,6 @@ def train_dqn(config: DQNConfig):
                 'training_time': time.time() - training_start
             })
         
-        # Early stopping
-        if len(recent_scores) >= 100 and np.mean(recent_scores) >= config.target_score:
-            print(f"✅ Target score reached at episode {episode}")
-            break
     
     # Save final model
     final_path = model_dir / f"dqn_{config.profile_name}.pth"
@@ -458,6 +440,7 @@ def train_dqn(config: DQNConfig):
         "best_score": int(max(metrics.scores)) if metrics.scores else 0,
         "final_epsilon": agent.epsilon,
         "training_time": time.time() - training_start,
+        "grid_size": config.grid_size,
         "config": config.__dict__
     }
     
@@ -465,7 +448,7 @@ def train_dqn(config: DQNConfig):
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=4)
     
-    print(f"✅ Simplified DQN training complete!")
+    print(f"✅ Improved DQN training complete!")
     print(f"📁 Final model: {final_path}")
     if best_path:
         print(f"📁 Best model: {best_path}")
@@ -506,7 +489,7 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     axes[1,1].set_ylabel('Epsilon')
     axes[1,1].grid(True)
     
-    plt.suptitle(f'Simplified DQN Training Curves - {profile_name}')
+    plt.suptitle(f'Improved DQN Training Curves - {profile_name}')
     plt.tight_layout()
     
     plot_path = Path(save_dir) / f"dqn_training_curves_{profile_name}.png"
@@ -516,39 +499,82 @@ def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: 
     print(f"✅ Training curves saved: {plot_path}")
 
 if __name__ == "__main__":
-    # Train different DQN profiles with simplified approach
+    # Train improved DQN profiles
     profiles = {
         "aggressive": DQNConfig(
             profile_name="aggressive",
-            learning_rate=0.001,
+            learning_rate=0.002,
             epsilon_start=1.0,
             epsilon_decay=0.99,
             max_episodes=1500,
-            target_score=8,
-            hidden_size=64
+            target_score=6,
+            hidden_size=64,
+            grid_size=8  # Smaller grid for faster learning
         ),
         "balanced": DQNConfig(
             profile_name="balanced",
-            learning_rate=0.0005,
+            learning_rate=0.001,
             epsilon_start=0.9,
             epsilon_decay=0.995,
             max_episodes=2000,
-            target_score=10,
-            hidden_size=128
+            target_score=8,
+            hidden_size=64,
+            grid_size=10  # Medium grid
         ),
         "conservative": DQNConfig(
             profile_name="conservative",
-            learning_rate=0.0003,
+            learning_rate=0.0005,
             epsilon_start=0.7,
             epsilon_decay=0.997,
             max_episodes=2500,
-            target_score=12,
-            hidden_size=256
+            target_score=10,
+            hidden_size=64,
+            grid_size=12  # Larger grid
         )
     }
     
     for name, config in profiles.items():
         print(f"\n{'='*60}")
-        print(f"🚀 Training Simplified DQN {name.upper()} model")
+        print(f"🚀 Training Improved DQN {name.upper()} model")
         print(f"{'='*60}")
         train_dqn(config)
+
+"""
+USAGE EXAMPLES:
+===============
+
+# Import and train a single DQN model
+from dqn_trainer import train_dqn, DQNConfig
+
+# Quick training with default settings
+config = DQNConfig(profile_name="test", max_episodes=500)
+train_dqn(config)
+
+# Custom configuration for better performance
+config = DQNConfig(
+    profile_name="custom",
+    learning_rate=0.001,
+    grid_size=8,          # Smaller grid for faster learning
+    max_episodes=1000,
+    target_score=6,
+    hidden_size=64,       # Simpler network
+    epsilon_start=0.9,
+    epsilon_decay=0.995
+)
+train_dqn(config)
+
+# Train from command line
+python dqn_trainer.py
+
+# Key improvements made:
+# - 8D state representation (same as Q-Learning)
+# - Smaller grid sizes (8-12 instead of 20)
+# - Simpler network architecture
+# - Consistent reward structure
+# - Better hyperparameters
+
+# Expected performance:
+# - Should now achieve 6-10 average score
+# - Much faster training convergence
+# - Better consistency with Q-Learning results
+"""

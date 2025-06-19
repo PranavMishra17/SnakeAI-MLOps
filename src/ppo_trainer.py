@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-PPO (Proximal Policy Optimization) trainer for SnakeAI-MLOps
-Clean PPO implementation with proper model saving to models/ppo/
+Fixed PPO (Proximal Policy Optimization) trainer for SnakeAI-MLOps
+Consistent 8D state representation with configurable grid sizes
 """
 import torch
 import torch.nn as nn
@@ -23,7 +23,7 @@ from neural_network_utils import (
 
 @dataclass
 class PPOConfig:
-    """PPO training configuration"""
+    """Fixed PPO training configuration"""
     profile_name: str = "balanced"
     max_episodes: int = 1500
     learning_rate: float = 0.001
@@ -35,14 +35,15 @@ class PPOConfig:
     value_coeff: float = 0.5
     
     # Training parameters
-    update_epochs: int = 6
+    update_epochs: int = 4  # Reduced for stability
     batch_size: int = 32
-    trajectory_length: int = 256
+    trajectory_length: int = 128  # Reduced for smaller grids
     
-    # Network architecture
-    hidden_size: int = 256
+    # Network architecture - simplified
+    hidden_size: int = 64  # Reduced from 256
     
-    # Training settings
+    # Training settings with configurable grid
+    grid_size: int = 10  # Configurable grid size
     device: str = "cuda"
     checkpoint_interval: int = 150
     target_score: int = 8
@@ -87,11 +88,12 @@ class SimpleValueNetwork(nn.Module):
         return self.fc3(x).squeeze(-1)
 
 class SnakeEnvironmentPPO:
-    """Snake environment optimized for PPO training"""
+    """Fixed Snake environment using 8D state representation"""
     
-    def __init__(self, grid_size=15, device='cuda'):
+    def __init__(self, grid_size=10, device='cuda'):
         self.grid_size = grid_size
         self.device = torch.device(device)
+        print(f"✅ Snake Environment PPO: {grid_size}x{grid_size} grid")
         self.reset()
     
     def reset(self):
@@ -121,7 +123,7 @@ class SnakeEnvironmentPPO:
         return abs(head_x - food_x) + abs(head_y - food_y)
     
     def _get_state(self):
-        """Get 11D state representation"""
+        """Get 8D state representation (consistent with Q-Learning)"""
         head_x, head_y = self.snake[0]
         food_x, food_y = self.food
         
@@ -131,10 +133,15 @@ class SnakeEnvironmentPPO:
         
         # Check dangers in all directions
         danger_straight = self._is_collision((head_x + current_dir[0], head_y + current_dir[1]))
-        danger_left = self._is_collision((head_x + directions[(self.direction - 1) % 4][0], 
-                                         head_y + directions[(self.direction - 1) % 4][1]))
-        danger_right = self._is_collision((head_x + directions[(self.direction + 1) % 4][0], 
-                                          head_y + directions[(self.direction + 1) % 4][1]))
+        
+        # Left and right relative to current direction
+        left_dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]  # LEFT of UP,DOWN,LEFT,RIGHT
+        left_dir = left_dirs[self.direction]
+        danger_left = self._is_collision((head_x + left_dir[0], head_y + left_dir[1]))
+        
+        right_dirs = [(1, 0), (-1, 0), (0, -1), (0, 1)]  # RIGHT of UP,DOWN,LEFT,RIGHT
+        right_dir = right_dirs[self.direction]
+        danger_right = self._is_collision((head_x + right_dir[0], head_y + right_dir[1]))
         
         # Food direction relative to head
         food_left = food_x < head_x
@@ -142,27 +149,16 @@ class SnakeEnvironmentPPO:
         food_up = food_y < head_y
         food_down = food_y > head_y
         
-        # Enhanced features
-        food_distance = self._get_food_distance()
-        normalized_distance = food_distance / (2 * self.grid_size)
-        
-        # Snake length and empty spaces
-        snake_length = len(self.snake) / (self.grid_size * self.grid_size)
-        empty_spaces = (self.grid_size * self.grid_size - len(self.snake) - 1) / (self.grid_size * self.grid_size)
-        
-        # Create 11D state vector
+        # Create 8D state vector (same as Q-Learning)
         state = torch.tensor([
             float(danger_straight),
             float(danger_left), 
             float(danger_right),
-            float(self.direction / 3.0),
+            float(self.direction / 3.0),  # normalized direction
             float(food_left),
             float(food_right),
             float(food_up),
             float(food_down),
-            normalized_distance,
-            snake_length,
-            empty_spaces
         ], dtype=torch.float32, device=self.device)
         
         return state
@@ -185,7 +181,7 @@ class SnakeEnvironmentPPO:
         
         # Check collision
         if self._is_collision(new_head):
-            return self._get_state(), -100.0, True
+            return self._get_state(), -10.0, True
         
         # Move snake
         self.snake.insert(0, new_head)
@@ -197,45 +193,39 @@ class SnakeEnvironmentPPO:
         if new_head == self.food:
             self.score += 1
             self.food = self._place_food()
-            reward = 50.0
+            reward = 10.0
             self.steps_without_food = 0
         else:
             self.snake.pop()
             self.steps_without_food += 1
             
-            # Distance-based reward
+            # Distance-based reward (same as other models)
             current_distance = self._get_food_distance()
             if current_distance < self.prev_distance:
-                reward = 2.0
-            elif current_distance > self.prev_distance:
-                reward = -1.0
+                reward = 1.0
             else:
-                reward = -0.2
+                reward = -1.0
             
             self.prev_distance = current_distance
         
-        # Living bonus
-        reward += 0.1
-        
-        # Penalty for taking too long
-        if self.steps_without_food > 100:
-            reward -= 1.0
-        
         self.steps += 1
-        done = (self.steps >= 2000 or self.steps_without_food > 200)
+        
+        # Scale episode length with grid size
+        max_steps = self.grid_size * 50
+        done = (self.steps >= max_steps or self.steps_without_food > max_steps // 5)
         
         return self._get_state(), reward, done
 
 class PPOAgent:
-    """PPO agent with clipped surrogate objective"""
+    """Fixed PPO agent with consistent state handling"""
     
     def __init__(self, config: PPOConfig):
         self.config = config
         self.device = torch.device(config.device)
         
-        # Networks
-        self.policy_network = SimplePolicyNetwork(11, config.hidden_size, 4).to(self.device)
-        self.value_network = SimpleValueNetwork(11, config.hidden_size).to(self.device)
+        # Networks using 8D input
+        self.policy_network = SimplePolicyNetwork(8, config.hidden_size, 4).to(self.device)
+        self.value_network = SimpleValueNetwork(8, config.hidden_size).to(self.device)
         
         # Shared optimizer
         self.optimizer = optim.Adam(
@@ -251,9 +241,11 @@ class PPOAgent:
         self.log_probs = []
         self.dones = []
         
-        print(f"✅ PPO Agent initialized on {self.device}")
+        print(f"✅ Fixed PPO Agent initialized on {self.device}")
         print(f"   Policy Network: {sum(p.numel() for p in self.policy_network.parameters())} parameters")
         print(f"   Value Network: {sum(p.numel() for p in self.value_network.parameters())} parameters")
+        print(f"   Input: 8D state (consistent with Q-Learning)")
+        print(f"   Grid: {config.grid_size}x{config.grid_size}")
     
     def get_action_and_value(self, state):
         """Get action and value for given state"""
@@ -360,7 +352,7 @@ class PPOAgent:
                 new_log_probs = action_dist.log_prob(batch_actions)
                 entropy = action_dist.entropy().mean()
                 
-                values = self.value_network(batch_states).squeeze()
+                values = self.value_network(batch_states)
                 
                 # PPO policy loss with clipping
                 ratio = torch.exp(new_log_probs - batch_old_log_probs)
@@ -407,7 +399,7 @@ class PPOAgent:
         self.dones.clear()
     
     def save_model(self, filepath, metadata=None):
-        """Save PPO model to models/ppo/ directory"""
+        """Save PPO model"""
         model_data = {
             'policy_network': self.policy_network.state_dict(),
             'value_network': self.value_network.state_dict(),
@@ -417,25 +409,26 @@ class PPOAgent:
         }
         
         torch.save(model_data, filepath)
-        print(f"✅ PPO model saved: {filepath}")
+        print(f"✅ Fixed PPO model saved: {filepath}")
 
 def train_ppo(config: PPOConfig):
-    """Main PPO training loop"""
+    """Main PPO training loop with improvements"""
     device = verify_gpu()
     config.device = str(device)
     
-    # Setup directories - FIXED: Use models/ppo/ directory
+    # Setup directories
     base_dir = Path("models")
     model_dir = base_dir / "ppo"
     checkpoint_dir = base_dir / "checkpoints" / "ppo"
     create_directories(str(base_dir))
     
     # Initialize environment and agent
-    env = SnakeEnvironmentPPO(device=str(device))
+    env = SnakeEnvironmentPPO(grid_size=config.grid_size, device=str(device))
     agent = PPOAgent(config)
     metrics = TrainingMetrics()
     
-    print(f"🚀 Starting PPO training: {config.profile_name}")
+    print(f"🚀 Starting Fixed PPO training: {config.profile_name}")
+    print(f"   Grid: {config.grid_size}x{config.grid_size}")
     print(f"   Target score: {config.target_score}")
     print(f"   Max episodes: {config.max_episodes}")
     
@@ -446,7 +439,7 @@ def train_ppo(config: PPOConfig):
     
     episode = 0
     
-    pbar = tqdm(total=config.max_episodes, desc="Training PPO")
+    pbar = tqdm(total=config.max_episodes, desc="Training Fixed PPO")
     
     while episode < config.max_episodes:
         state = env.reset()
@@ -479,7 +472,8 @@ def train_ppo(config: PPOConfig):
         # Progress logging
         if episode % 100 == 0:
             avg_score = np.mean(recent_scores) if recent_scores else 0
-            print(f"Episode {episode}: Avg Score: {avg_score:.2f}")
+            print(f"Episode {episode}: Avg Score: {avg_score:.2f}, "
+                  f"Policy Loss: {policy_loss:.4f}, Value Loss: {value_loss:.4f}")
             
             # Save checkpoint
             if episode % config.checkpoint_interval == 0 and episode > 0:
@@ -500,10 +494,6 @@ def train_ppo(config: PPOConfig):
                 'training_time': time.time() - training_start
             })
         
-        # Early stopping
-        if len(recent_scores) >= 100 and np.mean(recent_scores) >= config.target_score:
-            print(f"✅ Target score reached at episode {episode}")
-            break
     
     pbar.close()
     
@@ -520,6 +510,9 @@ def train_ppo(config: PPOConfig):
     metrics_path = model_dir / f"ppo_{config.profile_name}_metrics.json"
     metrics.save_metrics(str(metrics_path))
     
+    # Generate plots
+    plot_training_curves(metrics, config.profile_name, str(model_dir))
+    
     # Training report
     report = {
         "profile": config.profile_name,
@@ -527,6 +520,7 @@ def train_ppo(config: PPOConfig):
         "final_avg_score": float(np.mean(recent_scores)) if recent_scores else 0,
         "best_score": int(max(metrics.scores)) if metrics.scores else 0,
         "training_time": time.time() - training_start,
+        "grid_size": config.grid_size,
         "config": config.__dict__
     }
     
@@ -534,25 +528,164 @@ def train_ppo(config: PPOConfig):
     with open(report_path, 'w') as f:
         json.dump(report, f, indent=4)
     
-    print(f"✅ PPO training complete!")
+    print(f"✅ Fixed PPO training complete!")
     print(f"📁 Final model: {final_path}")
     if best_path:
         print(f"📁 Best model: {best_path}")
 
-if __name__ == "__main__":
-    # Train PPO balanced profile
-    config = PPOConfig(
-        profile_name="balanced",
-        learning_rate=0.001,
-        max_episodes=1500,
-        target_score=8,
-        hidden_size=256,
-        clip_epsilon=0.2,
-        entropy_coeff=0.02,
-        trajectory_length=256,
-        update_epochs=6,
-        batch_size=32
-    )
+def plot_training_curves(metrics: TrainingMetrics, profile_name: str, save_dir: str):
+    """Plot training curves"""
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
     
-    print(f"🚀 Training PPO BALANCED model")
-    train_ppo(config)
+    # Scores
+    axes[0,0].plot(metrics.scores)
+    axes[0,0].set_title('Episode Scores')
+    axes[0,0].set_xlabel('Episode')
+    axes[0,0].set_ylabel('Score')
+    axes[0,0].grid(True)
+    
+    # Running average
+    window = 100
+    if len(metrics.scores) >= window:
+        running_avg = [np.mean(metrics.scores[max(0, i-window):i+1]) for i in range(len(metrics.scores))]
+        axes[0,1].plot(running_avg)
+        axes[0,1].set_title(f'Running Average Scores (window={window})')
+        axes[0,1].set_xlabel('Episode')
+        axes[0,1].set_ylabel('Average Score')
+        axes[0,1].grid(True)
+    
+    # Policy loss
+    axes[1,0].plot(metrics.losses)
+    axes[1,0].set_title('Policy Loss')
+    axes[1,0].set_xlabel('Episode')
+    axes[1,0].set_ylabel('Loss')
+    axes[1,0].grid(True)
+    
+    # Episode lengths
+    axes[1,1].plot(metrics.episode_lengths)
+    axes[1,1].set_title('Episode Lengths')
+    axes[1,1].set_xlabel('Episode')
+    axes[1,1].set_ylabel('Steps')
+    axes[1,1].grid(True)
+    
+    plt.suptitle(f'Fixed PPO Training Curves - {profile_name}')
+    plt.tight_layout()
+    
+    plot_path = Path(save_dir) / f"ppo_training_curves_{profile_name}.png"
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"✅ Training curves saved: {plot_path}")
+
+if __name__ == "__main__":
+    # Train fixed PPO profiles with varying grid sizes
+    profiles = {
+        "aggressive": PPOConfig(
+            profile_name="aggressive",
+            learning_rate=0.002,
+            max_episodes=1200,
+            target_score=6,
+            hidden_size=64,
+            clip_epsilon=0.2,
+            entropy_coeff=0.03,
+            grid_size=8,  # Small grid
+            trajectory_length=64
+        ),
+        "balanced": PPOConfig(
+            profile_name="balanced",
+            learning_rate=0.001,
+            max_episodes=1500,
+            target_score=8,
+            hidden_size=64,
+            clip_epsilon=0.2,
+            entropy_coeff=0.02,
+            grid_size=10,  # Medium grid
+            trajectory_length=128
+        ),
+        "conservative": PPOConfig(
+            profile_name="conservative",
+            learning_rate=0.0005,
+            max_episodes=2000,
+            target_score=10,
+            hidden_size=64,
+            clip_epsilon=0.15,
+            entropy_coeff=0.01,
+            grid_size=12,  # Larger grid
+            trajectory_length=256
+        )
+    }
+    
+    for name, config in profiles.items():
+        print(f"\n{'='*60}")
+        print(f"🚀 Training Fixed PPO {name.upper()} model")
+        print(f"{'='*60}")
+        train_ppo(config)
+
+"""
+USAGE EXAMPLES:
+===============
+
+# Import and train PPO model
+from ppo_trainer import train_ppo, PPOConfig
+
+# Quick training with default settings
+config = PPOConfig(profile_name="test", max_episodes=1000)
+train_ppo(config)
+
+# Custom configuration for small grid
+config = PPOConfig(
+    profile_name="custom",
+    learning_rate=0.002,
+    grid_size=8,           # Small grid for faster learning
+    max_episodes=1200,
+    target_score=6,
+    hidden_size=64,        # Simple architecture
+    clip_epsilon=0.2,
+    entropy_coeff=0.025,
+    trajectory_length=64   # Shorter trajectories for small grid
+)
+train_ppo(config)
+
+# Large grid configuration
+config = PPOConfig(
+    profile_name="challenge",
+    grid_size=15,          # Large grid
+    max_episodes=2500,
+    target_score=12,
+    hidden_size=128,
+    trajectory_length=256
+)
+train_ppo(config)
+
+# Load and evaluate model
+checkpoint = torch.load("models/ppo/ppo_balanced.pth")
+policy_state = checkpoint['policy_network']
+# Model loading handled by evaluator
+
+# Train from command line
+python ppo_trainer.py
+
+# Key improvements:
+# - 8D state representation (consistent with Q-Learning)
+# - Configurable grid sizes (8x8 to 15x15)
+# - Simplified network architecture for better performance
+# - Proper PPO clipping and GAE computation
+# - Trajectory-based learning with configurable lengths
+
+# Performance expectations:
+# - 8x8 grid: ~6-8 average score, fast convergence
+# - 10x10 grid: ~8-12 average score, good balance  
+# - 12x12+ grid: ~10-15+ average score, more challenging
+
+# Model file structure:
+# - policy_network: Policy network weights
+# - value_network: Value network weights
+# - config: Training configuration
+# - metadata: Additional training info
+
+# PPO advantages:
+# - More stable than policy gradient
+# - Better sample efficiency than vanilla PG
+# - Clipping prevents large policy updates
+# - Works well with continuous learning
+"""
