@@ -19,19 +19,28 @@ public:
     const AgentConfig& getSelectedAgent() const { return m_agents[m_selectedIndex].config; }
     
 private:
-    struct AgentMenuItem {
+    struct EnhancedAgentMenuItem {
         AgentConfig config;
+        TrainedModelInfo modelInfo; // NEW: Full model information
+        
+        // UI Elements
         std::unique_ptr<sf::Text> nameText;
         std::unique_ptr<sf::Text> descText;
         std::unique_ptr<sf::Text> statusText;
-        std::unique_ptr<sf::Text> modelInfoText;  // New: Show model performance info
+        std::unique_ptr<sf::Text> performanceText;    // NEW: Performance stats
+        std::unique_ptr<sf::Text> detailsText;        // NEW: Detailed metrics
+        std::unique_ptr<sf::Text> bestScoreText;      // NEW: Best score highlight
         sf::RectangleShape background;
-        bool isTrainedModel = false;
+        sf::RectangleShape performancePanel;         // NEW: Performance panel
+        sf::RectangleShape bestScoreBadge;           // NEW: Best score badge
         
-        AgentMenuItem(const AgentConfig& cfg) : config(cfg) {}
+        bool isTrainedModel = false;
+        bool hasPerformanceData = false;             // NEW: Has evaluation data
+        
+        EnhancedAgentMenuItem(const AgentConfig& cfg) : config(cfg) {}
     };
     
-    std::vector<AgentMenuItem> m_agents;
+    std::vector<EnhancedAgentMenuItem> m_agents;
     int m_selectedIndex;
     sf::Font m_font;
     
@@ -39,10 +48,13 @@ private:
     std::unique_ptr<sf::Text> m_title;
     std::unique_ptr<sf::Text> m_instructions;
     std::unique_ptr<sf::Text> m_sectionTitle;
+    std::unique_ptr<sf::Text> m_summaryText;      // NEW: Performance summary
     sf::RectangleShape m_background;
+    sf::RectangleShape m_summaryPanel;           // NEW: Summary panel
     
     // Model management
     std::unique_ptr<TrainedModelManager> m_modelManager;
+    EvaluationReportData m_evaluationData;       // NEW: Evaluation report data
     
     // Callbacks
     std::function<void(const AgentConfig&)> m_selectionCallback;
@@ -50,6 +62,14 @@ private:
     
     void initializeAgents();
     void loadTrainedModels();
+    void loadEvaluationData();               // NEW: Load performance data
     void updateSelection();
-    void createAgentDisplay(AgentMenuItem& item, float y);
+    void createAgentDisplay(EnhancedAgentMenuItem& item, float y);
+    void createPerformanceDisplay(EnhancedAgentMenuItem& item, float y); // NEW: Create performance UI
+    void updateSummaryPanel();               // NEW: Update summary information
+    
+    // NEW: Performance visualization helpers
+    sf::Color getPerformanceColor(float score) const;
+    std::string formatPerformanceMetrics(const ModelPerformanceData& data) const;
+    void renderPerformanceBars(sf::RenderWindow& window, const EnhancedAgentMenuItem& item, float x, float y) const;
 };

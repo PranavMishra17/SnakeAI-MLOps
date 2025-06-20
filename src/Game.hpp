@@ -46,8 +46,12 @@ private:
     void render();
     void renderGame();
     void renderUI();
+    void renderEnhancedModelInfo();     // NEW: Enhanced model performance display
+    void renderPerformanceMetrics();    // NEW: Performance metrics panel
+    void renderModelComparison();       // NEW: Compare current vs best scores
     void renderSettings();
     void renderHowToPlay();
+    void renderGameOverScreen();
     
     // Menu handling
     void handleMenuSelection(GameMode mode);
@@ -55,6 +59,12 @@ private:
     void startGame();
     void resetGame();
     bool shouldAddToLeaderboard() const;
+    
+    // NEW: Enhanced model management
+    void updateCurrentModelStats();
+    void loadModelPerformanceData();
+    std::string formatModelPerformance() const;
+    sf::Color getPerformanceColor(float currentScore, float bestScore) const;
     
     // Utility methods
     std::string getGameModeString() const;
@@ -72,6 +82,11 @@ private:
     std::unique_ptr<UnifiedDataCollector> m_dataCollector;
     std::unique_ptr<InputManager> m_inputManager;
     
+    // NEW: Enhanced model management
+    std::unique_ptr<TrainedModelManager> m_modelManager;
+    TrainedModelInfo m_currentModelInfo;
+    ModelPerformanceData m_sessionPerformance;  // Track current session performance
+    
     // Game state
     GameState m_currentState;
     GameMode m_gameMode;
@@ -81,14 +96,23 @@ private:
     // Timing
     sf::Clock m_clock;
     sf::Clock m_gameClock;
+    sf::Clock m_sessionClock;               // NEW: Track session time
     float m_moveTimer;
     float m_moveSpeed; // blocks per second
     
     // Game statistics
     int m_score;
     int m_episode;
+    int m_sessionBestScore;                 // NEW: Best score this session
+    int m_sessionEpisodes;                  // NEW: Episodes played this session
+    float m_sessionAverageScore;            // NEW: Session average
     bool m_gameOver;
     mutable int m_previousDistance; // For reward calculation
+    
+    // NEW: Performance tracking
+    std::vector<int> m_recentScores;        // Last 10 scores for trend analysis
+    float m_currentEfficiency;              // Current score/episode efficiency
+    bool m_beatModelBest;                   // Flag if we beat model's best score
     
     // Apple placement for agent vs player mode
     sf::Vector2i m_nextApplePos;
@@ -97,4 +121,9 @@ private:
     // Settings
     float m_minSpeed = 0.5f;
     float m_maxSpeed = 3.0f;
+    
+    // NEW: UI Enhancement flags
+    bool m_showEnhancedStats = true;        // Show detailed model stats
+    bool m_showPerformanceComparison = true; // Show vs model best
+    sf::Font m_uiFont;                      // Dedicated UI font
 };

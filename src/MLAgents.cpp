@@ -24,19 +24,101 @@ TrainedModelInfo TrainedModelInfo::fromFile(const std::string& infoPath) {
         info.profile = j.value("profile", "unknown");
         info.modelPath = j.value("modelPath", "");
         info.description = j.value("description", "No description available");
-        info.averageScore = j.value("averageScore", 0.0f);
-        info.episodesTrained = j.value("episodesTrained", 0);
         info.modelType = j.value("modelType", "qlearning");
         info.isLoaded = false;
         
-        spdlog::info("TrainedModelInfo: Loaded model info: {} (type: {}, avg score: {:.2f})", 
-                     info.name, info.modelType, info.averageScore);
+        // Load performance data if available
+        if (j.contains("performance")) {
+            auto perf = j["performance"];
+            info.performance.bestScore = perf.value("bestScore", 0.0f);
+            info.performance.averageScore = perf.value("averageScore", 0.0f);
+            info.performance.consistency = perf.value("consistency", 0.0f);
+            info.performance.efficiency = perf.value("efficiency", 0.0f);
+            info.performance.totalEpisodes = perf.value("totalEpisodes", 0);
+            info.performance.trainingDuration = perf.value("trainingDuration", 0);
+        }
+        
+        spdlog::info("TrainedModelInfo: Loaded model info: {} (type: {}, best score: {:.1f})", 
+                     info.name, info.modelType, info.performance.bestScore);
         
     } catch (const std::exception& e) {
         spdlog::error("TrainedModelInfo: Error loading info file {}: {}", infoPath, e.what());
     }
     
     return info;
+}
+
+
+// Enhanced EvaluationReportData Implementation
+EvaluationReportData EvaluationReportData::loadFromFile(const std::string& reportPath) {
+    EvaluationReportData data;
+    
+    try {
+        std::ifstream file(reportPath);
+        if (!file.is_open()) {
+            spdlog::warn("EvaluationReportData: Could not load report: {}", reportPath);
+            return data;
+        }
+        
+        nlohmann::json j;
+        file >> j;
+        
+        data.reportDate = j.value("report_date", "Unknown");
+        data.version = j.value("version", "1.0");
+        
+        // Load model performance data
+        if (j.contains("models")) {
+            for (auto& [modelName, modelData] : j["models"].items()) {
+                ModelPerformanceData perf;
+                perf.bestScore = modelData.value("best_score", 0.0f);
+                perf.averageScore = modelData.value("average_score", 0.0f);
+                perf.consistency = modelData.value("consistency", 0.0f);
+                perf.efficiency = modelData.value("efficiency", 0.0f);
+                perf.totalEpisodes = modelData.value("total_episodes", 0);
+                perf.successRate = modelData.value("success_rate", 0.0f);
+                perf.improvementRate = modelData.value("improvement_rate", 0.0f);
+                perf.trainingProfile = modelData.value("training_profile", "balanced");
+                
+                if (modelData.contains("analysis_image")) {
+                    perf.analysisImagePath = modelData["analysis_image"];
+                }
+                
+                data.modelPerformance[modelName] = perf;
+            }
+        }
+        
+        // Load analysis images
+        if (j.contains("analysis_images")) {
+            auto images = j["analysis_images"];
+            data.analysisImages["qtable_balanced"] = images.value("qtable_balanced", "models/analysis_qtable_balanced.png");
+            data.analysisImages["dqn_balanced"] = images.value("dqn_balanced", "models/analysis_dqn_balanced_best_fixed.png");
+            data.analysisImages["ppo_balanced"] = images.value("ppo_balanced", "models/analysis_ppo_balanced_best_fixed.png");
+            data.analysisImages["ac_balanced"] = images.value("ac_balanced", "models/analysis_ac_balanced_best_fixed.png");
+            data.comparisonImagePath = images.value("comparison", "models/enhanced_comparison_fixed.png");
+        } else {
+            // Default paths if not in JSON
+            data.analysisImages["qtable_balanced"] = "models/analysis_qtable_balanced.png";
+            data.analysisImages["dqn_balanced"] = "models/analysis_dqn_balanced_best_fixed.png";
+            data.analysisImages["ppo_balanced"] = "models/analysis_ppo_balanced_best_fixed.png";
+            data.analysisImages["ac_balanced"] = "models/analysis_ac_balanced_best_fixed.png";
+            data.comparisonImagePath = "models/enhanced_comparison_fixed.png";
+        }
+        
+        // Load summary statistics
+        if (j.contains("summary")) {
+            auto summary = j["summary"];
+            data.bestOverallModel = summary.value("best_overall", "Unknown");
+            data.mostConsistentModel = summary.value("most_consistent", "Unknown");
+            data.fastestLearner = summary.value("fastest_learner", "Unknown");
+        }
+        
+        spdlog::info("EvaluationReportData: Loaded {} model performance entries", data.modelPerformance.size());
+        
+    } catch (const std::exception& e) {
+        spdlog::error("EvaluationReportData: Error loading report {}: {}", reportPath, e.what());
+    }
+    
+    return data;
 }
 
 void TrainedModelInfo::saveToFile(const std::string& infoPath) const {
@@ -88,6 +170,7 @@ QLearningAgentEnhanced::QLearningAgentEnhanced(const TrainedModelInfo& modelInfo
         spdlog::error("QLearningAgentEnhanced: Failed to load pre-trained model: {}", modelInfo.modelPath);
     }
 }
+
 
 std::string QLearningAgentEnhanced::encodeState9Bit(const AgentState& state) const {
     std::string binary;
@@ -287,10 +370,25 @@ void QLearningAgentEnhanced::updateQValue(const AgentState& state, Direction act
     m_qTable[stateKey][actionIdx] = newQ;
 }
 
-// Enhanced DQN Agent with Intelligent Behavior
+// Enhanced DQN Agent Implementation with Performance Data
 DQNAgent::DQNAgent() : m_epsilon(0.05f), m_rng(std::random_device{}()) {
     spdlog::info("DQNAgent: Initialized (enhanced intelligent placeholder)");
-    spdlog::info("DQNAgent: Using sophisticated heuristics for gameplay");
+    m_modelInfo.name = "DQN Agent";
+    m_modelInfo.modelType = "dqn";
+    m_modelInfo.description = "Deep Q-Network with intelligent heuristics";
+}
+
+DQNAgent::DQNAgent(const TrainedModelInfo& modelInfo) 
+    : m_epsilon(0.05f), m_rng(std::random_device{}()), m_modelInfo(modelInfo) {
+    spdlog::info("DQNAgent: Initialized with model info: {}", modelInfo.name);
+}
+
+std::string DQNAgent::getModelInfo() const {
+    if (m_modelInfo.performance.bestScore > 0) {
+        return "DQN Model - Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore)) +
+               " | Avg: " + std::to_string(m_modelInfo.performance.averageScore).substr(0, 4);
+    }
+    return "Enhanced DQN placeholder - uses intelligent decision making";
 }
 
 Direction DQNAgent::getAction(const EnhancedState& state, bool training) {
@@ -375,14 +473,19 @@ std::string DQNAgent::getAgentInfo() const {
     return "DQN (Intelligent Heuristics) | Safety-first with food seeking";
 }
 
-std::string DQNAgent::getModelInfo() const {
-    return "Enhanced DQN placeholder - uses intelligent decision making";
-}
 
 // Enhanced PPO Agent Implementation (replaces PolicyGradientAgent)
+// Enhanced PPO Agent Implementation
 PPOAgent::PPOAgent() : m_rng(std::random_device{}()) {
     spdlog::info("PPOAgent: Initialized (enhanced intelligent placeholder)");
-    spdlog::info("PPOAgent: Using probabilistic decision making with PPO-style exploration");
+    m_modelInfo.name = "PPO Agent";
+    m_modelInfo.modelType = "ppo";
+    m_modelInfo.description = "PPO with probabilistic decision making";
+}
+
+PPOAgent::PPOAgent(const TrainedModelInfo& modelInfo) 
+    : m_rng(std::random_device{}()), m_modelInfo(modelInfo) {
+    spdlog::info("PPOAgent: Initialized with model info: {}", modelInfo.name);
 }
 
 Direction PPOAgent::getAction(const EnhancedState& state, bool training) {
@@ -443,12 +546,25 @@ std::string PPOAgent::getAgentInfo() const {
 }
 
 std::string PPOAgent::getModelInfo() const {
+    if (m_modelInfo.performance.bestScore > 0) {
+        return "PPO Model - Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore)) +
+               " | Success Rate: " + std::to_string(m_modelInfo.performance.successRate).substr(0, 4) + "%";
+    }
     return "Enhanced PPO placeholder - probabilistic action selection";
 }
 
-// Enhanced Actor-Critic Agent
+
+// Enhanced Actor-Critic Agent Implementation
 ActorCriticAgent::ActorCriticAgent() : m_rng(std::random_device{}()) {
     spdlog::info("ActorCriticAgent: Initialized (enhanced intelligent placeholder)");
+    m_modelInfo.name = "Actor-Critic Agent";
+    m_modelInfo.modelType = "actor_critic";
+    m_modelInfo.description = "Actor-critic with value-based decisions";
+}
+
+ActorCriticAgent::ActorCriticAgent(const TrainedModelInfo& modelInfo) 
+    : m_rng(std::random_device{}()), m_modelInfo(modelInfo) {
+    spdlog::info("ActorCriticAgent: Initialized with model info: {}", modelInfo.name);
 }
 
 Direction ActorCriticAgent::getAction(const EnhancedState& state, bool training) {
@@ -506,8 +622,13 @@ std::string ActorCriticAgent::getAgentInfo() const {
 }
 
 std::string ActorCriticAgent::getModelInfo() const {
+    if (m_modelInfo.performance.bestScore > 0) {
+        return "AC Model - Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore)) +
+               " | Consistency: " + std::to_string(m_modelInfo.performance.consistency).substr(0, 4);
+    }
     return "Enhanced Actor-Critic placeholder - value-based action selection";
 }
+
 
 // Enhanced TrainedModelManager Implementation
 TrainedModelManager::TrainedModelManager(const std::string& modelsDir) 
@@ -519,7 +640,14 @@ TrainedModelManager::TrainedModelManager(const std::string& modelsDir)
         spdlog::info("TrainedModelManager: Created models directory: {}", modelsDir);
     }
     
+    loadEvaluationReport();
     scanForModels();
+}
+
+void TrainedModelManager::loadEvaluationReport(const std::string& reportPath) {
+    m_evaluationData = EvaluationReportData::loadFromFile(reportPath);
+    spdlog::info("TrainedModelManager: Loaded evaluation report with {} models", 
+                 m_evaluationData.modelPerformance.size());
 }
 
 // Replace the scanForModels() method in MLAgents.cpp:
@@ -532,22 +660,21 @@ void TrainedModelManager::scanForModels() {
         return;
     }
     
-    // Scan for Q-Learning models
+    // Scan for Q-Learning models with performance data
     auto qlearningDir = std::filesystem::path(m_modelsDirectory) / "qlearning";
     if (std::filesystem::exists(qlearningDir)) {
         for (const auto& entry : std::filesystem::directory_iterator(qlearningDir)) {
             if (entry.is_regular_file()) {
                 std::string filename = entry.path().filename().string();
                 
-                // Look for qtable_*.json files (skip session files and reports)
                 if (filename.substr(0, 7) == "qtable_" && 
                     filename.length() > 12 && 
                     filename.substr(filename.length() - 5) == ".json" &&
                     filename.find("session") == std::string::npos &&
                     filename.find("report") == std::string::npos) {
                     
-                    // Extract profile: qtable_balanced.json -> "balanced"
                     std::string profile = filename.substr(7, filename.length() - 12);
+                    std::string modelKey = "qtable_" + profile;
                     
                     TrainedModelInfo info;
                     info.name = "Q-Learning " + profile;
@@ -556,6 +683,13 @@ void TrainedModelManager::scanForModels() {
                     info.modelType = "qlearning";
                     info.description = "Q-Learning model with " + profile + " training profile";
                     info.isLoaded = false;
+                    
+                    // Load performance data from evaluation report
+                    if (m_evaluationData.modelPerformance.find(modelKey) != m_evaluationData.modelPerformance.end()) {
+                        info.performance = m_evaluationData.modelPerformance[modelKey];
+                        spdlog::info("TrainedModelManager: Loaded performance data for {}: best={:.1f}", 
+                                     info.name, info.performance.bestScore);
+                    }
                     
                     if (validateQlearningModel(info.modelPath)) {
                         m_availableModels.push_back(info);
@@ -567,105 +701,80 @@ void TrainedModelManager::scanForModels() {
         }
     }
     
-    // Scan for DQN models
-    auto dqnDir = std::filesystem::path(m_modelsDirectory) / "dqn";
-    if (std::filesystem::exists(dqnDir)) {
-        for (const auto& entry : std::filesystem::directory_iterator(dqnDir)) {
-            if (entry.is_regular_file()) {
-                std::string filename = entry.path().filename().string();
-                
-                // Look for dqn_*.pth files (skip checkpoint files)
-                if (filename.substr(0, 4) == "dqn_" && 
-                    filename.length() > 8 && 
-                    filename.substr(filename.length() - 4) == ".pth" &&
-                    filename.find("best") == std::string::npos &&
-                    filename.find("checkpoint") == std::string::npos) {
-                    
-                    // Extract profile: dqn_balanced.pth -> "balanced"
-                    std::string profile = filename.substr(4, filename.length() - 8);
-                    
-                    TrainedModelInfo info;
-                    info.name = "DQN " + profile;
-                    info.profile = profile;
-                    info.modelPath = entry.path().string();
-                    info.modelType = "dqn";
-                    info.description = "DQN neural network model (" + profile + " profile)";
-                    info.isLoaded = false;
-                    
-                    m_availableModels.push_back(info);
-                    spdlog::info("TrainedModelManager: Found dqn model: {} ({})", 
-                                 profile, info.modelPath);
-                }
-            }
-        }
-    }
+    // Add neural network models with performance data
+    std::vector<std::pair<std::string, std::string>> neuralModels = {
+        {"dqn", "dqn_balanced"},
+        {"ppo", "ppo_balanced"}, 
+        {"actor_critic", "ac_balanced"}
+    };
     
-    // Scan for PPO models (CHANGED: from policy_gradient to ppo)
-    auto ppoDir = std::filesystem::path(m_modelsDirectory) / "ppo";
-    if (std::filesystem::exists(ppoDir)) {
-        for (const auto& entry : std::filesystem::directory_iterator(ppoDir)) {
-            if (entry.is_regular_file()) {
-                std::string filename = entry.path().filename().string();
-                
-                if (filename.substr(0, 4) == "ppo_" && 
-                    filename.length() > 8 && 
-                    filename.substr(filename.length() - 4) == ".pth" &&
-                    filename.find("best") == std::string::npos &&
-                    filename.find("checkpoint") == std::string::npos) {
-                    
-                    std::string profile = filename.substr(4, filename.length() - 8);
-                    
-                    TrainedModelInfo info;
-                    info.name = "PPO " + profile;
-                    info.profile = profile;
-                    info.modelPath = entry.path().string();
-                    info.modelType = "ppo";
-                    info.description = "PPO model (" + profile + " profile)";
-                    info.isLoaded = false;
-                    
-                    m_availableModels.push_back(info);
-                    spdlog::info("TrainedModelManager: Found PPO model: {} ({})", 
-                                 profile, info.modelPath);
-                }
-            }
-        }
-    }
-    
-    // Scan for Actor-Critic models
-    auto acDir = std::filesystem::path(m_modelsDirectory) / "actor_critic";
-    if (std::filesystem::exists(acDir)) {
-        for (const auto& entry : std::filesystem::directory_iterator(acDir)) {
-            if (entry.is_regular_file()) {
-                std::string filename = entry.path().filename().string();
-                
-                // Look for ac_*.pth files
-                if (filename.substr(0, 3) == "ac_" && 
-                    filename.length() > 7 && 
-                    filename.substr(filename.length() - 4) == ".pth" &&
-                    filename.find("best") == std::string::npos &&
-                    filename.find("checkpoint") == std::string::npos) {
-                    
-                    // Extract profile: ac_balanced.pth -> "balanced"
-                    std::string profile = filename.substr(3, filename.length() - 7);
-                    
-                    TrainedModelInfo info;
-                    info.name = "Actor-Critic " + profile;
-                    info.profile = profile;
-                    info.modelPath = entry.path().string();
-                    info.modelType = "actor_critic";
-                    info.description = "Actor-critic model (" + profile + " profile)";
-                    info.isLoaded = false;
-                    
-                    m_availableModels.push_back(info);
-                    spdlog::info("TrainedModelManager: Found actor_critic model: {} ({})", 
-                                 profile, info.modelPath);
-                }
-            }
+    for (const auto& [type, key] : neuralModels) {
+        if (m_evaluationData.modelPerformance.find(key) != m_evaluationData.modelPerformance.end()) {
+            TrainedModelInfo info;
+            info.name = (type == "actor_critic" ? "Actor-Critic" : 
+                        (type == "dqn" ? "DQN" : "PPO")) + std::string(" balanced");
+            info.profile = "balanced";
+            info.modelPath = "models/" + type + "/" + key + ".pth";
+            info.modelType = type;
+            info.description = info.name + " model with balanced training profile";
+            info.performance = m_evaluationData.modelPerformance[key];
+            info.isLoaded = false;
+            
+            m_availableModels.push_back(info);
+            spdlog::info("TrainedModelManager: Found {} model with best score: {:.1f}", 
+                         info.name, info.performance.bestScore);
         }
     }
     
     spdlog::info("TrainedModelManager: Found {} total models", m_availableModels.size());
 }
+
+std::vector<TrainedModelInfo> TrainedModelManager::getTopPerformingModels(int count) const {
+    std::vector<TrainedModelInfo> sorted = m_availableModels;
+    std::sort(sorted.begin(), sorted.end(), 
+              [](const TrainedModelInfo& a, const TrainedModelInfo& b) {
+                  return a.performance.bestScore > b.performance.bestScore;
+              });
+    
+    if (count > 0 && count < static_cast<int>(sorted.size())) {
+        sorted.resize(count);
+    }
+    
+    return sorted;
+}
+
+std::string TrainedModelManager::getPerformanceSummary() const {
+    if (m_availableModels.empty()) {
+        return "No trained models available";
+    }
+    
+    auto topModels = getTopPerformingModels(3);
+    std::string summary = "Top performers: ";
+    
+    for (size_t i = 0; i < topModels.size(); ++i) {
+        if (i > 0) summary += ", ";
+        summary += topModels[i].name + " (" + std::to_string(static_cast<int>(topModels[i].performance.bestScore)) + ")";
+    }
+    
+    return summary;
+}
+
+
+std::vector<std::pair<std::string, float>> TrainedModelManager::getLeaderboardData() const {
+    std::vector<std::pair<std::string, float>> leaderboard;
+    
+    for (const auto& model : m_availableModels) {
+        if (model.performance.bestScore > 0) {
+            leaderboard.emplace_back(model.name, model.performance.bestScore);
+        }
+    }
+    
+    std::sort(leaderboard.begin(), leaderboard.end(),
+              [](const auto& a, const auto& b) { return a.second > b.second; });
+    
+    return leaderboard;
+}
+
 
 bool TrainedModelManager::validateQlearningModel(const std::string& modelPath) const {
     try {
@@ -741,6 +850,25 @@ std::unique_ptr<IAgent> AgentFactory::createAgent(const AgentConfig& config) {
     }
 }
 
+// Enhanced Agent Factory Implementation
+std::unique_ptr<IAgent> AgentFactory::createAgentWithPerformanceData(const TrainedModelInfo& modelInfo) {
+    spdlog::info("AgentFactory: Creating agent with performance data: {} (best: {:.1f})", 
+                 modelInfo.name, modelInfo.performance.bestScore);
+    
+    if (modelInfo.modelType == "qlearning") {
+        return std::make_unique<QLearningAgentEnhanced>(modelInfo);
+    } else if (modelInfo.modelType == "dqn") {
+        return std::make_unique<DQNAgent>(modelInfo);
+    } else if (modelInfo.modelType == "ppo") {
+        return std::make_unique<PPOAgent>(modelInfo);
+    } else if (modelInfo.modelType == "actor_critic") {
+        return std::make_unique<ActorCriticAgent>(modelInfo);
+    }
+    
+    return nullptr;
+}
+
+
 std::unique_ptr<IAgent> AgentFactory::createTrainedAgent(const std::string& modelName) {
     TrainedModelManager manager;
     
@@ -779,9 +907,6 @@ std::unique_ptr<IAgent> AgentFactory::createTrainedAgent(const std::string& mode
 }
 
 
-
-// State Generator Implementation (unchanged)
-// Add this to the end of MLAgents.cpp
 
 EnhancedState StateGenerator::generateState(const Snake& snake, const Apple& apple, const Grid& grid) {
     EnhancedState state;

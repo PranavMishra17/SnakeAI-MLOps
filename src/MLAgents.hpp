@@ -25,19 +25,58 @@ public:
     virtual std::string getModelInfo() const { return "No model info available"; }
 };
 
-// Trained Model Information (Enhanced)
+// Enhanced Model Performance Data
+struct ModelPerformanceData {
+    float bestScore = 0.0f;
+    float averageScore = 0.0f;
+    float consistency = 0.0f;
+    float efficiency = 0.0f;
+    int totalEpisodes = 0;
+    int trainingDuration = 0; // seconds
+    float convergenceRate = 0.0f;
+    float explorationDecay = 0.0f;
+    std::string trainingProfile = "unknown";
+    std::string analysisImagePath = "";
+    
+    // Detailed metrics
+    float maxReward = 0.0f;
+    float avgEpisodeLength = 0.0f;
+    float successRate = 0.0f; // percentage of episodes with score > 5
+    float improvementRate = 0.0f; // score improvement over time
+};
+
+// Enhanced Trained Model Information
 struct TrainedModelInfo {
     std::string name;
     std::string profile;
     std::string modelPath;
     std::string description;
     std::string modelType;  // "qlearning", "dqn", "ppo", "actor_critic"
-    float averageScore = 0.0f;
-    int episodesTrained = 0;
     bool isLoaded = false;
+    
+    // Enhanced performance data
+    ModelPerformanceData performance;
+    
+    // Training metadata
+    std::string trainingDate;
+    std::string version;
+    std::map<std::string, float> hyperparameters;
     
     static TrainedModelInfo fromFile(const std::string& infoPath);
     void saveToFile(const std::string& infoPath) const;
+    
+    // Display helpers
+    std::string getFormattedPerformance() const {
+        return "Best: " + std::to_string(static_cast<int>(performance.bestScore)) + 
+               " | Avg: " + std::to_string(performance.averageScore).substr(0, 4) +
+               " | Episodes: " + std::to_string(performance.totalEpisodes);
+    }
+    
+    std::string getDetailedStats() const {
+        return "Consistency: " + std::to_string(performance.consistency).substr(0, 4) +
+               " | Success Rate: " + std::to_string(performance.successRate).substr(0, 4) + "%" +
+               " | Efficiency: " + std::to_string(performance.efficiency).substr(0, 4);
+    }
 };
 
 // Enhanced Q-Learning Agent with trained model support
@@ -81,6 +120,14 @@ public:
     bool isPreTrained() const { return m_isPreTrained; }
     int getQTableSize() const { return m_qTable.size(); }
     
+    // Performance info
+    std::string getBestScoreInfo() const {
+        if (m_isPreTrained) {
+            return "Best Score: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
+        }
+        return "Training from scratch";
+    }
+    
 private:
     Direction getMaxQAction(const AgentState& state) const;
     void updateQValue(const AgentState& state, Direction action, float reward, const AgentState& nextState);
@@ -93,12 +140,13 @@ class DQNAgent : public IAgent {
 private:
     float m_epsilon;
     mutable std::mt19937 m_rng;
+    TrainedModelInfo m_modelInfo;
     
-    // Intelligent decision making
     Direction makeIntelligentDecision(const EnhancedState& state);
     
 public:
     DQNAgent();
+    DQNAgent(const TrainedModelInfo& modelInfo);
     Direction getAction(const EnhancedState& state, bool training = true) override;
     void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
     void saveModel(const std::string& path) override;
@@ -107,15 +155,21 @@ public:
     void decayEpsilon() override { m_epsilon *= 0.995f; }
     std::string getAgentInfo() const override;
     std::string getModelInfo() const override;
+    
+    std::string getBestScoreInfo() const {
+        return "Best Score: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
+    }
 };
 
-// Enhanced PPO Agent with Probabilistic Behavior (CHANGED: Policy Gradient -> PPO)
+// Enhanced PPO Agent with Probabilistic Behavior
 class PPOAgent : public IAgent {
 private:
     mutable std::mt19937 m_rng;
+    TrainedModelInfo m_modelInfo;
     
 public:
     PPOAgent();
+    PPOAgent(const TrainedModelInfo& modelInfo);
     Direction getAction(const EnhancedState& state, bool training = true) override;
     void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
     void saveModel(const std::string& path) override {}
@@ -124,15 +178,21 @@ public:
     void decayEpsilon() override {}
     std::string getAgentInfo() const override;
     std::string getModelInfo() const override;
+    
+    std::string getBestScoreInfo() const {
+        return "Best Score: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
+    }
 };
 
 // Enhanced Actor-Critic Agent with Value-Based Decisions
 class ActorCriticAgent : public IAgent {
 private:
     mutable std::mt19937 m_rng;
+    TrainedModelInfo m_modelInfo;
     
 public:
     ActorCriticAgent();
+    ActorCriticAgent(const TrainedModelInfo& modelInfo);
     Direction getAction(const EnhancedState& state, bool training = true) override;
     void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
     void saveModel(const std::string& path) override {}
@@ -141,169 +201,109 @@ public:
     void decayEpsilon() override {}
     std::string getAgentInfo() const override;
     std::string getModelInfo() const override;
+    
+    std::string getBestScoreInfo() const {
+        return "Best Score: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
+    }
 };
 
-// Enhanced Trained Model Manager with Multi-Technique Support
+// Enhanced Evaluation Report Data
+struct EvaluationReportData {
+    std::map<std::string, ModelPerformanceData> modelPerformance;
+    std::string reportDate;
+    std::string version;
+    
+    // Analysis images
+    std::map<std::string, std::string> analysisImages; // model_name -> image_path
+    std::string comparisonImagePath;
+    
+    // Summary statistics
+    std::string bestOverallModel;
+    std::string mostConsistentModel;
+    std::string fastestLearner;
+    
+    static EvaluationReportData loadFromFile(const std::string& reportPath);
+};
+
+// Enhanced Trained Model Manager with Performance Data
 class TrainedModelManager {
 private:
     std::vector<TrainedModelInfo> m_availableModels;
     std::string m_modelsDirectory;
+    EvaluationReportData m_evaluationData;
     
 public:
     TrainedModelManager(const std::string& modelsDir = "models/");
     
     void scanForModels();
+    void loadEvaluationReport(const std::string& reportPath = "models/enhanced_evaluation_report_fixed.json");
     void createModelInfoFiles();
+    
     std::vector<TrainedModelInfo> getAvailableModels() const { return m_availableModels; }
     TrainedModelInfo* findModel(const std::string& modelName);
+    const EvaluationReportData& getEvaluationData() const { return m_evaluationData; }
     
-    // Model validation (Q-Learning only, neural networks require Python)
+    // Enhanced model queries
+    std::vector<TrainedModelInfo> getTopPerformingModels(int count = 5) const;
+    std::vector<TrainedModelInfo> getModelsByType(const std::string& modelType) const;
+    TrainedModelInfo* getBestModelOfType(const std::string& modelType);
+    
+    // Model validation
     bool validateQlearningModel(const std::string& modelPath) const;
-    
-    // Get models by type
-    std::vector<TrainedModelInfo> getModelsByType(const std::string& modelType) const {
-        std::vector<TrainedModelInfo> filtered;
-        for (const auto& model : m_availableModels) {
-            if (model.modelType == modelType) {
-                filtered.push_back(model);
-            }
-        }
-        return filtered;
-    }
     
     // Statistics
     size_t getModelCount() const { return m_availableModels.size(); }
     size_t getQlearningModelCount() const { return getModelsByType("qlearning").size(); }
     size_t getNeuralNetworkModelCount() const { 
         return getModelsByType("dqn").size() + 
-               getModelsByType("ppo").size() +   // CHANGED: policy_gradient -> ppo
+               getModelsByType("ppo").size() +
                getModelsByType("actor_critic").size(); 
     }
+    
+    // Performance insights
+    std::string getPerformanceSummary() const;
+    std::vector<std::pair<std::string, float>> getLeaderboardData() const;
 };
 
-// Enhanced Agent Factory with Multi-Technique Support
+// Enhanced Agent Factory with Performance Data
 class AgentFactory {
 public:
     static std::unique_ptr<IAgent> createAgent(const AgentConfig& config);
     static std::unique_ptr<IAgent> createTrainedAgent(const std::string& modelName);
+    static std::unique_ptr<IAgent> createAgentWithPerformanceData(const TrainedModelInfo& modelInfo);
     static std::vector<AgentConfig> getAvailableTrainedAgents();
     
-    // Create agents by type
+    // Create agents by type with performance data
     static std::unique_ptr<IAgent> createQLearningAgent(const std::string& profile = "balanced");
     static std::unique_ptr<IAgent> createDQNAgent(const std::string& profile = "balanced");
-    static std::unique_ptr<IAgent> createPPOAgent(const std::string& profile = "balanced");      // CHANGED: createPolicyGradientAgent -> createPPOAgent
+    static std::unique_ptr<IAgent> createPPOAgent(const std::string& profile = "balanced");
     static std::unique_ptr<IAgent> createActorCriticAgent(const std::string& profile = "balanced");
     
     // Utility functions
     static bool isModelTypeSupported(const std::string& modelType) {
         return modelType == "qlearning" || modelType == "dqn" || 
-               modelType == "ppo" || modelType == "actor_critic";  // CHANGED: policy_gradient -> ppo
+               modelType == "ppo" || modelType == "actor_critic";
     }
     
     static bool isFullyImplemented(const std::string& modelType) {
-        return modelType == "qlearning"; // Only Q-Learning fully implemented in C++
+        return modelType == "qlearning";
     }
     
     static std::string getSupportedTechniques() {
-        return "Q-Learning (full C++ support), DQN/PPO/Actor-Critic (intelligent C++ placeholders)";  // CHANGED: Policy Gradient -> PPO
+        return "Q-Learning (full C++ support), DQN/PPO/Actor-Critic (intelligent C++ placeholders)";
     }
 };
 
-// Enhanced State Generator
+// Enhanced State Generator (unchanged interface)
 class StateGenerator {
 public:
     static EnhancedState generateState(const Snake& snake, const Apple& apple, const Grid& grid);
-    
-    // Enhanced state generation with additional features
     static EnhancedState generateEnhancedState(const Snake& snake, const Apple& apple, const Grid& grid, int episode = 0);
     
 private:
     static AgentState generateBasicState(const Snake& snake, const Apple& apple, const Grid& grid);
     static void calculateBodyDensity(const Snake& snake, const Grid& grid, float density[4]);
     static float calculatePathToFood(const Snake& snake, const Apple& apple, const Grid& grid);
-    
-    // Additional feature extraction methods
     static float calculateSnakeEfficiency(const Snake& snake, int episode);
     static float calculateEnvironmentComplexity(const Snake& snake, const Grid& grid);
-    static std::vector<float> calculateSpatialFeatures(const Snake& snake, const Apple& apple, const Grid& grid);
-};
-
-// Model Performance Tracker
-class ModelPerformanceTracker {
-private:
-    struct PerformanceMetrics {
-        std::vector<float> scores;
-        std::vector<float> episodeLengths;
-        std::vector<float> efficiencyRatios;
-        float averageScore = 0.0f;
-        float maxScore = 0.0f;
-        float consistency = 0.0f; // Lower std dev = higher consistency
-        std::string modelType;
-        std::string modelName;
-    };
-    
-    std::map<std::string, PerformanceMetrics> m_modelMetrics;
-    
-public:
-    void recordPerformance(const std::string& modelName, const std::string& modelType, 
-                          float score, float episodeLength, float efficiency);
-    
-    void generatePerformanceReport(const std::string& outputPath) const;
-    PerformanceMetrics getMetrics(const std::string& modelName) const;
-    
-    // Comparison methods
-    std::vector<std::pair<std::string, float>> getRankingByScore() const;
-    std::vector<std::pair<std::string, float>> getRankingByConsistency() const;
-    std::string getBestModelByType(const std::string& modelType) const;
-};
-
-// Neural Network Integration Interface (Future Expansion)
-class NeuralNetworkInterface {
-public:
-    virtual ~NeuralNetworkInterface() = default;
-    
-    // Methods for when LibTorch/ONNX integration is added
-    virtual bool loadONNXModel(const std::string& modelPath) = 0;
-    virtual std::vector<float> inference(const std::vector<float>& input) = 0;
-    virtual bool isModelLoaded() const = 0;
-    
-    // Placeholder for future implementation
-    static std::unique_ptr<NeuralNetworkInterface> create(const std::string& framework = "onnx");
-};
-
-// Configuration for neural network models
-struct NeuralNetworkConfig {
-    std::string modelPath;
-    std::string framework; // "onnx", "libtorch", etc.
-    bool useGPU = false;
-    int batchSize = 1;
-    float inferenceThreshold = 0.5f;
-    
-    // Model-specific parameters
-    std::map<std::string, float> parameters;
-};
-
-// Comprehensive model evaluation results
-struct ModelEvaluationResult {
-    std::string modelName;
-    std::string modelType;
-    std::string profile;
-    float averageScore;
-    float maxScore;
-    float consistency;
-    float actionEntropy;
-    int episodesTested;
-    std::string evaluationDate;
-    std::map<std::string, float> additionalMetrics;
-};
-
-// Batch model evaluator for C++ (Q-Learning + intelligent placeholders)
-class BatchModelEvaluator {
-public:
-    static std::vector<ModelEvaluationResult> evaluateAllModels(int episodesPerModel = 100);
-    static ModelEvaluationResult evaluateModel(const std::string& modelPath, 
-                                             const std::string& modelType, 
-                                             int episodes = 100);
-    static void generateComparisonReport(const std::vector<ModelEvaluationResult>& results, 
-                                       const std::string& outputPath);
 };
