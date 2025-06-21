@@ -6,7 +6,9 @@
         "${workspaceFolder}/**",
         "${workspaceFolder}/src",
         "E:/vcpkg/installed/x64-windows/include",
-        "${workspaceFolder}/out/build/windows-default/vcpkg_installed/x64-windows/include"
+        "${workspaceFolder}/out/build/windows-default/vcpkg_installed/x64-windows/include",
+        "C:/libtorch/include",
+        "C:/libtorch/include/torch/csrc/api/include"
       ],
       "defines": [
         "_DEBUG",

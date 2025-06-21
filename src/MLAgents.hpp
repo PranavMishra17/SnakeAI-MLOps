@@ -10,13 +10,14 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+#include "TorchInference.hpp"
 
 // Base Agent Interface
 class IAgent {
 public:
     virtual ~IAgent() = default;
     virtual Direction getAction(const EnhancedState& state, bool training = true) = 0;
-    virtual void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) = 0;
+    virtual void updateAgent(const EnhancedState &state, Direction action, float reward, const EnhancedState &nextState) = 0;
     virtual void saveModel(const std::string& path) = 0;
     virtual bool loadModel(const std::string& path) = 0;
     virtual float getEpsilon() const = 0;
@@ -103,7 +104,7 @@ public:
     
     Direction getAction(const EnhancedState& state, bool training = true) override;
     void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override;
-    void saveModel(const std::string& path) override;
+    void saveModel(const std::string&) override {}  // Keep as empty inline
     bool loadModel(const std::string& path) override;
     float getEpsilon() const override;
     void decayEpsilon() override;
@@ -135,76 +136,79 @@ private:
     AgentState decodeState9Bit(const std::string& stateStr) const;
 };
 
-// Enhanced DQN Agent with Intelligent Behavior
+
+// Updated DQN Agent with proper .pt loading
 class DQNAgent : public IAgent {
 private:
     float m_epsilon;
     mutable std::mt19937 m_rng;
     TrainedModelInfo m_modelInfo;
-    
-    Direction makeIntelligentDecision(const EnhancedState& state);
+    std::unique_ptr<DQNInference> m_torchModel;
     
 public:
     DQNAgent();
     DQNAgent(const TrainedModelInfo& modelInfo);
+    
     Direction getAction(const EnhancedState& state, bool training = true) override;
-    void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
-    void saveModel(const std::string& path) override;
     bool loadModel(const std::string& path) override;
+    std::string getModelInfo() const override;
+    std::string getAgentInfo() const override;
+    
+    // Required interface methods
+    void updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) override;
+    void saveModel(const std::string&) override {}  // Keep as empty inline
     float getEpsilon() const override { return m_epsilon; }
     void decayEpsilon() override { m_epsilon *= 0.995f; }
-    std::string getAgentInfo() const override;
-    std::string getModelInfo() const override;
-    
-    std::string getBestScoreInfo() const {
-        return "Best Score: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
-    }
+
+private:
+    Direction makeIntelligentDecision(const EnhancedState& state);
 };
 
-// Enhanced PPO Agent with Probabilistic Behavior
+// Updated PPO Agent with proper .pt loading
 class PPOAgent : public IAgent {
 private:
     mutable std::mt19937 m_rng;
     TrainedModelInfo m_modelInfo;
+    std::unique_ptr<PPOInference> m_torchModel;
     
 public:
     PPOAgent();
     PPOAgent(const TrainedModelInfo& modelInfo);
+    
     Direction getAction(const EnhancedState& state, bool training = true) override;
-    void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
-    void saveModel(const std::string& path) override {}
     bool loadModel(const std::string& path) override;
+    std::string getModelInfo() const override;
+    std::string getAgentInfo() const override;
+    
+    // Required interface methods
+    void updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) override;
+   void saveModel(const std::string&) override {}  // Keep as empty inline
     float getEpsilon() const override { return 0.0f; }
     void decayEpsilon() override {}
-    std::string getAgentInfo() const override;
-    std::string getModelInfo() const override;
-    
-    std::string getBestScoreInfo() const {
-        return "Best Score: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
-    }
 };
 
-// Enhanced Actor-Critic Agent with Value-Based Decisions
+// Updated Actor-Critic Agent with proper .pt loading
 class ActorCriticAgent : public IAgent {
 private:
     mutable std::mt19937 m_rng;
     TrainedModelInfo m_modelInfo;
+    std::unique_ptr<ActorCriticInference> m_torchModel;
     
 public:
     ActorCriticAgent();
     ActorCriticAgent(const TrainedModelInfo& modelInfo);
+    
     Direction getAction(const EnhancedState& state, bool training = true) override;
-    void updateAgent(const EnhancedState& state, Direction action, float reward, const EnhancedState& nextState) override {}
-    void saveModel(const std::string& path) override {}
+    float getStateValue(const EnhancedState& state);
     bool loadModel(const std::string& path) override;
+    std::string getModelInfo() const override;
+    std::string getAgentInfo() const override;
+    
+    // Required interface methods
+    void updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) override;
+    void saveModel(const std::string&) override {}  // Keep as empty inline
     float getEpsilon() const override { return 0.0f; }
     void decayEpsilon() override {}
-    std::string getAgentInfo() const override;
-    std::string getModelInfo() const override;
-    
-    std::string getBestScoreInfo() const {
-        return "Best Score: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
-    }
 };
 
 // Enhanced Evaluation Report Data

@@ -128,8 +128,18 @@ void TrainedModelInfo::saveToFile(const std::string& infoPath) const {
         j["profile"] = profile;
         j["modelPath"] = modelPath;
         j["description"] = description;
-        j["averageScore"] = averageScore;
-        j["episodesTrained"] = episodesTrained;
+        j["averageScore"] = performance.averageScore;  // FIXED: access through performance member
+        j["episodesTrained"] = performance.totalEpisodes;  // FIXED: use totalEpisodes instead of episodesTrained
+        
+        j["performance"] = {
+            {"bestScore", performance.bestScore},
+            {"averageScore", performance.averageScore},
+            {"consistency", performance.consistency},
+            {"efficiency", performance.efficiency},
+            {"totalEpisodes", performance.totalEpisodes},
+            {"trainingDuration", performance.trainingDuration}
+        };
+        j["episodesTrained"] = performance.totalEpisodes;
         j["modelType"] = modelType;
         j["createdDate"] = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
@@ -322,33 +332,6 @@ void QLearningAgentEnhanced::updateAgent(const EnhancedState& state, Direction a
     m_hasLastState = true;
 }
 
-void QLearningAgentEnhanced::saveModel(const std::string& path) {
-    try {
-        nlohmann::json j;
-        j["qTable"] = nlohmann::json::object();
-        
-        // Save Q-table entries
-        for (const auto& [state, actions] : m_qTable) {
-            j["qTable"][state] = actions;
-        }
-        
-        // Save hyperparameters
-        j["hyperparameters"] = {
-            {"learningRate", m_learningRate},
-            {"discountFactor", m_discountFactor}, 
-            {"epsilon", m_epsilon}
-        };
-        
-        std::ofstream file(path);
-        if (file.is_open()) {
-            file << j.dump(4);
-            spdlog::info("QLearningAgent: Model saved to {}", path);
-        }
-    } catch (const std::exception& e) {
-        spdlog::error("QLearningAgent: Failed to save model: {}", e.what());
-    }
-}
-
 void QLearningAgentEnhanced::updateQValue(const AgentState& state, Direction action, float reward, const AgentState& nextState) {
     std::string stateKey = encodeState9Bit(state);
     std::string nextStateKey = encodeState9Bit(nextState);
@@ -465,14 +448,12 @@ bool DQNAgent::loadModel(const std::string& path) {
     return true; // Always return true for intelligent placeholder
 }
 
-void DQNAgent::saveModel(const std::string& path) {
-    spdlog::info("DQNAgent: Intelligent placeholder - no model to save");
-}
-
 std::string DQNAgent::getAgentInfo() const {
     return "DQN (Intelligent Heuristics) | Safety-first with food seeking";
 }
 
+// Add these after existing DQNAgent methods:
+void DQNAgent::updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) {}
 
 // Enhanced PPO Agent Implementation (replaces PolicyGradientAgent)
 // Enhanced PPO Agent Implementation
@@ -554,6 +535,10 @@ std::string PPOAgent::getModelInfo() const {
 }
 
 
+// Add these after existing PPOAgent methods:
+void PPOAgent::updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) {}
+
+
 // Enhanced Actor-Critic Agent Implementation
 ActorCriticAgent::ActorCriticAgent() : m_rng(std::random_device{}()) {
     spdlog::info("ActorCriticAgent: Initialized (enhanced intelligent placeholder)");
@@ -628,6 +613,10 @@ std::string ActorCriticAgent::getModelInfo() const {
     }
     return "Enhanced Actor-Critic placeholder - value-based action selection";
 }
+
+
+// Add these after existing ActorCriticAgent methods:
+void ActorCriticAgent::updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) {}
 
 
 // Enhanced TrainedModelManager Implementation

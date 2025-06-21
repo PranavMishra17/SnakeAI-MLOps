@@ -5,7 +5,7 @@ Menu::Menu(const sf::Texture& backgroundTexture)
     : m_backgroundImageSprite(backgroundTexture),
       m_selectedIndex(0),
       m_currentSection(MenuSection::MAIN),
-      m_hasBackgroundImage(true)  // or false if loading is conditional
+      m_hasBackgroundImage(false)  // or false if loading is conditional
 {
     // You can add scaling/positioning here too
 }
@@ -138,11 +138,11 @@ void Menu::createVisualPanels(sf::RenderWindow& window) {
 
 void Menu::setupMainMenu() {
     m_mainItems.clear();
-    m_mainItems.emplace_back("🎮 Play Game", GameMode::SINGLE_PLAYER, "", false, false);
-    m_mainItems.emplace_back("⚙️ Settings", GameMode::SINGLE_PLAYER, "", false, true);
-    m_mainItems.emplace_back("📖 How to Play", GameMode::SINGLE_PLAYER, "", false, true);
-    m_mainItems.emplace_back("🏆 Leaderboard", GameMode::SINGLE_PLAYER, "", false, true);
-    m_mainItems.emplace_back("❌ Quit Game", GameMode::SINGLE_PLAYER, "", false, true);
+    m_mainItems.emplace_back("Play Game", GameMode::SINGLE_PLAYER, "", false, false);
+    m_mainItems.emplace_back("Settings", GameMode::SINGLE_PLAYER, "", false, true);
+    m_mainItems.emplace_back("How to Play", GameMode::SINGLE_PLAYER, "", false, true);
+    m_mainItems.emplace_back("Leaderboard", GameMode::SINGLE_PLAYER, "", false, true);
+    m_mainItems.emplace_back("Quit Game", GameMode::SINGLE_PLAYER, "", false, true);
     
     float startY = 220.0f;
     float buttonWidth = m_hasBackgroundImage ? 350.0f : 400.0f;
@@ -169,11 +169,11 @@ void Menu::setupMainMenu() {
 
 void Menu::setupPlayModeMenu() {
     m_playModeItems.clear();
-    m_playModeItems.emplace_back("👤 Single Player", GameMode::SINGLE_PLAYER,
+    m_playModeItems.emplace_back("Single Player", GameMode::SINGLE_PLAYER,
         "Classic Snake: Control the snake with arrow keys.\nEat apples to grow and achieve high scores!\nPerfect for learning the game mechanics.");
-    m_playModeItems.emplace_back("🤖 Agent vs Player", GameMode::AGENT_VS_PLAYER,
+    m_playModeItems.emplace_back("Agent vs Player", GameMode::AGENT_VS_PLAYER,
         "AI Snake Challenge: AI controls the snake, you place apples.\nTest different AI strategies by controlling food placement.\nGreat for understanding AI behavior patterns.");
-    m_playModeItems.emplace_back("🧠 Agent vs System", GameMode::AGENT_VS_SYSTEM,
+    m_playModeItems.emplace_back("Agent vs System", GameMode::AGENT_VS_SYSTEM,
         "Pure AI Showcase: AI controls snake, system spawns apples.\nWatch trained models compete for high scores.\nCompare performance between different AI techniques!");
     
     float startY = 200.0f;

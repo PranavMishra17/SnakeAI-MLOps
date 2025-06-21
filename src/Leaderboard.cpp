@@ -4,10 +4,11 @@
 const std::string Leaderboard::LEADERBOARD_PATH = "leaderboard.json";
 
 // ImageViewer Implementation
+// In ImageViewer constructor, replace:
 ImageViewer::ImageViewer(const sf::Texture& imageTexture) 
-:  m_imageSprite(imageTexture), m_visible(false) 
+    : m_imageSprite(imageTexture), m_visible(false) 
 {
-    
+    // Constructor body - font will be loaded in initialize()
 }
 
 void ImageViewer::initialize(sf::RenderWindow& window) {
@@ -33,18 +34,17 @@ void ImageViewer::initialize(sf::RenderWindow& window) {
     m_imageFrame.setOutlineThickness(3.0f);
     m_imageFrame.setOutlineColor(sf::Color(70, 130, 180));
     
-    // Title text
-    m_titleText = sf::Text(m_font);
-    m_titleText.setCharacterSize(24);
-    m_titleText.setFillColor(sf::Color::White);
+    // Create text objects with loaded font
+    m_titleText = std::make_unique<sf::Text>(m_font);
+    m_titleText->setCharacterSize(24);
+    m_titleText->setFillColor(sf::Color::White);
     
-    // Instructions
-    m_instructionText = sf::Text(m_font);
-    m_instructionText.setString("ESC: Close | Click outside to close");
-    m_instructionText.setCharacterSize(16);
-    m_instructionText.setFillColor(sf::Color(200, 200, 200));
-    m_instructionText.setPosition(sf::Vector2f(windowSize.x / 2 - 100, windowSize.y - 50));
+    m_instructionText = std::make_unique<sf::Text>(m_font);
+    m_instructionText->setString("ESC: Close | Click outside to close");
+    m_instructionText->setCharacterSize(16);
+    m_instructionText->setFillColor(sf::Color(200, 200, 200));
 }
+
 
 void ImageViewer::loadImage(const std::string& imagePath, const std::string& title) {
     if (!std::filesystem::exists(imagePath)) {
@@ -56,33 +56,41 @@ void ImageViewer::loadImage(const std::string& imagePath, const std::string& tit
         spdlog::error("ImageViewer: Failed to load image: {}", imagePath);
         return;
     }
-    
+
+    m_imageSprite = sf::Sprite(m_imageTexture);
     m_currentTitle = title;
-    m_titleText.setString(title);
+    m_titleText->setString(title);
     
-    // Scale image to fit frame
+    // Use full window size minus padding
+    sf::Vector2f windowSize(1920, 1080); // Get from window if available
+    float padding = 100.0f;
+    float frameWidth = windowSize.x - padding;
+    float frameHeight = windowSize.y - padding;
+    
+    // Update frame to full screen
+    m_imageFrame.setSize(sf::Vector2f(frameWidth, frameHeight));
+    m_imageFrame.setPosition(sf::Vector2f(padding/2, padding/2));
+    
+    // Scale image to fit full frame
     sf::Vector2u imageSize = m_imageTexture.getSize();
-    float scaleX = 780.0f / imageSize.x;
-    float scaleY = 550.0f / imageSize.y;
+    float scaleX = (frameWidth - 40) / imageSize.x;
+    float scaleY = (frameHeight - 80) / imageSize.y; // Leave space for title
     float scale = std::min(scaleX, scaleY);
     
-    m_imageSprite.setTexture(m_imageTexture);
     m_imageSprite.setScale(sf::Vector2f(scale, scale));
     
-    // Center image in frame
+    // Center image in full frame
     sf::Vector2f scaledSize(imageSize.x * scale, imageSize.y * scale);
-    float offsetX = (800 - scaledSize.x) / 2;
-    float offsetY = (600 - scaledSize.y) / 2;
-    m_imageSprite.setPosition(sf::Vector2f(m_imageFrame.getPosition().x + offsetX, 
-                             m_imageFrame.getPosition().y + offsetY + 30));
+    float offsetX = (frameWidth - scaledSize.x) / 2;
+    float offsetY = (frameHeight - scaledSize.y) / 2 + 40; // Space for title
     
-    // Position title
-    auto titleBounds = m_titleText.getGlobalBounds();
-    m_titleText.setPosition(sf::Vector2f(m_imageFrame.getPosition().x + 500 / 2,
-                           m_imageFrame.getPosition().y + 5));
+    m_imageSprite.setPosition(sf::Vector2f(padding/2 + offsetX, padding/2 + offsetY));
+    
+    // Center title
+    m_titleText->setPosition(sf::Vector2f(windowSize.x/2 - 100, padding/2 + 10));
     
     m_visible = true;
-    spdlog::info("ImageViewer: Loaded image: {}", imagePath);
+    spdlog::info("ImageViewer: Loaded full-screen image: {}", imagePath);
 }
 
 void ImageViewer::handleEvent(const sf::Event& event) {
@@ -105,17 +113,22 @@ void ImageViewer::render(sf::RenderWindow& window) {
     
     window.draw(m_background);
     window.draw(m_imageFrame);
-    window.draw(m_titleText);
+    if (m_titleText) window.draw(*m_titleText);
     window.draw(m_imageSprite);
-    window.draw(m_instructionText);
+    if (m_instructionText) window.draw(*m_instructionText);
 }
 
 // Leaderboard Implementation
 Leaderboard::Leaderboard() 
-    : m_state(LeaderboardState::VIEWING), m_currentSection(StatsSection::MAIN_LEADERBOARD),
-      m_pendingScore(0), m_pendingAgentType(AgentType::HUMAN), m_pendingEpisode(0),
+    : m_state(LeaderboardState::VIEWING), 
+      m_currentSection(StatsSection::MAIN_LEADERBOARD),
+      m_pendingScore(0), 
+      m_pendingAgentType(AgentType::HUMAN), 
+      m_pendingEpisode(0),
       m_selectedStatsButton(0) {
-    m_imageViewer = std::make_unique<ImageViewer>();
+    sf::Texture imageTexture; // Create empty texture  
+    m_imageViewer = std::make_unique<ImageViewer>(imageTexture);    
+    // sf::Text members will be initialized in initialize() after font loads
 }
 
 void Leaderboard::initialize(sf::RenderWindow& window) {
@@ -365,6 +378,7 @@ void Leaderboard::renderMainLeaderboard(sf::RenderWindow& window) {
     m_instructions->setString("TAB: Switch Sections | ESC: Back | F1: Quick Access");
 }
 
+// In renderModelPerformance, fix sf::Text constructors:
 void Leaderboard::renderModelPerformance(sf::RenderWindow& window) {
     m_sectionTitle->setString("Model Performance Leaderboard");
     window.draw(*m_sectionTitle);
@@ -372,7 +386,7 @@ void Leaderboard::renderModelPerformance(sf::RenderWindow& window) {
     // Display model entries
     float startY = 120.0f;
     
-    auto header = std::make_unique<sf::Text>(m_font);
+    auto header = std::make_unique<sf::Text>(m_font); // FIXED CONSTRUCTOR
     header->setString("Rank  Model Name                   Best Score  Type");
     header->setCharacterSize(18);
     header->setFillColor(sf::Color(47, 79, 47));
@@ -390,7 +404,7 @@ void Leaderboard::renderModelPerformance(sf::RenderWindow& window) {
         line.resize(47, ' ');
         line += entry.getAgentTypeString();
         
-        auto entryText = std::make_unique<sf::Text>(m_font);
+        auto entryText = std::make_unique<sf::Text>(m_font); // FIXED CONSTRUCTOR
         entryText->setString(line);
         entryText->setCharacterSize(16);
         
@@ -408,6 +422,7 @@ void Leaderboard::renderModelPerformance(sf::RenderWindow& window) {
     m_instructions->setString("TAB: Switch Sections | ESC: Back");
 }
 
+// In renderAnalysisCharts, fix sf::Text constructor:
 void Leaderboard::renderAnalysisCharts(sf::RenderWindow& window) {
     m_sectionTitle->setString("Model Analysis Charts");
     window.draw(*m_sectionTitle);
@@ -437,7 +452,7 @@ void Leaderboard::renderAnalysisCharts(sf::RenderWindow& window) {
         descPanel.setOutlineColor(sf::Color(70, 130, 180));
         window.draw(descPanel);
         
-        sf::Text descText(m_font);
+        sf::Text descText(m_font); // FIXED CONSTRUCTOR
         descText.setString(m_analysisImages[m_selectedStatsButton].description);
         descText.setCharacterSize(16);
         descText.setFillColor(sf::Color(47, 79, 47));

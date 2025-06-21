@@ -13,7 +13,7 @@ sys.path.append('src')
 from neural_network_utils import verify_gpu, create_directories
 from qlearning_trainer import train_qlearning, TrainingConfig as QConfig
 from dqn_trainer import train_dqn, DQNConfig
-from policy_gradient_trainer import train_policy_gradient, PolicyGradientConfig
+from ppo_trainer import train_policy_gradient, PolicyGradientConfig
 from actor_critic_trainer import train_actor_critic, ActorCriticConfig
 from model_evaluator import UnifiedModelEvaluator
 

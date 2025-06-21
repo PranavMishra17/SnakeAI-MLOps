@@ -26,8 +26,8 @@ private:
     sf::Font m_font;
     sf::Texture m_imageTexture;
     sf::Sprite m_imageSprite;
-    sf::Text m_titleText;
-    sf::Text m_instructionText;
+    std::unique_ptr<sf::Text> m_titleText;        // Changed to pointer
+    std::unique_ptr<sf::Text> m_instructionText;  // Changed to pointer
     sf::RectangleShape m_background;
     sf::RectangleShape m_imageFrame;
     bool m_visible;
