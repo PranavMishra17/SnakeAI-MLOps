@@ -73,7 +73,7 @@ void testModelLoading() {
     
     std::vector<std::pair<std::string, AgentType>> neuralTypes = {
         {"DQN", AgentType::DEEP_Q_NETWORK},
-        {"Policy Gradient", AgentType::POLICY_GRADIENT},
+        {"Policy Gradient", AgentType::PPO},
         {"Actor-Critic", AgentType::ACTOR_CRITIC}
     };
     

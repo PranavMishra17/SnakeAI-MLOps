@@ -27,12 +27,12 @@ enum class MenuSection {
 
 class Menu {
 public:
-    Menu();
+    Menu();  // Default constructor
     void initialize(sf::RenderWindow& window);
     void handleEvent(const sf::Event& event);
     void update();
     void render(sf::RenderWindow& window);
-    
+    void setStatsCallback(std::function<void()> callback) { m_statsCallback = callback; }
     void setSelectionCallback(std::function<void(GameMode)> callback);
     void setSettingsCallback(std::function<void()> callback);
     void setHowToPlayCallback(std::function<void()> callback);
@@ -46,20 +46,19 @@ private:
     MenuSection m_currentSection;
     int m_selectedIndex;
     sf::Font m_font;
-    
+    std::function<void()> m_statsCallback;
     // UI Elements
     std::unique_ptr<sf::Text> m_title;
     std::unique_ptr<sf::Text> m_instructions;
-    std::unique_ptr<sf::Text> m_sectionTitle;
-    std::unique_ptr<sf::Text> m_versionText;     // NEW: Version information
+    std::unique_ptr<sf::Text> m_versionText;      // Rename: subtitle text
+    std::unique_ptr<sf::Text> m_versionNumber;    // NEW: version number
     sf::RectangleShape m_background;
-    
-    // NEW: Background image support
+    // Background image support
     sf::Texture m_backgroundImageTexture;
     sf::Sprite m_backgroundImageSprite;
     bool m_hasBackgroundImage;
-    
-    // NEW: Enhanced visual elements
+
+    // Enhanced visual elements
     sf::RectangleShape m_titlePanel;
     sf::RectangleShape m_contentPanel;
     

@@ -8,6 +8,7 @@ AgentSelection::AgentSelection() : m_selectedIndex(0) {
     m_modelManager = std::make_unique<TrainedModelManager>();
 }
 
+
 void AgentSelection::initialize(sf::RenderWindow& window) {
     std::vector<std::string> fontPaths = {
         "assets/fonts/ARIAL.TTF", "assets/fonts/arial.ttf", 
@@ -23,42 +24,53 @@ void AgentSelection::initialize(sf::RenderWindow& window) {
     
     sf::Vector2u windowSize = window.getSize();
     
-    // Enhanced background with gradient effect
+    // Yellow theme background
     m_background.setSize(sf::Vector2f(windowSize.x, windowSize.y));
-    m_background.setFillColor(sf::Color(245, 245, 220));
+    m_background.setFillColor(sf::Color(255, 253, 208));
     
-    // Title with enhanced styling
+    // Title panel
+    sf::RectangleShape titlePanel;
+    titlePanel.setSize(sf::Vector2f(windowSize.x - 100.0f, 100.0f));
+    titlePanel.setPosition(sf::Vector2f(50.0f, 20.0f));
+    titlePanel.setFillColor(sf::Color(255, 248, 220, 150));
+    titlePanel.setOutlineThickness(2.0f);
+    titlePanel.setOutlineColor(sf::Color(218, 165, 32, 100));
+    
+    // Enhanced title with yellow theme
     m_title = std::make_unique<sf::Text>(m_font);
-    m_title->setString("AI Agent Selection");
-    m_title->setCharacterSize(48);
-    m_title->setFillColor(sf::Color(47, 79, 47));
-    m_title->setPosition(sf::Vector2f(windowSize.x / 2.0f - 220.0f, 20.0f));
+    m_title->setString("AI AGENT SELECTION");
+    m_title->setCharacterSize(44);
+    m_title->setFillColor(sf::Color(139, 69, 19));
+    m_title->setStyle(sf::Text::Bold);
     
-    // Section title
+    auto titleBounds = m_title->getLocalBounds();
+    m_title->setPosition(sf::Vector2f((windowSize.x - titleBounds.size.x) / 2.0f, 35.0f));
+    
+    // Section title with yellow theme
     m_sectionTitle = std::make_unique<sf::Text>(m_font);
     m_sectionTitle->setString("Choose Your AI Opponent");
-    m_sectionTitle->setCharacterSize(28);
-    m_sectionTitle->setFillColor(sf::Color(70, 130, 180));
-    m_sectionTitle->setPosition(sf::Vector2f(windowSize.x / 2.0f - 180.0f, 80.0f));
+    m_sectionTitle->setCharacterSize(24);
+    m_sectionTitle->setFillColor(sf::Color(160, 82, 45));
+    m_sectionTitle->setPosition(sf::Vector2f(80.0f, 90.0f));
     
-    // Performance summary panel
-    m_summaryPanel.setSize(sf::Vector2f(600.0f, 60.0f));
-    m_summaryPanel.setPosition(sf::Vector2f(windowSize.x / 2.0f - 300.0f, 120.0f));
-    m_summaryPanel.setFillColor(sf::Color(240, 248, 255, 200));
+    // Performance summary panel - yellow theme
+    m_summaryPanel.setSize(sf::Vector2f(500.0f, 50.0f));
+    m_summaryPanel.setPosition(sf::Vector2f(windowSize.x / 2.0f - 250.0f, 130.0f));
+    m_summaryPanel.setFillColor(sf::Color(255, 250, 205, 200));
     m_summaryPanel.setOutlineThickness(2.0f);
-    m_summaryPanel.setOutlineColor(sf::Color(70, 130, 180));
+    m_summaryPanel.setOutlineColor(sf::Color(218, 165, 32));
     
     m_summaryText = std::make_unique<sf::Text>(m_font);
-    m_summaryText->setCharacterSize(16);
-    m_summaryText->setFillColor(sf::Color(47, 79, 47));
-    m_summaryText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 290.0f, 135.0f));
+    m_summaryText->setCharacterSize(14);
+    m_summaryText->setFillColor(sf::Color(101, 67, 33));
+    m_summaryText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 240.0f, 145.0f));
     
-    // Instructions with enhanced info
+    // Instructions with yellow theme
     m_instructions = std::make_unique<sf::Text>(m_font);
-    m_instructions->setString("UP/DOWN: Navigate | ENTER: Select | ESC: Back | Performance data from training evaluation");
+    m_instructions->setString("UP/DOWN: Navigate | ENTER: Select | ESC: Back");
     m_instructions->setCharacterSize(18);
-    m_instructions->setFillColor(sf::Color(47, 79, 47));
-    m_instructions->setPosition(sf::Vector2f(50.0f, windowSize.y - 60.0f));
+    m_instructions->setFillColor(sf::Color(101, 67, 33));
+    m_instructions->setPosition(sf::Vector2f(70.0f, windowSize.y - 60.0f));
     
     loadEvaluationData();
     initializeAgents();
@@ -68,14 +80,15 @@ void AgentSelection::initialize(sf::RenderWindow& window) {
     // Create enhanced displays
     float startY = 200.0f;
     for (size_t i = 0; i < m_agents.size(); ++i) {
-        createAgentDisplay(m_agents[i], startY + i * 140.0f);
-        createPerformanceDisplay(m_agents[i], startY + i * 140.0f);
+        createAgentDisplay(m_agents[i], startY + i * 125.0f);
+        createPerformanceDisplay(m_agents[i], startY + i * 125.0f);
     }
     
     updateSelection();
     
     spdlog::info("AgentSelection: Initialized with {} agents", m_agents.size());
 }
+
 
 void AgentSelection::loadEvaluationData() {
     m_evaluationData = m_modelManager->getEvaluationData();
@@ -124,30 +137,33 @@ void AgentSelection::loadTrainedModels() {
     }
 }
 
+
+
 void AgentSelection::createAgentDisplay(EnhancedAgentMenuItem& item, float y) {
     sf::Vector2u windowSize = sf::Vector2u(1200, 800);
     
-    // Enhanced background panel
-    float panelHeight = item.hasPerformanceData ? 120.0f : 90.0f;
-    item.background.setSize(sf::Vector2f(900.0f, panelHeight));
-    item.background.setPosition(sf::Vector2f(windowSize.x / 2.0f - 450.0f, y));
-    item.background.setFillColor(sf::Color(255, 255, 240));
-    item.background.setOutlineThickness(3.0f);
-    item.background.setOutlineColor(sf::Color(144, 238, 144));
+    // Yellow theme background panel
+    float panelHeight = item.hasPerformanceData ? 110.0f : 80.0f;
+    item.background.setSize(sf::Vector2f(750.0f, panelHeight));
+    item.background.setPosition(sf::Vector2f(windowSize.x / 2.0f - 375.0f, y));
+    item.background.setFillColor(sf::Color(255, 248, 220, 240));
+    item.background.setOutlineThickness(2.0f);
+    item.background.setOutlineColor(sf::Color(218, 165, 32));
     
-    // Agent name with enhanced styling
+    // Agent name with yellow theme styling
     item.nameText = std::make_unique<sf::Text>(m_font);
     item.nameText->setString(item.config.name);
-    item.nameText->setCharacterSize(24);
-    item.nameText->setFillColor(sf::Color(47, 79, 47));
-    item.nameText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 430.0f, y + 10.0f));
+    item.nameText->setCharacterSize(22);
+    item.nameText->setFillColor(sf::Color(139, 69, 19));
+    item.nameText->setStyle(sf::Text::Bold);
+    item.nameText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 355.0f, y + 10.0f));
     
-    // Description
+    // Description with brown color
     item.descText = std::make_unique<sf::Text>(m_font);
     item.descText->setString(item.config.description);
-    item.descText->setCharacterSize(16);
-    item.descText->setFillColor(sf::Color(25, 25, 112));
-    item.descText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 430.0f, y + 40.0f));
+    item.descText->setCharacterSize(14);
+    item.descText->setFillColor(sf::Color(101, 67, 33));
+    item.descText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 355.0f, y + 35.0f));
     
     // Enhanced status with training info
     item.statusText = std::make_unique<sf::Text>(m_font);
@@ -156,19 +172,20 @@ void AgentSelection::createAgentDisplay(EnhancedAgentMenuItem& item, float y) {
     
     if (item.isTrainedModel && item.hasPerformanceData) {
         statusStr = "TRAINED (" + item.modelInfo.performance.trainingProfile + ")";
-        statusColor = sf::Color(34, 139, 34);
+        statusColor = sf::Color(160, 82, 45);
     } else if (item.config.isImplemented) {
         statusStr = "READY TO TRAIN";
-        statusColor = sf::Color(70, 130, 180);
+        statusColor = sf::Color(218, 165, 32);
     } else {
         statusStr = "COMING SOON";
-        statusColor = sf::Color(255, 140, 0);
+        statusColor = sf::Color(205, 133, 63);
     }
     
     item.statusText->setString(statusStr);
-    item.statusText->setCharacterSize(18);
+    item.statusText->setCharacterSize(16);
     item.statusText->setFillColor(statusColor);
-    item.statusText->setPosition(sf::Vector2f(windowSize.x / 2.0f + 200.0f, y + 15.0f));
+    item.statusText->setStyle(sf::Text::Bold);
+    item.statusText->setPosition(sf::Vector2f(windowSize.x / 2.0f + 150.0f, y + 15.0f));
 }
 
 void AgentSelection::createPerformanceDisplay(EnhancedAgentMenuItem& item, float y) {
@@ -176,45 +193,47 @@ void AgentSelection::createPerformanceDisplay(EnhancedAgentMenuItem& item, float
     
     sf::Vector2u windowSize = sf::Vector2u(1200, 800);
     
-    // Performance panel
-    item.performancePanel.setSize(sf::Vector2f(880.0f, 35.0f));
-    item.performancePanel.setPosition(sf::Vector2f(windowSize.x / 2.0f - 440.0f, y + 65.0f));
-    item.performancePanel.setFillColor(sf::Color(240, 255, 240, 150));
+    // Performance panel with yellow theme
+    item.performancePanel.setSize(sf::Vector2f(730.0f, 30.0f));
+    item.performancePanel.setPosition(sf::Vector2f(windowSize.x / 2.0f - 365.0f, y + 55.0f));
+    item.performancePanel.setFillColor(sf::Color(255, 250, 205, 150));
     item.performancePanel.setOutlineThickness(1.0f);
-    item.performancePanel.setOutlineColor(sf::Color(34, 139, 34));
+    item.performancePanel.setOutlineColor(sf::Color(218, 165, 32));
     
     // Best score badge
     if (item.modelInfo.performance.bestScore >= 20.0f) {
-        item.bestScoreBadge.setSize(sf::Vector2f(80.0f, 25.0f));
-        item.bestScoreBadge.setPosition(sf::Vector2f(windowSize.x / 2.0f + 320.0f, y + 50.0f));
-        item.bestScoreBadge.setFillColor(sf::Color(255, 215, 0, 200)); // Gold
+        item.bestScoreBadge.setSize(sf::Vector2f(70.0f, 22.0f));
+        item.bestScoreBadge.setPosition(sf::Vector2f(windowSize.x / 2.0f + 280.0f, y + 45.0f));
+        item.bestScoreBadge.setFillColor(sf::Color(255, 215, 0, 200));
         item.bestScoreBadge.setOutlineThickness(1.0f);
         item.bestScoreBadge.setOutlineColor(sf::Color(218, 165, 32));
         
         item.bestScoreText = std::make_unique<sf::Text>(m_font);
         item.bestScoreText->setString("ELITE");
-        item.bestScoreText->setCharacterSize(12);
+        item.bestScoreText->setCharacterSize(10);
         item.bestScoreText->setFillColor(sf::Color(139, 69, 19));
-        item.bestScoreText->setPosition(sf::Vector2f(windowSize.x / 2.0f + 340.0f, y + 55.0f));
+        item.bestScoreText->setStyle(sf::Text::Bold);
+        item.bestScoreText->setPosition(sf::Vector2f(windowSize.x / 2.0f + 295.0f, y + 50.0f));
     }
     
     // Performance metrics text
     item.performanceText = std::make_unique<sf::Text>(m_font);
     std::string perfStr = formatPerformanceMetrics(item.modelInfo.performance);
     item.performanceText->setString(perfStr);
-    item.performanceText->setCharacterSize(14);
-    item.performanceText->setFillColor(getPerformanceColor(item.modelInfo.performance.bestScore));
-    item.performanceText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 430.0f, y + 70.0f));
+    item.performanceText->setCharacterSize(12);
+    item.performanceText->setFillColor(sf::Color(101, 67, 33));
+    item.performanceText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 355.0f, y + 60.0f));
     
     // Detailed stats for top performers
     if (item.modelInfo.performance.bestScore > 15.0f) {
         item.detailsText = std::make_unique<sf::Text>(m_font);
         item.detailsText->setString(item.modelInfo.getDetailedStats());
-        item.detailsText->setCharacterSize(12);
-        item.detailsText->setFillColor(sf::Color(47, 79, 47));
-        item.detailsText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 430.0f, y + 95.0f));
+        item.detailsText->setCharacterSize(11);
+        item.detailsText->setFillColor(sf::Color(139, 69, 19));
+        item.detailsText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 355.0f, y + 80.0f));
     }
 }
+
 
 std::string AgentSelection::formatPerformanceMetrics(const ModelPerformanceData& data) const {
     std::ostringstream oss;
@@ -339,36 +358,35 @@ void AgentSelection::render(sf::RenderWindow& window) {
     }
 }
 
+
 void AgentSelection::updateSelection() {
     for (size_t i = 0; i < m_agents.size(); ++i) {
         if (i == m_selectedIndex) {
-            // Enhanced highlight for selected agent
-            sf::Color highlightColor = m_agents[i].hasPerformanceData ? 
-                sf::Color(255, 255, 0) : sf::Color(255, 255, 224);
+            // Golden highlight for selected agent
+            sf::Color highlightColor = sf::Color(255, 215, 0, 250);
             
             m_agents[i].background.setFillColor(highlightColor);
             m_agents[i].background.setOutlineColor(sf::Color(255, 140, 0));
-            m_agents[i].background.setOutlineThickness(4.0f);
+            m_agents[i].background.setOutlineThickness(3.0f);
             
             if (m_agents[i].nameText) {
                 m_agents[i].nameText->setFillColor(sf::Color(139, 69, 19));
                 m_agents[i].nameText->setStyle(sf::Text::Bold);
             }
         } else {
-            // Normal appearance
-            m_agents[i].background.setFillColor(sf::Color(255, 255, 240));
-            m_agents[i].background.setOutlineColor(sf::Color(144, 238, 144));
-            m_agents[i].background.setOutlineThickness(3.0f);
+            // Normal yellow theme appearance
+            m_agents[i].background.setFillColor(sf::Color(255, 248, 220, 240));
+            m_agents[i].background.setOutlineColor(sf::Color(218, 165, 32));
+            m_agents[i].background.setOutlineThickness(2.0f);
             
             if (m_agents[i].nameText) {
-                sf::Color textColor = m_agents[i].config.isImplemented ? 
-                    sf::Color(47, 79, 47) : sf::Color(169, 169, 169);
-                m_agents[i].nameText->setFillColor(textColor);
-                m_agents[i].nameText->setStyle(sf::Text::Regular);
+                m_agents[i].nameText->setFillColor(sf::Color(139, 69, 19));
+                m_agents[i].nameText->setStyle(sf::Text::Bold);
             }
         }
     }
 }
+
 
 void AgentSelection::setSelectionCallback(std::function<void(const AgentConfig&)> callback) {
     m_selectionCallback = callback;

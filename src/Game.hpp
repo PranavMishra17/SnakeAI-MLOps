@@ -13,6 +13,9 @@
 #include "MLAgents.hpp"
 #include "UnifiedDataCollector.hpp"
 #include "InputManager.hpp"
+#include "StatsGallery.hpp"
+#include "Settings.hpp"
+#include "HowToPlay.hpp"
 
 // Forward declarations
 class PauseMenu;
@@ -81,6 +84,7 @@ private:
     std::unique_ptr<IAgent> m_currentAgent;
     std::unique_ptr<UnifiedDataCollector> m_dataCollector;
     std::unique_ptr<InputManager> m_inputManager;
+    std::unique_ptr<StatsGallery> m_statsGallery;  // ADD THIS LINE
     
     // NEW: Enhanced model management
     std::unique_ptr<TrainedModelManager> m_modelManager;
@@ -126,4 +130,8 @@ private:
     bool m_showEnhancedStats = true;        // Show detailed model stats
     bool m_showPerformanceComparison = true; // Show vs model best
     sf::Font m_uiFont;                      // Dedicated UI font
+
+        // Add to private members:
+    std::unique_ptr<Settings> m_settings;
+    std::unique_ptr<HowToPlay> m_howToPlay;
 };

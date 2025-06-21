@@ -11,6 +11,7 @@ enum class GameState {
     GAME_OVER,
     AGENT_SELECTION,
     LEADERBOARD,
+    STATS_GALLERY,  // NEW
     SETTINGS,
     HOW_TO_PLAY
 };

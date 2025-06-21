@@ -1,13 +1,13 @@
 #include "Menu.hpp"
 #include <spdlog/spdlog.h>
 
-Menu::Menu(const sf::Texture& backgroundTexture)
-    : m_backgroundImageSprite(backgroundTexture),
-      m_selectedIndex(0),
+// Default constructor
+Menu::Menu()
+    : m_selectedIndex(0),
       m_currentSection(MenuSection::MAIN),
-      m_hasBackgroundImage(false)  // or false if loading is conditional
+      m_backgroundImageSprite(m_backgroundImageTexture), // Initialize with texture
+      m_hasBackgroundImage(false)
 {
-    // You can add scaling/positioning here too
 }
 
 void Menu::initialize(sf::RenderWindow& window) {
@@ -42,6 +42,8 @@ void Menu::initialize(sf::RenderWindow& window) {
 
 bool Menu::loadBackgroundImage(const std::string& imagePath) {
     if (m_backgroundImageTexture.loadFromFile(imagePath)) {
+        // Create sprite with loaded texture (like ImageViewer)
+        m_backgroundImageSprite = sf::Sprite(m_backgroundImageTexture);
         m_hasBackgroundImage = true;
         spdlog::info("Menu: Background image loaded: {}", imagePath);
         return true;
@@ -58,25 +60,23 @@ void Menu::setupBackgroundImage(sf::RenderWindow& window) {
     sf::Vector2u windowSize = window.getSize();
     sf::Vector2u imageSize = m_backgroundImageTexture.getSize();
     
-    // Calculate scale to fit image properly (snake head on right side)
-    float scaleX = static_cast<float>(windowSize.x) * 0.4f / imageSize.x; // Use 40% of screen width
-    float scaleY = static_cast<float>(windowSize.y) * 0.6f / imageSize.y; // Use 60% of screen height
+    // Scale to fit nicely on right side
+    float scaleX = static_cast<float>(windowSize.x) * 0.4f / imageSize.x; 
+    float scaleY = static_cast<float>(windowSize.y) * 0.8f / imageSize.y; 
     float scale = std::min(scaleX, scaleY);
     
-    m_backgroundImageSprite.setTexture(m_backgroundImageTexture);
-    m_backgroundImageSprite.setScale(sf::Vector2f(scale, scale));  // ✅ also valid
-
+    m_backgroundImageSprite.setScale(sf::Vector2f(scale, scale));
     
-    // Position on right side with some margin
+    // Position on right side
     float scaledWidth = imageSize.x * scale;
     float scaledHeight = imageSize.y * scale;
-    float posX = windowSize.x - scaledWidth - 50.0f; // 50px margin from right
-    float posY = (windowSize.y - scaledHeight) / 2.0f; // Center vertically
+    float posX = windowSize.x - scaledWidth - 50.0f;
+    float posY = (windowSize.y - scaledHeight) / 2.0f;
     
     m_backgroundImageSprite.setPosition(sf::Vector2f(posX, posY));
     
-    // Add some transparency to blend nicely
-    m_backgroundImageSprite.setColor(sf::Color(255, 255, 255, 180));
+    // Less transparency - make image more visible
+    m_backgroundImageSprite.setColor(sf::Color(255, 255, 255, 220));
     
     spdlog::info("Menu: Background image positioned at ({}, {}) with scale {}", posX, posY, scale);
 }
@@ -84,56 +84,65 @@ void Menu::setupBackgroundImage(sf::RenderWindow& window) {
 void Menu::setupEnhancedLayout(sf::RenderWindow& window) {
     sf::Vector2u windowSize = window.getSize();
     
-    // Create visual panels for better organization
-    createVisualPanels(window);
+    // Enhanced background with light yellow theme
+    m_background.setSize(sf::Vector2f(windowSize.x, windowSize.y));
+    m_background.setFillColor(sf::Color(255, 253, 208)); // Light yellow
     
-    // Enhanced title with shadow effect
+    // Main title - larger and more prominent
     m_title = std::make_unique<sf::Text>(m_font);
-    m_title->setString("SnakeAI-MLOps");
-    m_title->setCharacterSize(56);
-    m_title->setFillColor(sf::Color(47, 79, 47)); // Dark green
+    m_title->setString("SNAKEAI MLOPS");
+    m_title->setCharacterSize(64);
+    m_title->setFillColor(sf::Color(139, 69, 19)); // Saddle brown for yellow theme
     m_title->setStyle(sf::Text::Bold);
     
-    // Position title on left side (away from snake image)
-    m_title->setPosition(sf::Vector2f(80.0f, 40.0f));
+    // Center title horizontally
+    auto titleBounds = m_title->getLocalBounds();
+    m_title->setPosition(sf::Vector2f((windowSize.x - titleBounds.size.x) / 2.0f, 40.0f));
     
-    // Section title
-    m_sectionTitle = std::make_unique<sf::Text>(m_font);
-    m_sectionTitle->setCharacterSize(32);
-    m_sectionTitle->setFillColor(sf::Color(70, 130, 180)); // Steel blue
-    m_sectionTitle->setPosition(sf::Vector2f(120.0f, 120.0f));
-    
-    // Version text
+    // Enhanced subtitle
     m_versionText = std::make_unique<sf::Text>(m_font);
-    m_versionText->setString("v2.0 - Enhanced AI Models");
-    m_versionText->setCharacterSize(16);
-    m_versionText->setFillColor(sf::Color(119, 136, 153)); // Light slate gray
-    m_versionText->setPosition(sf::Vector2f(80.0f, 100.0f));
+    m_versionText->setString("Advanced Reinforcement Learning Game");
+    m_versionText->setCharacterSize(20);
+    m_versionText->setFillColor(sf::Color(160, 82, 45)); // Saddle brown lighter
+    m_versionText->setStyle(sf::Text::Italic);
     
-    // Enhanced instructions
+    // Center subtitle
+    auto subtitleBounds = m_versionText->getLocalBounds();
+    m_versionText->setPosition(sf::Vector2f((windowSize.x - subtitleBounds.size.x) / 2.0f, 110.0f));
+    
+    // Version number in bottom right
+    m_versionNumber = std::make_unique<sf::Text>(m_font);
+    m_versionNumber->setString("v3.1");
+    m_versionNumber->setCharacterSize(16);
+    m_versionNumber->setFillColor(sf::Color(139, 69, 19, 150)); // Faded brown
+    m_versionNumber->setPosition(sf::Vector2f(windowSize.x - 80.0f, windowSize.y - 40.0f));
+    
+    // Instructions with better positioning
     m_instructions = std::make_unique<sf::Text>(m_font);
-    m_instructions->setCharacterSize(20);
-    m_instructions->setFillColor(sf::Color(47, 79, 47));
-    m_instructions->setPosition(sf::Vector2f(50.0f, windowSize.y - 80.0f));
+    m_instructions->setCharacterSize(18);
+    m_instructions->setFillColor(sf::Color(101, 67, 33)); // Dark brown
+    m_instructions->setPosition(sf::Vector2f(50.0f, windowSize.y - 60.0f));
+    
+    createVisualPanels(window);
 }
 
 void Menu::createVisualPanels(sf::RenderWindow& window) {
     sf::Vector2u windowSize = window.getSize();
     
-    // Title panel with subtle styling
-    m_titlePanel.setSize(sf::Vector2f(600.0f, 80.0f));
-    m_titlePanel.setPosition(sf::Vector2f(50.0f, 30.0f));
-    m_titlePanel.setFillColor(sf::Color(255, 255, 255, 100)); // Semi-transparent white
+    // Title panel - yellow theme
+    m_titlePanel.setSize(sf::Vector2f(windowSize.x - 100.0f, 120.0f));
+    m_titlePanel.setPosition(sf::Vector2f(50.0f, 20.0f));
+    m_titlePanel.setFillColor(sf::Color(255, 248, 220, 150)); // Light cornsilk
     m_titlePanel.setOutlineThickness(2.0f);
-    m_titlePanel.setOutlineColor(sf::Color(144, 238, 144, 150)); // Light green
+    m_titlePanel.setOutlineColor(sf::Color(218, 165, 32, 100)); // Goldenrod
     
-    // Content panel for menu items (positioned to avoid snake image)
-    float panelWidth = m_hasBackgroundImage ? windowSize.x * 0.55f : windowSize.x * 0.8f;
-    m_contentPanel.setSize(sf::Vector2f(panelWidth, windowSize.y * 0.6f));
-    m_contentPanel.setPosition(sf::Vector2f(50.0f, 180.0f));
-    m_contentPanel.setFillColor(sf::Color(240, 248, 255, 120)); // Very light blue
-    m_contentPanel.setOutlineThickness(1.0f);
-    m_contentPanel.setOutlineColor(sf::Color(173, 216, 230, 150)); // Light blue
+    // Content panel for menu items - smaller width
+    float panelWidth = m_hasBackgroundImage ? windowSize.x * 0.45f : windowSize.x * 0.6f;
+    m_contentPanel.setSize(sf::Vector2f(panelWidth, windowSize.y * 0.55f));
+    m_contentPanel.setPosition(sf::Vector2f(50.0f, 160.0f));
+    m_contentPanel.setFillColor(sf::Color(255, 250, 205, 180)); // Light lemon chiffon
+    m_contentPanel.setOutlineThickness(2.0f);
+    m_contentPanel.setOutlineColor(sf::Color(218, 165, 32, 150));
 }
 
 void Menu::setupMainMenu() {
@@ -141,31 +150,35 @@ void Menu::setupMainMenu() {
     m_mainItems.emplace_back("Play Game", GameMode::SINGLE_PLAYER, "", false, false);
     m_mainItems.emplace_back("Settings", GameMode::SINGLE_PLAYER, "", false, true);
     m_mainItems.emplace_back("How to Play", GameMode::SINGLE_PLAYER, "", false, true);
+    m_mainItems.emplace_back("Stats & Analysis", GameMode::SINGLE_PLAYER, "", false, true);
     m_mainItems.emplace_back("Leaderboard", GameMode::SINGLE_PLAYER, "", false, true);
     m_mainItems.emplace_back("Quit Game", GameMode::SINGLE_PLAYER, "", false, true);
     
-    float startY = 220.0f;
-    float buttonWidth = m_hasBackgroundImage ? 350.0f : 400.0f;
+    float startY = 200.0f;
+    float buttonWidth = m_hasBackgroundImage ? 350.0f : 400.0f; // Smaller width
+    float buttonHeight = 50.0f; // Smaller height
+    float spacing = 65.0f; // Tighter spacing
     
     for (size_t i = 0; i < m_mainItems.size(); ++i) {
         auto& item = m_mainItems[i];
         
-        // Enhanced button styling
-        item.buttonBackground.setSize(sf::Vector2f(buttonWidth, 65.0f));
-        item.buttonBackground.setPosition(sf::Vector2f(80.0f, startY + i * 85.0f));
-        item.buttonBackground.setFillColor(sf::Color(144, 238, 144, 200)); // Light green with transparency
-        item.buttonBackground.setOutlineThickness(3.0f);
-        item.buttonBackground.setOutlineColor(sf::Color(34, 139, 34)); // Forest green
+        // Smaller button styling
+        item.buttonBackground.setSize(sf::Vector2f(buttonWidth, buttonHeight));
+        item.buttonBackground.setPosition(sf::Vector2f(80.0f, startY + i * spacing));
+        item.buttonBackground.setFillColor(sf::Color(255, 248, 220, 240)); // Light cornsilk
+        item.buttonBackground.setOutlineThickness(2.0f);
+        item.buttonBackground.setOutlineColor(sf::Color(218, 165, 32)); // Goldenrod
         
-        // Enhanced button text with icons
+        // Button text
         item.displayText = std::make_unique<sf::Text>(m_font);
         item.displayText->setString(item.text);
-        item.displayText->setCharacterSize(26);
-        item.displayText->setFillColor(sf::Color(47, 79, 47));
+        item.displayText->setCharacterSize(22);
+        item.displayText->setFillColor(sf::Color(139, 69, 19)); // Saddle brown
         item.displayText->setStyle(sf::Text::Bold);
-        item.displayText->setPosition(sf::Vector2f(100.0f, startY + i * 85.0f + 18.0f));
+        item.displayText->setPosition(sf::Vector2f(100.0f, startY + i * spacing + 12.0f));
     }
 }
+
 
 void Menu::setupPlayModeMenu() {
     m_playModeItems.clear();
@@ -214,25 +227,26 @@ void Menu::setupPlayModeMenu() {
 }
 
 void Menu::renderBackground(sf::RenderWindow& window) {
-    // Render background image first
+    // Render background
+    window.draw(m_background);
+    
+    // Draw panels first
+    window.draw(m_titlePanel);
+    window.draw(m_contentPanel);
+    
+    // Then background image
     if (m_hasBackgroundImage) {
         window.draw(m_backgroundImageSprite);
     }
-    
-    // Then render semi-transparent background overlay
-    window.draw(m_background);
-    
-    // Draw visual panels
-    window.draw(m_titlePanel);
-    window.draw(m_contentPanel);
 }
 
 void Menu::render(sf::RenderWindow& window) {
     renderBackground(window);
     
-    // Render title and version
+    // Render title elements
     if (m_title) window.draw(*m_title);
     if (m_versionText) window.draw(*m_versionText);
+    if (m_versionNumber) window.draw(*m_versionNumber);
     
     if (m_currentSection == MenuSection::MAIN) {
         renderMainMenu(window);
@@ -242,21 +256,15 @@ void Menu::render(sf::RenderWindow& window) {
 }
 
 void Menu::renderMainMenu(sf::RenderWindow& window) {
-    m_sectionTitle->setString("Main Menu");
-    window.draw(*m_sectionTitle);
-    
     for (const auto& item : m_mainItems) {
         window.draw(item.buttonBackground);
         if (item.displayText) window.draw(*item.displayText);
     }
     
-    m_instructions->setString("UP/DOWN: Navigate | ENTER: Select | F1: Quick Leaderboard Access");
+    m_instructions->setString("Navigate: UP/DOWN | Select: ENTER | Quick Access: F1");
     window.draw(*m_instructions);
 }
-
 void Menu::renderPlayModeMenu(sf::RenderWindow& window) {
-    m_sectionTitle->setString("Select Game Mode");
-    window.draw(*m_sectionTitle);
     
     // Add mode selection hint
     sf::Text hintText(m_font);
@@ -306,9 +314,11 @@ void Menu::handleEvent(const sf::Event& event) {
                         m_settingsCallback();
                     } else if (m_selectedIndex == 2 && m_howToPlayCallback) { // How to Play
                         m_howToPlayCallback();
-                    } else if (m_selectedIndex == 3 && m_leaderboardCallback) { // Leaderboard
+                    } else if (m_selectedIndex == 3 && m_statsCallback) { // Leaderboard
+                        m_statsCallback();
+                    } else if (m_selectedIndex == 4 && m_leaderboardCallback) { // Leaderboard
                         m_leaderboardCallback();
-                    } else if (m_selectedIndex == 4 && m_quitCallback) { // Quit
+                    } else if (m_selectedIndex == 5 && m_quitCallback) { // Quit
                         m_quitCallback();
                     }
                 } else if (m_currentSection == MenuSection::PLAY_MODES) {
@@ -338,23 +348,23 @@ void Menu::updateSelection() {
     if (m_currentSection == MenuSection::MAIN) {
         for (size_t i = 0; i < m_mainItems.size(); ++i) {
             if (i == m_selectedIndex) {
-                // Enhanced highlight with glow effect
-                m_mainItems[i].buttonBackground.setFillColor(sf::Color(255, 255, 0, 240)); // Bright yellow
+                // Golden highlight for selected item
+                m_mainItems[i].buttonBackground.setFillColor(sf::Color(255, 215, 0, 250)); // Gold
                 m_mainItems[i].buttonBackground.setOutlineColor(sf::Color(255, 140, 0)); // Dark orange
-                m_mainItems[i].buttonBackground.setOutlineThickness(5.0f);
+                m_mainItems[i].buttonBackground.setOutlineThickness(3.0f);
                 
                 if (m_mainItems[i].displayText) {
                     m_mainItems[i].displayText->setFillColor(sf::Color(139, 69, 19)); // Saddle brown
                     m_mainItems[i].displayText->setStyle(sf::Text::Bold);
                 }
             } else {
-                // Normal appearance with transparency
-                m_mainItems[i].buttonBackground.setFillColor(sf::Color(144, 238, 144, 200)); // Light green
-                m_mainItems[i].buttonBackground.setOutlineColor(sf::Color(34, 139, 34)); // Forest green
-                m_mainItems[i].buttonBackground.setOutlineThickness(3.0f);
+                // Normal yellow theme appearance
+                m_mainItems[i].buttonBackground.setFillColor(sf::Color(255, 248, 220, 240)); // Light cornsilk
+                m_mainItems[i].buttonBackground.setOutlineColor(sf::Color(218, 165, 32)); // Goldenrod
+                m_mainItems[i].buttonBackground.setOutlineThickness(2.0f);
                 
                 if (m_mainItems[i].displayText) {
-                    m_mainItems[i].displayText->setFillColor(sf::Color(47, 79, 47)); // Dark green
+                    m_mainItems[i].displayText->setFillColor(sf::Color(139, 69, 19)); // Saddle brown
                     m_mainItems[i].displayText->setStyle(sf::Text::Bold);
                 }
             }
@@ -389,6 +399,7 @@ void Menu::updateSelection() {
         }
     }
 }
+
 
 void Menu::setSelectionCallback(std::function<void(GameMode)> callback) {
     m_selectionCallback = callback;

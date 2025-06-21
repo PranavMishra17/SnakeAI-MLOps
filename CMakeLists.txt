@@ -35,6 +35,9 @@ add_executable(${PROJECT_NAME}
     src/InputManager.cpp
     src/UnifiedDataCollector.cpp
     src/TorchInference.cpp
+    src/StatsGallery.cpp
+    src/Settings.cpp
+    src/HowToPlay.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} 

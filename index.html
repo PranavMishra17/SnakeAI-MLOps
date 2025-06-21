@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnakeAI-MLOps | Reinforcement Learning Snake Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 60px 0;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            margin-bottom: 40px;
+            border-radius: 20px;
+        }
+        
+        h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.3em;
+            color: #f0f0f0;
+            margin-bottom: 30px;
+        }
+        
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .section {
+            background: white;
+            margin: 30px 0;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2.2em;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        h3 {
+            color: #34495e;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+        }
+        
+        .demo-videos {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        .video-container {
+            text-align: center;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .video-placeholder {
+            width: 100%;
+            height: 250px;
+            background: #e9ecef;
+            border: 2px dashed #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin: 30px 0;
+        }
+        
+        .feature-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .feature-icon {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
+        
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .tech-item {
+            background: #e74c3c;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+        }
+        
+        .architecture {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            margin: 10px;
+            transition: transform 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 50px;
+            padding: 30px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .demo-videos {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2.5em;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐍 SnakeAI-MLOps</h1>
+            <p class="subtitle">Advanced Reinforcement Learning Snake Game with Real-time AI Inference</p>
+            <div class="badges">
+                <span class="badge">C++17</span>
+                <span class="badge">SFML 3</span>
+                <span class="badge">LibTorch</span>
+                <span class="badge">CI/CD</span>
+                <span class="badge">Cross-Platform</span>
+            </div>
+        </header>
+
+        <div class="section">
+            <h2>🎮 AI in Action</h2>
+            <p>Watch how our trained AI models learn to master Snake compared to untrained agents:</p>
+            
+            <div class="demo-videos">
+                <div class="video-container">
+                    <div class="video-placeholder">
+                        <div>
+                            <p>🧠 Trained AI Agent</p>
+                            <small>Add your trained_snake.gif here</small>
+                        </div>
+                    </div>
+                    <h3>Smart Navigation</h3>
+                    <p>Trained agents efficiently navigate towards food while avoiding obstacles</p>
+                </div>
+                
+                <div class="video-container">
+                    <div class="video-placeholder">
+                        <div>
+                            <p>🎲 Untrained Agent</p>
+                            <small>Add your untrained_snake.gif here</small>
+                        </div>
+                    </div>
+                    <h3>Random Exploration</h3>
+                    <p>Untrained agents explore randomly, often colliding with walls or themselves</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🤖 Multi-Algorithm AI Implementation</h2>
+            <p>This project implements and compares multiple state-of-the-art reinforcement learning algorithms:</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Q-Learning</h3>
+                    <p>Tabular method with 9-bit state encoding for rapid learning</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔗</div>
+                    <h3>Deep Q-Network</h3>
+                    <p>Neural network approximation of Q-values for complex state spaces</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>PPO</h3>
+                    <p>Proximal Policy Optimization for stable policy gradient learning</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">⚖️</div>
+                    <h3>Actor-Critic</h3>
+                    <p>Dual network architecture combining value and policy estimation</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔬 Training to Production Pipeline</h2>
+            
+            <h3>Python Training Phase</h3>
+            <div class="code-block">
+# Train all algorithms with multiple profiles
+python src/train_models.py --technique all --profiles balanced,aggressive,conservative
+            </div>
+            
+            <h3>C++ Real-time Inference</h3>
+            <div class="code-block">
+// Load trained PyTorch models in C++ using LibTorch
+auto dqnAgent = std::make_unique&lt;DQNAgent&gt;(modelInfo);
+Direction action = dqnAgent-&gt;getAction(gameState, false);
+            </div>
+            
+            <p>Models are trained in Python using PyTorch, then exported and loaded in C++ using LibTorch for real-time inference during gameplay. This hybrid approach combines Python's flexibility for experimentation with C++'s performance for deployment.</p>
+        </div>
+
+        <div class="section">
+            <h2>🛠️ Technical Architecture</h2>
+            
+            <div class="tech-stack">
+                <span class="tech-item">C++17</span>
+                <span class="tech-item">SFML 3</span>
+                <span class="tech-item">LibTorch</span>
+                <span class="tech-item">Python</span>
+                <span class="tech-item">PyTorch</span>
+                <span class="tech-item">GitHub Actions</span>
+                <span class="tech-item">Docker</span>
+                <span class="tech-item">CMake</span>
+            </div>
+            
+            <h3>🎯 Key Features</h3>
+            <ul style="margin: 20px 0; padding-left: 30px;">
+                <li><strong>Multi-Platform Support:</strong> Windows, Linux, and Docker deployment</li>
+                <li><strong>Real-time Performance:</strong> 60fps gameplay with AI inference</li>
+                <li><strong>Model Comparison:</strong> Built-in analysis and visualization tools</li>
+                <li><strong>Interactive Modes:</strong> Human vs AI, AI vs AI, and hybrid gameplay</li>
+                <li><strong>Performance Analytics:</strong> Comprehensive training metrics and model evaluation</li>
+                <li><strong>Automated CI/CD:</strong> Continuous integration with artifact generation</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>📊 Performance Analysis</h2>
+            <p>The game includes comprehensive performance analysis tools:</p>
+            
+            <h3>🏆 Leaderboard System</h3>
+            <p>Track performance across different AI algorithms and human players</p>
+            
+            <h3>📈 Training Visualization</h3>
+            <p>Generate detailed performance charts showing learning curves, score distributions, and convergence analysis</p>
+            
+            <h3>🔍 Model Comparison</h3>
+            <p>Side-by-side analysis of different algorithms' strengths and weaknesses</p>
+        </div>
+
+        <div class="section">
+            <h2>🚀 Getting Started</h2>
+            
+            <h3>Quick Start (Prebuilt)</h3>
+            <div class="code-block">
+# Download from releases and run
+./SnakeAI-MLOps.exe  # Windows
+./SnakeAI-MLOps      # Linux
+            </div>
+            
+            <h3>Build from Source</h3>
+            <div class="code-block">
+git clone https://github.com/yourusername/SnakeAI-MLOps.git
+cd SnakeAI-MLOps
+mkdir build && cd build
+cmake ..
+make -j$(nproc)
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="https://github.com/yourusername/SnakeAI-MLOps" class="btn">📁 View on GitHub</a>
+                <a href="https://github.com/yourusername/SnakeAI-MLOps/releases" class="btn">⬇️ Download Release</a>
+            </div>
+        </div>
+
+        <footer>
+            <p>Made with ❤️ using C++, LibTorch, and SFML</p>
+            <p>© 2024 SnakeAI-MLOps Project</p>
+        </footer>
+    </div>
+</body>
+</html>

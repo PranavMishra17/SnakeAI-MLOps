@@ -51,8 +51,8 @@ Game::Game()
         m_snake = std::make_unique<Snake>(m_grid.get());
         m_apple = std::make_unique<Apple>(m_grid.get());
 
-        sf::Texture menuTexture; // Create empty texture
-        m_menu = std::make_unique<Menu>(menuTexture);
+        //sf::Texture menuTexture; // Create empty texture
+        m_menu = std::make_unique<Menu>();
         m_menu->initialize(*m_window);
 
         m_pauseMenu = std::make_unique<PauseMenu>();
@@ -66,6 +66,15 @@ Game::Game()
 
         m_dataCollector = std::make_unique<UnifiedDataCollector>();
         m_inputManager = std::make_unique<InputManager>();
+
+        m_statsGallery = std::make_unique<StatsGallery>();
+        m_statsGallery->initialize(*m_window);
+
+        m_settings = std::make_unique<Settings>();
+        m_settings->initialize(*m_window);
+
+        m_howToPlay = std::make_unique<HowToPlay>();
+        m_howToPlay->initialize(*m_window);
 
         AgentConfig defaultConfig;
         defaultConfig.type = AgentType::Q_LEARNING;
@@ -150,6 +159,22 @@ void Game::setupCallbacks() {
         m_window->close();
     });
 
+    m_menu->setStatsCallback([this]() {
+    m_currentState = GameState::STATS_GALLERY;
+    });
+
+    // Stats gallery callbacks
+    m_statsGallery->setBackCallback([this]() {
+    m_currentState = GameState::MENU;
+    });
+
+    m_menu->setSettingsCallback([this]() { m_currentState = GameState::SETTINGS; });
+    m_menu->setHowToPlayCallback([this]() { m_currentState = GameState::HOW_TO_PLAY; });
+
+    m_settings->setBackCallback([this]() { m_currentState = GameState::MENU; });
+    m_howToPlay->setBackCallback([this]() { m_currentState = GameState::MENU; });
+
+
     // Pause menu callbacks
     m_pauseMenu->setResumeCallback([this]() {
         m_currentState = GameState::PLAYING;
@@ -207,13 +232,15 @@ void Game::processEvents() {
             case GameState::LEADERBOARD:
                 m_leaderboard->handleEvent(event);
                 break;
+
+            case GameState::STATS_GALLERY:
+                m_statsGallery->handleEvent(event);
+                break;
             case GameState::SETTINGS:
+                m_settings->handleEvent(event); // or update() or render()
+                break;
             case GameState::HOW_TO_PLAY:
-                if (const auto* keyPressedEvent = event.getIf<sf::Event::KeyPressed>()) {
-                    if (keyPressedEvent->scancode == sf::Keyboard::Scancode::Escape) {
-                        m_currentState = GameState::MENU;
-                    }
-                }
+                m_howToPlay->handleEvent(event); // or update() or render()
                 break;
             case GameState::PLAYING:
                 handleGameplayEvents(event);
@@ -319,6 +346,9 @@ void Game::update(float deltaTime) {
         case GameState::LEADERBOARD:
             m_leaderboard->update();
             break;
+        case GameState::STATS_GALLERY:
+            m_statsGallery->update();
+            break;
         case GameState::PLAYING:
             if (!m_gameOver) {
                 updateGame(deltaTime);
@@ -328,7 +358,11 @@ void Game::update(float deltaTime) {
             m_pauseMenu->update();
             break;
         case GameState::SETTINGS:
+            m_settings->update(); // or update() or render()
+            break;
         case GameState::HOW_TO_PLAY:
+            m_howToPlay->update(); // or update() or render()
+            break;
         case GameState::GAME_OVER:
             break;
     }
@@ -462,11 +496,14 @@ void Game::render() {
         case GameState::LEADERBOARD:
             m_leaderboard->render(*m_window);
             break;
+        case GameState::STATS_GALLERY:
+            m_statsGallery->render(*m_window);
+            break;
         case GameState::SETTINGS:
-            renderSettings();
+            m_settings->render(*m_window); // or update() or render()
             break;
         case GameState::HOW_TO_PLAY:
-            renderHowToPlay();
+            m_howToPlay->render(*m_window); // or update() or render()
             break;
         case GameState::PLAYING:
         case GameState::PAUSED:
