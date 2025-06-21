@@ -48,7 +48,6 @@ TrainedModelInfo TrainedModelInfo::fromFile(const std::string& infoPath) {
     return info;
 }
 
-
 // Enhanced EvaluationReportData Implementation
 EvaluationReportData EvaluationReportData::loadFromFile(const std::string& reportPath) {
     EvaluationReportData data;
@@ -128,8 +127,8 @@ void TrainedModelInfo::saveToFile(const std::string& infoPath) const {
         j["profile"] = profile;
         j["modelPath"] = modelPath;
         j["description"] = description;
-        j["averageScore"] = performance.averageScore;  // FIXED: access through performance member
-        j["episodesTrained"] = performance.totalEpisodes;  // FIXED: use totalEpisodes instead of episodesTrained
+        j["averageScore"] = performance.averageScore;
+        j["episodesTrained"] = performance.totalEpisodes;
         
         j["performance"] = {
             {"bestScore", performance.bestScore},
@@ -180,7 +179,6 @@ QLearningAgentEnhanced::QLearningAgentEnhanced(const TrainedModelInfo& modelInfo
         spdlog::error("QLearningAgentEnhanced: Failed to load pre-trained model: {}", modelInfo.modelPath);
     }
 }
-
 
 std::string QLearningAgentEnhanced::encodeState9Bit(const AgentState& state) const {
     std::string binary;
@@ -353,38 +351,124 @@ void QLearningAgentEnhanced::updateQValue(const AgentState& state, Direction act
     m_qTable[stateKey][actionIdx] = newQ;
 }
 
-// Enhanced DQN Agent Implementation with Performance Data
-DQNAgent::DQNAgent() : m_epsilon(0.05f), m_rng(std::random_device{}()) {
-    spdlog::info("DQNAgent: Initialized (enhanced intelligent placeholder)");
+// Enhanced DQN Agent Implementation with LibTorch Integration
+DQNAgent::DQNAgent() : m_epsilon(0.05f), m_rng(std::random_device{}()), 
+                       m_modelLoadAttempted(false), m_isUsingTorch(false) {
+    spdlog::info("DQNAgent: Initialized - attempting LibTorch integration");
     m_modelInfo.name = "DQN Agent";
     m_modelInfo.modelType = "dqn";
-    m_modelInfo.description = "Deep Q-Network with intelligent heuristics";
+    m_modelInfo.description = "Deep Q-Network with LibTorch inference";
+    
+    m_torchModel = std::make_unique<DQNInference>();
 }
 
 DQNAgent::DQNAgent(const TrainedModelInfo& modelInfo) 
-    : m_epsilon(0.05f), m_rng(std::random_device{}()), m_modelInfo(modelInfo) {
+    : m_epsilon(0.05f), m_rng(std::random_device{}()), m_modelInfo(modelInfo),
+      m_modelLoadAttempted(false), m_isUsingTorch(false) {
     spdlog::info("DQNAgent: Initialized with model info: {}", modelInfo.name);
+    m_torchModel = std::make_unique<DQNInference>();
+    
+    // Attempt to load the model immediately
+    if (!modelInfo.modelPath.empty()) {
+        tryLoadTorchModel(modelInfo.modelPath);
+    }
 }
 
-std::string DQNAgent::getModelInfo() const {
-    if (m_modelInfo.performance.bestScore > 0) {
-        return "DQN Model - Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore)) +
-               " | Avg: " + std::to_string(m_modelInfo.performance.averageScore).substr(0, 4);
+std::vector<std::string> DQNAgent::getPossibleModelPaths(const std::string& basePath) {
+    std::vector<std::string> paths;
+    
+    // Original path
+    paths.push_back(basePath);
+    
+    // Convert .pth to .pt
+    if (basePath.find(".pth") != std::string::npos) {
+        std::string ptPath = basePath;
+        size_t pos = ptPath.find(".pth");
+        ptPath.replace(pos, 4, ".pt");
+        paths.push_back(ptPath);
     }
-    return "Enhanced DQN placeholder - uses intelligent decision making";
+    
+    // Convert .pt to .pth
+    if (basePath.find(".pt") != std::string::npos) {
+        std::string pthPath = basePath;
+        size_t pos = pthPath.find(".pt");
+        pthPath.replace(pos, 3, ".pth");
+        paths.push_back(pthPath);
+    }
+    
+    return paths;
+}
+
+bool DQNAgent::tryLoadTorchModel(const std::string& path) {
+    if (m_modelLoadAttempted && m_lastModelPath == path) {
+        return m_isUsingTorch;
+    }
+    
+    m_modelLoadAttempted = true;
+    m_lastModelPath = path;
+    m_isUsingTorch = false;
+    
+    spdlog::info("DQNAgent: Attempting to load LibTorch model from: {}", path);
+    
+    auto possiblePaths = getPossibleModelPaths(path);
+    
+    for (const auto& modelPath : possiblePaths) {
+        spdlog::debug("DQNAgent: Trying model path: {}", modelPath);
+        
+        if (!std::filesystem::exists(modelPath)) {
+            spdlog::debug("DQNAgent: Model file does not exist: {}", modelPath);
+            continue;
+        }
+        
+        spdlog::info("DQNAgent: Found model file: {}", modelPath);
+        
+        try {
+            if (m_torchModel->loadModel(modelPath)) {
+                m_isUsingTorch = true;
+                spdlog::info("DQNAgent: Successfully loaded LibTorch model: {}", modelPath);
+                
+                // Test the model with a sample input
+                EnhancedState testState;
+                testState.basic.dangerStraight = false;
+                testState.basic.dangerLeft = false;
+                testState.basic.dangerRight = false;
+                testState.basic.currentDirection = Direction::RIGHT;
+                testState.basic.foodLeft = true;
+                testState.basic.foodRight = false;
+                testState.basic.foodUp = false;
+                testState.basic.foodDown = false;
+                
+                Direction testAction = m_torchModel->getAction(testState, 0.0f);
+                spdlog::info("DQNAgent: Model test successful - predicted action: {}", static_cast<int>(testAction));
+                
+                return true;
+            } else {
+                spdlog::warn("DQNAgent: LibTorch failed to load model: {}", modelPath);
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("DQNAgent: Exception loading model {}: {}", modelPath, e.what());
+        }
+    }
+    
+    spdlog::warn("DQNAgent: All model loading attempts failed, falling back to heuristics");
+    return false;
 }
 
 Direction DQNAgent::getAction(const EnhancedState& state, bool training) {
-    // Enhanced intelligent behavior - not just random
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-    
-    // Small chance of exploration
-    if (training && dist(m_rng) < m_epsilon) {
-        std::uniform_int_distribution<int> actionDist(0, 3);
-        return static_cast<Direction>(actionDist(m_rng));
+    if (m_isUsingTorch && m_torchModel && m_torchModel->isLoaded()) {
+        try {
+            float epsilon = training ? m_epsilon : 0.0f;
+            Direction action = m_torchModel->getAction(state, epsilon);
+            spdlog::debug("DQNAgent: LibTorch action: {}", static_cast<int>(action));
+            return action;
+        } catch (const std::exception& e) {
+            spdlog::error("DQNAgent: LibTorch inference failed: {}, falling back to heuristics", e.what());
+            m_isUsingTorch = false;
+        }
     }
     
-    // Intelligent decision making based on state
+    // Fallback to intelligent heuristics
+    spdlog::debug("DQNAgent: Using heuristic fallback");
     return makeIntelligentDecision(state);
 }
 
@@ -395,86 +479,180 @@ Direction DQNAgent::makeIntelligentDecision(const EnhancedState& state) {
     std::vector<Direction> safeActions;
     if (!basic.dangerStraight) safeActions.push_back(basic.currentDirection);
     if (!basic.dangerLeft) {
-        // Calculate left direction
         Direction leftDir = static_cast<Direction>((static_cast<int>(basic.currentDirection) + 3) % 4);
         safeActions.push_back(leftDir);
     }
     if (!basic.dangerRight) {
-        // Calculate right direction
         Direction rightDir = static_cast<Direction>((static_cast<int>(basic.currentDirection) + 1) % 4);
         safeActions.push_back(rightDir);
     }
     
-    // If no safe actions, try opposite direction as last resort
     if (safeActions.empty()) {
         Direction opposite = static_cast<Direction>((static_cast<int>(basic.currentDirection) + 2) % 4);
         safeActions.push_back(opposite);
     }
     
     // Priority 2: Among safe actions, choose one that moves toward food
-    Direction bestAction = safeActions[0];
-    
     for (Direction action : safeActions) {
         bool movesTowardFood = false;
-        
         switch (action) {
-            case Direction::UP:
-                movesTowardFood = basic.foodUp;
-                break;
-            case Direction::DOWN:
-                movesTowardFood = basic.foodDown;
-                break;
-            case Direction::LEFT:
-                movesTowardFood = basic.foodLeft;
-                break;
-            case Direction::RIGHT:
-                movesTowardFood = basic.foodRight;
-                break;
+            case Direction::UP: movesTowardFood = basic.foodUp; break;
+            case Direction::DOWN: movesTowardFood = basic.foodDown; break;
+            case Direction::LEFT: movesTowardFood = basic.foodLeft; break;
+            case Direction::RIGHT: movesTowardFood = basic.foodRight; break;
         }
-        
-        if (movesTowardFood) {
-            bestAction = action;
-            break;
-        }
+        if (movesTowardFood) return action;
     }
     
-    spdlog::debug("DQNAgent: Intelligent decision - action: {}", static_cast<int>(bestAction));
-    return bestAction;
+    return safeActions[0];
 }
 
 bool DQNAgent::loadModel(const std::string& path) {
-    spdlog::info("DQNAgent: Model file detected: {}", path);
-    spdlog::info("DQNAgent: Using enhanced heuristics instead of neural network inference");
-    return true; // Always return true for intelligent placeholder
+    return tryLoadTorchModel(path);
 }
 
 std::string DQNAgent::getAgentInfo() const {
-    return "DQN (Intelligent Heuristics) | Safety-first with food seeking";
+    if (m_isUsingTorch) {
+        return "DQN (LibTorch) | Model loaded successfully";
+    }
+    return "DQN (Heuristic Fallback) | Model loading failed";
 }
 
-// Add these after existing DQNAgent methods:
+std::string DQNAgent::getModelInfo() const {
+    if (m_isUsingTorch && m_torchModel && m_torchModel->isLoaded()) {
+        return "LibTorch DQN - Path: " + m_torchModel->getModelPath() + 
+               " | Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
+    }
+    if (m_modelInfo.performance.bestScore > 0) {
+        return "DQN Model (Fallback) - Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore)) +
+               " | Avg: " + std::to_string(m_modelInfo.performance.averageScore).substr(0, 4);
+    }
+    return "DQN fallback - LibTorch model not loaded";
+}
+
 void DQNAgent::updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) {}
 
-// Enhanced PPO Agent Implementation (replaces PolicyGradientAgent)
-// Enhanced PPO Agent Implementation
-PPOAgent::PPOAgent() : m_rng(std::random_device{}()) {
-    spdlog::info("PPOAgent: Initialized (enhanced intelligent placeholder)");
+// Enhanced PPO Agent Implementation with LibTorch Integration
+PPOAgent::PPOAgent() : m_rng(std::random_device{}()), 
+                       m_modelLoadAttempted(false), m_isUsingTorch(false) {
+    spdlog::info("PPOAgent: Initialized - attempting LibTorch integration");
     m_modelInfo.name = "PPO Agent";
     m_modelInfo.modelType = "ppo";
-    m_modelInfo.description = "PPO with probabilistic decision making";
+    m_modelInfo.description = "PPO with LibTorch inference";
+    
+    m_torchModel = std::make_unique<PPOInference>();
 }
 
 PPOAgent::PPOAgent(const TrainedModelInfo& modelInfo) 
-    : m_rng(std::random_device{}()), m_modelInfo(modelInfo) {
+    : m_rng(std::random_device{}()), m_modelInfo(modelInfo),
+      m_modelLoadAttempted(false), m_isUsingTorch(false) {
     spdlog::info("PPOAgent: Initialized with model info: {}", modelInfo.name);
+    m_torchModel = std::make_unique<PPOInference>();
+    
+    if (!modelInfo.modelPath.empty()) {
+        tryLoadTorchModel(modelInfo.modelPath);
+    }
+}
+
+std::vector<std::string> PPOAgent::getPossibleModelPaths(const std::string& basePath) {
+    std::vector<std::string> paths;
+    
+    // Original path
+    paths.push_back(basePath);
+    
+    // Convert .pth to .pt
+    if (basePath.find(".pth") != std::string::npos) {
+        std::string ptPath = basePath;
+        size_t pos = ptPath.find(".pth");
+        ptPath.replace(pos, 4, ".pt");
+        paths.push_back(ptPath);
+    }
+    
+    // Convert .pt to .pth
+    if (basePath.find(".pt") != std::string::npos) {
+        std::string pthPath = basePath;
+        size_t pos = pthPath.find(".pt");
+        pthPath.replace(pos, 3, ".pth");
+        paths.push_back(pthPath);
+    }
+    
+    return paths;
+}
+
+bool PPOAgent::tryLoadTorchModel(const std::string& path) {
+    if (m_modelLoadAttempted && m_lastModelPath == path) {
+        return m_isUsingTorch;
+    }
+    
+    m_modelLoadAttempted = true;
+    m_lastModelPath = path;
+    m_isUsingTorch = false;
+    
+    spdlog::info("PPOAgent: Attempting to load LibTorch model from: {}", path);
+    
+    auto possiblePaths = getPossibleModelPaths(path);
+    
+    for (const auto& modelPath : possiblePaths) {
+        spdlog::debug("PPOAgent: Trying model path: {}", modelPath);
+        
+        if (!std::filesystem::exists(modelPath)) {
+            spdlog::debug("PPOAgent: Model file does not exist: {}", modelPath);
+            continue;
+        }
+        
+        spdlog::info("PPOAgent: Found model file: {}", modelPath);
+        
+        try {
+            if (m_torchModel->loadModel(modelPath)) {
+                m_isUsingTorch = true;
+                spdlog::info("PPOAgent: Successfully loaded LibTorch model: {}", modelPath);
+                
+                // Test the model
+                EnhancedState testState;
+                testState.basic.dangerStraight = false;
+                testState.basic.dangerLeft = true;
+                testState.basic.dangerRight = false;
+                testState.basic.currentDirection = Direction::UP;
+                testState.basic.foodLeft = false;
+                testState.basic.foodRight = true;
+                testState.basic.foodUp = false;
+                testState.basic.foodDown = true;
+                
+                Direction testAction = m_torchModel->getAction(testState);
+                spdlog::info("PPOAgent: Model test successful - predicted action: {}", static_cast<int>(testAction));
+                
+                return true;
+            } else {
+                spdlog::warn("PPOAgent: LibTorch failed to load model: {}", modelPath);
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("PPOAgent: Exception loading model {}: {}", modelPath, e.what());
+        }
+    }
+    
+    spdlog::warn("PPOAgent: All model loading attempts failed, falling back to heuristics");
+    return false;
 }
 
 Direction PPOAgent::getAction(const EnhancedState& state, bool training) {
-    // PPO behavior - more exploratory but still intelligent
-    const auto& basic = state.basic;
+    if (m_isUsingTorch && m_torchModel && m_torchModel->isLoaded()) {
+        try {
+            Direction action = m_torchModel->getAction(state);
+            spdlog::debug("PPOAgent: LibTorch action: {}", static_cast<int>(action));
+            return action;
+        } catch (const std::exception& e) {
+            spdlog::error("PPOAgent: LibTorch inference failed: {}, falling back to heuristics", e.what());
+            m_isUsingTorch = false;
+        }
+    }
     
-    // Calculate action probabilities based on state (PPO-style)
-    std::array<float, 4> actionProbs = {0.25f, 0.25f, 0.25f, 0.25f}; // Base equal probability
+    spdlog::debug("PPOAgent: Using probabilistic fallback");
+    return makeProbabilisticDecision(state);
+}
+
+Direction PPOAgent::makeProbabilisticDecision(const EnhancedState& state) {
+    const auto& basic = state.basic;
+    std::array<float, 4> actionProbs = {0.25f, 0.25f, 0.25f, 0.25f};
     
     // Reduce probability of dangerous actions
     if (basic.dangerStraight) {
@@ -513,56 +691,170 @@ Direction PPOAgent::getAction(const EnhancedState& state, bool training) {
         }
     }
     
-    return static_cast<Direction>(0); // Fallback
+    return static_cast<Direction>(0);
 }
 
 bool PPOAgent::loadModel(const std::string& path) {
-    spdlog::info("PPOAgent: Model file detected: {}", path);
-    spdlog::info("PPOAgent: Using probabilistic decision making");
-    return true;
+    return tryLoadTorchModel(path);
 }
 
 std::string PPOAgent::getAgentInfo() const {
-    return "PPO (Probabilistic) | Proximal Policy Optimization style decisions";
+    if (m_isUsingTorch) {
+        return "PPO (LibTorch) | Model loaded successfully";
+    }
+    return "PPO (Probabilistic Fallback) | Model loading failed";
 }
 
 std::string PPOAgent::getModelInfo() const {
+    if (m_isUsingTorch && m_torchModel && m_torchModel->isLoaded()) {
+        return "LibTorch PPO - Path: " + m_torchModel->getModelPath() + 
+               " | Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
+    }
     if (m_modelInfo.performance.bestScore > 0) {
-        return "PPO Model - Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore)) +
+        return "PPO Model (Fallback) - Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore)) +
                " | Success Rate: " + std::to_string(m_modelInfo.performance.successRate).substr(0, 4) + "%";
     }
-    return "Enhanced PPO placeholder - probabilistic action selection";
+    return "PPO fallback - LibTorch model not loaded";
 }
 
-
-// Add these after existing PPOAgent methods:
 void PPOAgent::updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) {}
 
-
-// Enhanced Actor-Critic Agent Implementation
-ActorCriticAgent::ActorCriticAgent() : m_rng(std::random_device{}()) {
-    spdlog::info("ActorCriticAgent: Initialized (enhanced intelligent placeholder)");
+// Enhanced Actor-Critic Agent Implementation with LibTorch Integration
+ActorCriticAgent::ActorCriticAgent() : m_rng(std::random_device{}()), 
+                                       m_modelLoadAttempted(false), m_isUsingTorch(false) {
+    spdlog::info("ActorCriticAgent: Initialized - attempting LibTorch integration");
     m_modelInfo.name = "Actor-Critic Agent";
     m_modelInfo.modelType = "actor_critic";
-    m_modelInfo.description = "Actor-critic with value-based decisions";
+    m_modelInfo.description = "Actor-critic with LibTorch inference";
+    
+    m_torchModel = std::make_unique<ActorCriticInference>();
 }
 
 ActorCriticAgent::ActorCriticAgent(const TrainedModelInfo& modelInfo) 
-    : m_rng(std::random_device{}()), m_modelInfo(modelInfo) {
+    : m_rng(std::random_device{}()), m_modelInfo(modelInfo),
+      m_modelLoadAttempted(false), m_isUsingTorch(false) {
     spdlog::info("ActorCriticAgent: Initialized with model info: {}", modelInfo.name);
+    m_torchModel = std::make_unique<ActorCriticInference>();
+    
+    if (!modelInfo.modelPath.empty()) {
+        tryLoadTorchModel(modelInfo.modelPath);
+    }
+}
+
+std::vector<std::string> ActorCriticAgent::getPossibleModelPaths(const std::string& basePath) {
+    std::vector<std::string> paths;
+    
+    // Original path
+    paths.push_back(basePath);
+    
+    // Convert .pth to .pt
+    if (basePath.find(".pth") != std::string::npos) {
+        std::string ptPath = basePath;
+        size_t pos = ptPath.find(".pth");
+        ptPath.replace(pos, 4, ".pt");
+        paths.push_back(ptPath);
+    }
+    
+    // Convert .pt to .pth
+    if (basePath.find(".pt") != std::string::npos) {
+        std::string pthPath = basePath;
+        size_t pos = pthPath.find(".pt");
+        pthPath.replace(pos, 3, ".pth");
+        paths.push_back(pthPath);
+    }
+    
+    return paths;
+}
+
+bool ActorCriticAgent::tryLoadTorchModel(const std::string& path) {
+    if (m_modelLoadAttempted && m_lastModelPath == path) {
+        return m_isUsingTorch;
+    }
+    
+    m_modelLoadAttempted = true;
+    m_lastModelPath = path;
+    m_isUsingTorch = false;
+    
+    spdlog::info("ActorCriticAgent: Attempting to load LibTorch model from: {}", path);
+    
+    auto possiblePaths = getPossibleModelPaths(path);
+    
+    for (const auto& modelPath : possiblePaths) {
+        spdlog::debug("ActorCriticAgent: Trying model path: {}", modelPath);
+        
+        if (!std::filesystem::exists(modelPath)) {
+            spdlog::debug("ActorCriticAgent: Model file does not exist: {}", modelPath);
+            continue;
+        }
+        
+        spdlog::info("ActorCriticAgent: Found model file: {}", modelPath);
+        
+        try {
+            if (m_torchModel->loadModel(modelPath)) {
+                m_isUsingTorch = true;
+                spdlog::info("ActorCriticAgent: Successfully loaded LibTorch model: {}", modelPath);
+                
+                // Test the model
+                EnhancedState testState;
+                testState.basic.dangerStraight = false;
+                testState.basic.dangerLeft = false;
+                testState.basic.dangerRight = true;
+                testState.basic.currentDirection = Direction::RIGHT;
+                testState.basic.foodLeft = true;
+                testState.basic.foodRight = false;
+                testState.basic.foodUp = false;
+                testState.basic.foodDown = false;
+                
+                Direction testAction = m_torchModel->getAction(testState);
+                spdlog::info("ActorCriticAgent: Model test successful - predicted action: {}", static_cast<int>(testAction));
+                
+                // Test value function if available
+                float testValue = m_torchModel->getValue(testState);
+                spdlog::info("ActorCriticAgent: State value estimate: {:.3f}", testValue);
+                
+                return true;
+            } else {
+                spdlog::warn("ActorCriticAgent: LibTorch failed to load model: {}", modelPath);
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("ActorCriticAgent: Exception loading model {}: {}", modelPath, e.what());
+        }
+    }
+    
+    spdlog::warn("ActorCriticAgent: All model loading attempts failed, falling back to heuristics");
+    return false;
 }
 
 Direction ActorCriticAgent::getAction(const EnhancedState& state, bool training) {
-    // Actor-critic behavior - balanced exploration and exploitation
-    const auto& basic = state.basic;
-    
-    // Calculate value estimates for each action (critic simulation)
-    std::array<float, 4> actionValues = {0.0f, 0.0f, 0.0f, 0.0f};
-    
-    // Base values
-    for (int i = 0; i < 4; ++i) {
-        actionValues[i] = 0.5f; // Neutral value
+    if (m_isUsingTorch && m_torchModel && m_torchModel->isLoaded()) {
+        try {
+            Direction action = m_torchModel->getAction(state);
+            spdlog::debug("ActorCriticAgent: LibTorch action: {}", static_cast<int>(action));
+            return action;
+        } catch (const std::exception& e) {
+            spdlog::error("ActorCriticAgent: LibTorch inference failed: {}, falling back to heuristics", e.what());
+            m_isUsingTorch = false;
+        }
     }
+    
+    spdlog::debug("ActorCriticAgent: Using value-based fallback");
+    return makeValueBasedDecision(state);
+}
+
+float ActorCriticAgent::getStateValue(const EnhancedState& state) {
+    if (m_isUsingTorch && m_torchModel && m_torchModel->isLoaded()) {
+        try {
+            return m_torchModel->getValue(state);
+        } catch (const std::exception& e) {
+            spdlog::error("ActorCriticAgent: Value estimation failed: {}", e.what());
+        }
+    }
+    return 0.0f; // Fallback value
+}
+
+Direction ActorCriticAgent::makeValueBasedDecision(const EnhancedState& state) {
+    const auto& basic = state.basic;
+    std::array<float, 4> actionValues = {0.5f, 0.5f, 0.5f, 0.5f};
     
     // Penalize dangerous actions heavily
     if (basic.dangerStraight) {
@@ -583,13 +875,12 @@ Direction ActorCriticAgent::getAction(const EnhancedState& state, bool training)
     if (basic.foodLeft) actionValues[2] += 0.8f;
     if (basic.foodRight) actionValues[3] += 0.8f;
     
-    // Add some exploration noise
+    // Add exploration noise
     std::normal_distribution<float> noise(0.0f, 0.1f);
     for (auto& value : actionValues) {
         value += noise(m_rng);
     }
     
-    // Select action with highest estimated value
     int bestAction = std::distance(actionValues.begin(), 
                                  std::max_element(actionValues.begin(), actionValues.end()));
     
@@ -597,27 +888,29 @@ Direction ActorCriticAgent::getAction(const EnhancedState& state, bool training)
 }
 
 bool ActorCriticAgent::loadModel(const std::string& path) {
-    spdlog::info("ActorCriticAgent: Model file detected: {}", path);
-    spdlog::info("ActorCriticAgent: Using value-based decision making");
-    return true;
+    return tryLoadTorchModel(path);
 }
 
 std::string ActorCriticAgent::getAgentInfo() const {
-    return "Actor-Critic (Value-based) | Balanced exploration-exploitation";
+    if (m_isUsingTorch) {
+        return "Actor-Critic (LibTorch) | Model loaded successfully";
+    }
+    return "Actor-Critic (Value-based Fallback) | Model loading failed";
 }
 
 std::string ActorCriticAgent::getModelInfo() const {
+    if (m_isUsingTorch && m_torchModel && m_torchModel->isLoaded()) {
+        return "LibTorch Actor-Critic - Path: " + m_torchModel->getModelPath() + 
+               " | Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore));
+    }
     if (m_modelInfo.performance.bestScore > 0) {
-        return "AC Model - Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore)) +
+        return "AC Model (Fallback) - Best: " + std::to_string(static_cast<int>(m_modelInfo.performance.bestScore)) +
                " | Consistency: " + std::to_string(m_modelInfo.performance.consistency).substr(0, 4);
     }
-    return "Enhanced Actor-Critic placeholder - value-based action selection";
+    return "Actor-Critic fallback - LibTorch model not loaded";
 }
 
-
-// Add these after existing ActorCriticAgent methods:
 void ActorCriticAgent::updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) {}
-
 
 // Enhanced TrainedModelManager Implementation
 TrainedModelManager::TrainedModelManager(const std::string& modelsDir) 
@@ -638,8 +931,6 @@ void TrainedModelManager::loadEvaluationReport(const std::string& reportPath) {
     spdlog::info("TrainedModelManager: Loaded evaluation report with {} models", 
                  m_evaluationData.modelPerformance.size());
 }
-
-// Replace the scanForModels() method in MLAgents.cpp:
 
 void TrainedModelManager::scanForModels() {
     m_availableModels.clear();
@@ -748,7 +1039,6 @@ std::string TrainedModelManager::getPerformanceSummary() const {
     return summary;
 }
 
-
 std::vector<std::pair<std::string, float>> TrainedModelManager::getLeaderboardData() const {
     std::vector<std::pair<std::string, float>> leaderboard;
     
@@ -763,7 +1053,6 @@ std::vector<std::pair<std::string, float>> TrainedModelManager::getLeaderboardDa
     
     return leaderboard;
 }
-
 
 bool TrainedModelManager::validateQlearningModel(const std::string& modelPath) const {
     try {
@@ -815,7 +1104,6 @@ TrainedModelInfo* TrainedModelManager::findModel(const std::string& modelName) {
 }
 
 void TrainedModelManager::createModelInfoFiles() {
-    // Optional: Create .info files for models that don't have them
     spdlog::debug("TrainedModelManager: Model info files creation not implemented");
 }
 
@@ -829,7 +1117,7 @@ std::unique_ptr<IAgent> AgentFactory::createAgent(const AgentConfig& config) {
             return std::make_unique<QLearningAgentEnhanced>(config.learningRate, config.discountFactor, config.epsilon);
         case AgentType::DEEP_Q_NETWORK:
             return std::make_unique<DQNAgent>();
-        case AgentType::PPO:  // CHANGED: POLICY_GRADIENT -> PPO
+        case AgentType::PPO:
             return std::make_unique<PPOAgent>();
         case AgentType::ACTOR_CRITIC:
             return std::make_unique<ActorCriticAgent>();
@@ -839,7 +1127,6 @@ std::unique_ptr<IAgent> AgentFactory::createAgent(const AgentConfig& config) {
     }
 }
 
-// Enhanced Agent Factory Implementation
 std::unique_ptr<IAgent> AgentFactory::createAgentWithPerformanceData(const TrainedModelInfo& modelInfo) {
     spdlog::info("AgentFactory: Creating agent with performance data: {} (best: {:.1f})", 
                  modelInfo.name, modelInfo.performance.bestScore);
@@ -857,7 +1144,6 @@ std::unique_ptr<IAgent> AgentFactory::createAgentWithPerformanceData(const Train
     return nullptr;
 }
 
-
 std::unique_ptr<IAgent> AgentFactory::createTrainedAgent(const std::string& modelName) {
     TrainedModelManager manager;
     
@@ -874,28 +1160,22 @@ std::unique_ptr<IAgent> AgentFactory::createTrainedAgent(const std::string& mode
     if (modelInfo->modelType == "qlearning") {
         return std::make_unique<QLearningAgentEnhanced>(*modelInfo);
     } else {
-        spdlog::info("AgentFactory: Creating enhanced intelligent placeholder for: {}", modelInfo->name);
+        spdlog::info("AgentFactory: Creating LibTorch agent for: {}", modelInfo->name);
         
-        // Return appropriate enhanced placeholder based on model type
         if (modelInfo->modelType == "dqn") {
-            auto agent = std::make_unique<DQNAgent>();
-            agent->loadModel(modelInfo->modelPath); // This just logs that model was detected
+            auto agent = std::make_unique<DQNAgent>(*modelInfo);
             return agent;
         } else if (modelInfo->modelType == "ppo") {
-            auto agent = std::make_unique<PPOAgent>();
-            agent->loadModel(modelInfo->modelPath);
+            auto agent = std::make_unique<PPOAgent>(*modelInfo);
             return agent;
         } else if (modelInfo->modelType == "actor_critic") {
-            auto agent = std::make_unique<ActorCriticAgent>();
-            agent->loadModel(modelInfo->modelPath);
+            auto agent = std::make_unique<ActorCriticAgent>(*modelInfo);
             return agent;
         }
     }
     
     return nullptr;
 }
-
-
 
 EnhancedState StateGenerator::generateState(const Snake& snake, const Apple& apple, const Grid& grid) {
     EnhancedState state;

@@ -86,6 +86,49 @@ cmake --build out/build/windows-default
 
 ---
 
+## Model Architectures Summary
+
+### Q-Learning
+- **Type**: Lookup table (no neural network)
+- **Input**: 8D state → 9-bit binary encoding → 512 possible states
+- **Output**: 4 Q-values per state
+- **Storage**: JSON format with binary state keys
+
+### DQN (SimpleDQN)
+- **Architecture**: 8 → 64 → 64 → 4
+- **Input**: 8D float tensor
+- **Output**: 4 Q-values (raw logits)
+- **Files**: `dqn_*.pt`
+
+### PPO (Two Networks)
+- **Policy**: 8 → 64 → 64 → 4 + Softmax
+- **Value**: 8 → 64 → 64 → 1
+- **Input**: 8D float tensor
+- **Output**: Policy = 4 action probabilities, Value = scalar
+- **Files**: `ppo_*_policy.pt`, `ppo_*_value.pt`
+
+### Actor-Critic (Two Networks)
+- **Actor**: 8 → 64 → 64 → 4 + Softmax  
+- **Critic**: 8 → 64 → 64 → 1
+- **Input**: 8D float tensor
+- **Output**: Actor = 4 action probabilities, Critic = scalar
+- **Files**: `ac_*_actor.pt`, `ac_*_critic.pt`
+
+### Universal 8D State Vector
+```
+[danger_straight, danger_left, danger_right, direction/3.0, 
+ food_left, food_right, food_up, food_down]
+```
+- All boolean flags as 0.0/1.0
+- Direction normalized: 0/3, 1/3, 2/3, 1.0
+
+### Universal Action Space
+```
+[UP, DOWN, LEFT, RIGHT] = [0, 1, 2, 3]
+```
+
+All neural networks use ReLU activation and Xavier initialization.
+
 ## Mathematical Foundation
 
 ### Q-Learning

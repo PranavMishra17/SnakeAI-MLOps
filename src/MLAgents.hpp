@@ -137,13 +137,16 @@ private:
 };
 
 
-// Updated DQN Agent with proper .pt loading
+// Updated DQN Agent with proper LibTorch integration
 class DQNAgent : public IAgent {
 private:
     float m_epsilon;
     mutable std::mt19937 m_rng;
     TrainedModelInfo m_modelInfo;
     std::unique_ptr<DQNInference> m_torchModel;
+    bool m_modelLoadAttempted;
+    bool m_isUsingTorch;
+    std::string m_lastModelPath;
     
 public:
     DQNAgent();
@@ -162,14 +165,19 @@ public:
 
 private:
     Direction makeIntelligentDecision(const EnhancedState& state);
+    bool tryLoadTorchModel(const std::string& path);
+    std::vector<std::string> getPossibleModelPaths(const std::string& basePath);
 };
 
-// Updated PPO Agent with proper .pt loading
+// Updated PPO Agent with proper LibTorch integration
 class PPOAgent : public IAgent {
 private:
     mutable std::mt19937 m_rng;
     TrainedModelInfo m_modelInfo;
     std::unique_ptr<PPOInference> m_torchModel;
+    bool m_modelLoadAttempted;
+    bool m_isUsingTorch;
+    std::string m_lastModelPath;
     
 public:
     PPOAgent();
@@ -182,17 +190,25 @@ public:
     
     // Required interface methods
     void updateAgent(const EnhancedState&, Direction, float, const EnhancedState&) override;
-   void saveModel(const std::string&) override {}  // Keep as empty inline
+    void saveModel(const std::string&) override {}  // Keep as empty inline
     float getEpsilon() const override { return 0.0f; }
     void decayEpsilon() override {}
+
+private:
+    Direction makeProbabilisticDecision(const EnhancedState& state);
+    bool tryLoadTorchModel(const std::string& path);
+    std::vector<std::string> getPossibleModelPaths(const std::string& basePath);
 };
 
-// Updated Actor-Critic Agent with proper .pt loading
+// Updated Actor-Critic Agent with proper LibTorch integration
 class ActorCriticAgent : public IAgent {
 private:
     mutable std::mt19937 m_rng;
     TrainedModelInfo m_modelInfo;
     std::unique_ptr<ActorCriticInference> m_torchModel;
+    bool m_modelLoadAttempted;
+    bool m_isUsingTorch;
+    std::string m_lastModelPath;
     
 public:
     ActorCriticAgent();
@@ -209,6 +225,11 @@ public:
     void saveModel(const std::string&) override {}  // Keep as empty inline
     float getEpsilon() const override { return 0.0f; }
     void decayEpsilon() override {}
+
+private:
+    Direction makeValueBasedDecision(const EnhancedState& state);
+    bool tryLoadTorchModel(const std::string& path);
+    std::vector<std::string> getPossibleModelPaths(const std::string& basePath);
 };
 
 // Enhanced Evaluation Report Data
@@ -294,7 +315,7 @@ public:
     }
     
     static std::string getSupportedTechniques() {
-        return "Q-Learning (full C++ support), DQN/PPO/Actor-Critic (intelligent C++ placeholders)";
+        return "Q-Learning (full C++ support), DQN/PPO/Actor-Critic (LibTorch + fallback)";
     }
 };
 
