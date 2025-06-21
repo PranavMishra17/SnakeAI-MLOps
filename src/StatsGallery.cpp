@@ -2,7 +2,8 @@
 #include <spdlog/spdlog.h>
 #include <filesystem>
 
-ImageViewer::ImageViewer() : m_imageSprite(m_imageTexture), m_visible(false) {}
+ImageViewer::ImageViewer() : m_imageSprite(m_imageTexture), m_visible(false), m_downloadComplete(false) {}
+
 void ImageViewer::initialize(sf::RenderWindow& window) {
     std::vector<std::string> fontPaths = {
         "assets/fonts/ARIAL.TTF", "assets/fonts/arial.ttf", 
@@ -46,6 +47,19 @@ void ImageViewer::initialize(sf::RenderWindow& window) {
     m_downloadText->setStyle(sf::Text::Bold);
     m_downloadText->setPosition(sf::Vector2f(windowSize.x - 135, 25));
     
+    // Download feedback panel
+    m_feedbackPanel.setSize(sf::Vector2f(300, 60));
+    m_feedbackPanel.setPosition(sf::Vector2f(windowSize.x - 320, 70));
+    m_feedbackPanel.setFillColor(sf::Color(46, 125, 50, 230)); // Green with transparency
+    m_feedbackPanel.setOutlineThickness(2.0f);
+    m_feedbackPanel.setOutlineColor(sf::Color(27, 94, 32));
+    
+    m_feedbackText = std::make_unique<sf::Text>(m_font);
+    m_feedbackText->setCharacterSize(14);
+    m_feedbackText->setFillColor(sf::Color::White);
+    m_feedbackText->setStyle(sf::Text::Bold);
+    m_feedbackText->setPosition(sf::Vector2f(windowSize.x - 310, 80));
+    
     // Instruction text
     m_instructionText = std::make_unique<sf::Text>(m_font);
     m_instructionText->setString("ESC: Close | CLICK DOWNLOAD: Save Image");
@@ -69,6 +83,7 @@ void ImageViewer::loadImage(const std::string& imagePath, const std::string& tit
     m_imageSprite = sf::Sprite(m_imageTexture);
     m_currentTitle = title;
     m_currentImagePath = imagePath;
+    m_downloadComplete = false; // Reset download state
     m_titleText->setString(title);
     
     // Get actual window size from frame
@@ -115,7 +130,7 @@ void ImageViewer::handleEvent(const sf::Event& event) {
         // Check download button click
         if (m_downloadButton.getGlobalBounds().contains(mousePos)) {
             downloadImage();
-        } else if (!m_imageFrame.getGlobalBounds().contains(mousePos)) {
+        } else if (!m_imageFrame.getGlobalBounds().contains(mousePos) && !m_feedbackPanel.getGlobalBounds().contains(mousePos)) {
             close();
         }
     }
@@ -131,9 +146,38 @@ void ImageViewer::downloadImage() {
         std::string destPath = "downloaded_" + filename;
         
         std::filesystem::copy_file(sourcePath, destPath, std::filesystem::copy_options::overwrite_existing);
+        
+        // Update feedback
+        m_downloadComplete = true;
+        m_feedbackText->setString("Downloaded to:\n" + destPath);
+        m_feedbackClock.restart();
+        
+        // Temporarily change button appearance
+        m_downloadButton.setFillColor(sf::Color(76, 175, 80)); // Green
+        m_downloadText->setString("Downloaded!");
+        
         spdlog::info("ImageViewer: Image downloaded to: {}", destPath);
     } catch (const std::exception& e) {
+        m_downloadComplete = true;
+        m_feedbackText->setString("Download failed:\n" + std::string(e.what()));
+        m_feedbackClock.restart();
+        
+        // Error state
+        m_downloadButton.setFillColor(sf::Color(244, 67, 54)); // Red
+        m_downloadText->setString("Error!");
+        
         spdlog::error("ImageViewer: Download failed: {}", e.what());
+    }
+}
+
+void ImageViewer::update() {
+    // Hide feedback after 3 seconds and reset button
+    if (m_downloadComplete && m_feedbackClock.getElapsedTime().asSeconds() > 3.0f) {
+        m_downloadComplete = false;
+        
+        // Reset button to original state
+        m_downloadButton.setFillColor(sf::Color(255, 215, 0));
+        m_downloadText->setString("Download");
     }
 }
 
@@ -147,6 +191,12 @@ void ImageViewer::render(sf::RenderWindow& window) {
     if (m_downloadText) window.draw(*m_downloadText);
     window.draw(m_imageSprite);
     if (m_instructionText) window.draw(*m_instructionText);
+    
+    // Show feedback panel if download was attempted
+    if (m_downloadComplete) {
+        window.draw(m_feedbackPanel);
+        if (m_feedbackText) window.draw(*m_feedbackText);
+    }
 }
 
 // Enhanced StatsGallery Implementation
@@ -322,7 +372,6 @@ void StatsGallery::render(sf::RenderWindow& window) {
     window.draw(*m_instructions);
 }
 
-// Rest of methods remain the same...
 void StatsGallery::handleEvent(const sf::Event& event) {
     if (m_state == GalleryState::IMAGE_VIEWING) {
         m_imageViewer->handleEvent(event);
@@ -363,7 +412,11 @@ void StatsGallery::handleNavigation(const sf::Event& event) {
     }
 }
 
-void StatsGallery::update() {}
+void StatsGallery::update() {
+    if (m_imageViewer) {
+        m_imageViewer->update();
+    }
+}
 
 void StatsGallery::renderModelStats(sf::RenderWindow& window) {
     sf::Text statsTitle(m_font);

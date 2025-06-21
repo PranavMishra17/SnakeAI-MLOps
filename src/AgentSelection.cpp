@@ -8,7 +8,6 @@ AgentSelection::AgentSelection() : m_selectedIndex(0) {
     m_modelManager = std::make_unique<TrainedModelManager>();
 }
 
-
 void AgentSelection::initialize(sf::RenderWindow& window) {
     std::vector<std::string> fontPaths = {
         "assets/fonts/ARIAL.TTF", "assets/fonts/arial.ttf", 
@@ -80,15 +79,14 @@ void AgentSelection::initialize(sf::RenderWindow& window) {
     // Create enhanced displays
     float startY = 200.0f;
     for (size_t i = 0; i < m_agents.size(); ++i) {
-        createAgentDisplay(m_agents[i], startY + i * 125.0f);
-        createPerformanceDisplay(m_agents[i], startY + i * 125.0f);
+        createAgentDisplay(m_agents[i], startY + i * 100.0f);
+        createPerformanceDisplay(m_agents[i], startY + i * 100.0f);
     }
     
     updateSelection();
     
     spdlog::info("AgentSelection: Initialized with {} agents", m_agents.size());
 }
-
 
 void AgentSelection::loadEvaluationData() {
     m_evaluationData = m_modelManager->getEvaluationData();
@@ -137,13 +135,11 @@ void AgentSelection::loadTrainedModels() {
     }
 }
 
-
-
 void AgentSelection::createAgentDisplay(EnhancedAgentMenuItem& item, float y) {
     sf::Vector2u windowSize = sf::Vector2u(1200, 800);
     
-    // Yellow theme background panel
-    float panelHeight = item.hasPerformanceData ? 110.0f : 80.0f;
+    // Yellow theme background panel - reduced height
+    float panelHeight = 80.0f;
     item.background.setSize(sf::Vector2f(750.0f, panelHeight));
     item.background.setPosition(sf::Vector2f(windowSize.x / 2.0f - 375.0f, y));
     item.background.setFillColor(sf::Color(255, 248, 220, 240));
@@ -193,47 +189,21 @@ void AgentSelection::createPerformanceDisplay(EnhancedAgentMenuItem& item, float
     
     sf::Vector2u windowSize = sf::Vector2u(1200, 800);
     
-    // Performance panel with yellow theme
-    item.performancePanel.setSize(sf::Vector2f(730.0f, 30.0f));
+    // Performance panel with yellow theme - smaller
+    item.performancePanel.setSize(sf::Vector2f(730.0f, 25.0f));
     item.performancePanel.setPosition(sf::Vector2f(windowSize.x / 2.0f - 365.0f, y + 55.0f));
     item.performancePanel.setFillColor(sf::Color(255, 250, 205, 150));
     item.performancePanel.setOutlineThickness(1.0f);
     item.performancePanel.setOutlineColor(sf::Color(218, 165, 32));
     
-    // Best score badge
-    if (item.modelInfo.performance.bestScore >= 20.0f) {
-        item.bestScoreBadge.setSize(sf::Vector2f(70.0f, 22.0f));
-        item.bestScoreBadge.setPosition(sf::Vector2f(windowSize.x / 2.0f + 280.0f, y + 45.0f));
-        item.bestScoreBadge.setFillColor(sf::Color(255, 215, 0, 200));
-        item.bestScoreBadge.setOutlineThickness(1.0f);
-        item.bestScoreBadge.setOutlineColor(sf::Color(218, 165, 32));
-        
-        item.bestScoreText = std::make_unique<sf::Text>(m_font);
-        item.bestScoreText->setString("ELITE");
-        item.bestScoreText->setCharacterSize(10);
-        item.bestScoreText->setFillColor(sf::Color(139, 69, 19));
-        item.bestScoreText->setStyle(sf::Text::Bold);
-        item.bestScoreText->setPosition(sf::Vector2f(windowSize.x / 2.0f + 295.0f, y + 50.0f));
-    }
-    
-    // Performance metrics text
+    // Performance metrics text only
     item.performanceText = std::make_unique<sf::Text>(m_font);
     std::string perfStr = formatPerformanceMetrics(item.modelInfo.performance);
     item.performanceText->setString(perfStr);
     item.performanceText->setCharacterSize(12);
     item.performanceText->setFillColor(sf::Color(101, 67, 33));
     item.performanceText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 355.0f, y + 60.0f));
-    
-    // Detailed stats for top performers
-    if (item.modelInfo.performance.bestScore > 15.0f) {
-        item.detailsText = std::make_unique<sf::Text>(m_font);
-        item.detailsText->setString(item.modelInfo.getDetailedStats());
-        item.detailsText->setCharacterSize(11);
-        item.detailsText->setFillColor(sf::Color(139, 69, 19));
-        item.detailsText->setPosition(sf::Vector2f(windowSize.x / 2.0f - 355.0f, y + 80.0f));
-    }
 }
-
 
 std::string AgentSelection::formatPerformanceMetrics(const ModelPerformanceData& data) const {
     std::ostringstream oss;
@@ -248,46 +218,17 @@ std::string AgentSelection::formatPerformanceMetrics(const ModelPerformanceData&
     return oss.str();
 }
 
-sf::Color AgentSelection::getPerformanceColor(float score) const {
-    if (score >= 25.0f) return sf::Color(255, 215, 0);      // Gold
-    if (score >= 20.0f) return sf::Color(34, 139, 34);      // Forest Green
-    if (score >= 15.0f) return sf::Color(70, 130, 180);     // Steel Blue
-    if (score >= 10.0f) return sf::Color(218, 165, 32);     // Goldenrod
-    return sf::Color(47, 79, 47);                           // Dark Green
-}
-
 void AgentSelection::updateSummaryPanel() {
     std::string summary = m_modelManager->getPerformanceSummary();
     
     if (summary.empty()) {
         summary = "Select an AI agent to compete against. Trained models show actual performance data.";
     } else {
-        summary = "🏆 " + summary;
+        // Remove any emojis from the summary
+        summary = "Top Performer: " + summary;
     }
     
     m_summaryText->setString(summary);
-}
-
-void AgentSelection::renderPerformanceBars(sf::RenderWindow& window, const EnhancedAgentMenuItem& item, float x, float y) const {
-    if (!item.hasPerformanceData) return;
-    
-    const float barWidth = 100.0f;
-    const float barHeight = 8.0f;
-    const float maxScore = 30.0f; // Normalize to max expected score
-    
-    // Score bar
-    sf::RectangleShape scoreBar(sf::Vector2f(barWidth * (item.modelInfo.performance.bestScore / maxScore), barHeight));
-    scoreBar.setPosition(sf::Vector2f(x, y));
-    scoreBar.setFillColor(getPerformanceColor(item.modelInfo.performance.bestScore));
-    window.draw(scoreBar);
-    
-    // Background bar
-    sf::RectangleShape bgBar(sf::Vector2f(barWidth, barHeight));
-    bgBar.setPosition(sf::Vector2f(x, y));
-    bgBar.setFillColor(sf::Color(200, 200, 200, 100));
-    bgBar.setOutlineThickness(1.0f);
-    bgBar.setOutlineColor(sf::Color(150, 150, 150));
-    window.draw(bgBar);
 }
 
 void AgentSelection::handleEvent(const sf::Event& event) {
@@ -333,31 +274,19 @@ void AgentSelection::render(sf::RenderWindow& window) {
     
     if (m_instructions) window.draw(*m_instructions);
     
-    // Render agents with performance data
+    // Render agents with performance data - no bars or badges
     for (const auto& agent : m_agents) {
         window.draw(agent.background);
         if (agent.hasPerformanceData) {
             window.draw(agent.performancePanel);
-            if (agent.bestScoreText) {
-                window.draw(agent.bestScoreBadge);
-                window.draw(*agent.bestScoreText);
-            }
         }
         
         if (agent.nameText) window.draw(*agent.nameText);
         if (agent.descText) window.draw(*agent.descText);
         if (agent.statusText) window.draw(*agent.statusText);
         if (agent.performanceText) window.draw(*agent.performanceText);
-        if (agent.detailsText) window.draw(*agent.detailsText);
-        
-        // Render performance bars
-        if (agent.hasPerformanceData) {
-            sf::Vector2f pos = agent.background.getPosition();
-            renderPerformanceBars(window, agent, pos.x + 750.0f, pos.y + 80.0f);
-        }
     }
 }
-
 
 void AgentSelection::updateSelection() {
     for (size_t i = 0; i < m_agents.size(); ++i) {
@@ -386,7 +315,6 @@ void AgentSelection::updateSelection() {
         }
     }
 }
-
 
 void AgentSelection::setSelectionCallback(std::function<void(const AgentConfig&)> callback) {
     m_selectionCallback = callback;

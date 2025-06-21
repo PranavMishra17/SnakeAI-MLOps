@@ -21,21 +21,18 @@ public:
 private:
     struct EnhancedAgentMenuItem {
         AgentConfig config;
-        TrainedModelInfo modelInfo; // NEW: Full model information
+        TrainedModelInfo modelInfo;
         
         // UI Elements
         std::unique_ptr<sf::Text> nameText;
         std::unique_ptr<sf::Text> descText;
         std::unique_ptr<sf::Text> statusText;
-        std::unique_ptr<sf::Text> performanceText;    // NEW: Performance stats
-        std::unique_ptr<sf::Text> detailsText;        // NEW: Detailed metrics
-        std::unique_ptr<sf::Text> bestScoreText;      // NEW: Best score highlight
+        std::unique_ptr<sf::Text> performanceText;
         sf::RectangleShape background;
-        sf::RectangleShape performancePanel;         // NEW: Performance panel
-        sf::RectangleShape bestScoreBadge;           // NEW: Best score badge
+        sf::RectangleShape performancePanel;
         
         bool isTrainedModel = false;
-        bool hasPerformanceData = false;             // NEW: Has evaluation data
+        bool hasPerformanceData = false;
         
         EnhancedAgentMenuItem(const AgentConfig& cfg) : config(cfg) {}
     };
@@ -48,13 +45,13 @@ private:
     std::unique_ptr<sf::Text> m_title;
     std::unique_ptr<sf::Text> m_instructions;
     std::unique_ptr<sf::Text> m_sectionTitle;
-    std::unique_ptr<sf::Text> m_summaryText;      // NEW: Performance summary
+    std::unique_ptr<sf::Text> m_summaryText;
     sf::RectangleShape m_background;
-    sf::RectangleShape m_summaryPanel;           // NEW: Summary panel
+    sf::RectangleShape m_summaryPanel;
     
     // Model management
     std::unique_ptr<TrainedModelManager> m_modelManager;
-    EvaluationReportData m_evaluationData;       // NEW: Evaluation report data
+    EvaluationReportData m_evaluationData;
     
     // Callbacks
     std::function<void(const AgentConfig&)> m_selectionCallback;
@@ -62,14 +59,12 @@ private:
     
     void initializeAgents();
     void loadTrainedModels();
-    void loadEvaluationData();               // NEW: Load performance data
+    void loadEvaluationData();
     void updateSelection();
     void createAgentDisplay(EnhancedAgentMenuItem& item, float y);
-    void createPerformanceDisplay(EnhancedAgentMenuItem& item, float y); // NEW: Create performance UI
-    void updateSummaryPanel();               // NEW: Update summary information
+    void createPerformanceDisplay(EnhancedAgentMenuItem& item, float y);
+    void updateSummaryPanel();
     
-    // NEW: Performance visualization helpers
-    sf::Color getPerformanceColor(float score) const;
+    // Performance helpers
     std::string formatPerformanceMetrics(const ModelPerformanceData& data) const;
-    void renderPerformanceBars(sf::RenderWindow& window, const EnhancedAgentMenuItem& item, float x, float y) const;
 };

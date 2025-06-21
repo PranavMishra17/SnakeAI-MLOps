@@ -14,6 +14,7 @@ public:
     void initialize(sf::RenderWindow& window);
     void loadImage(const std::string& imagePath, const std::string& title);
     void handleEvent(const sf::Event& event);
+    void update();
     void render(sf::RenderWindow& window);
     bool isVisible() const { return m_visible; }
     void close() { m_visible = false; }
@@ -24,15 +25,19 @@ private:
     sf::Sprite m_imageSprite;
     std::unique_ptr<sf::Text> m_titleText;
     std::unique_ptr<sf::Text> m_instructionText;
-    std::unique_ptr<sf::Text> m_downloadText;        // NEW: Download button text
+    std::unique_ptr<sf::Text> m_downloadText;
+    std::unique_ptr<sf::Text> m_feedbackText;        // NEW: Feedback text
     sf::RectangleShape m_background;
     sf::RectangleShape m_imageFrame;
-    sf::RectangleShape m_downloadButton;             // NEW: Download button
+    sf::RectangleShape m_downloadButton;
+    sf::RectangleShape m_feedbackPanel;              // NEW: Feedback panel
+    sf::Clock m_feedbackClock;                       // NEW: Timer for feedback
     bool m_visible;
+    bool m_downloadComplete;                         // NEW: Download state flag
     std::string m_currentTitle;
-    std::string m_currentImagePath;                  // NEW: For download functionality
+    std::string m_currentImagePath;
     
-    void downloadImage();                            // NEW: Download functionality
+    void downloadImage();
 };
 
 class StatsGallery {
@@ -68,8 +73,8 @@ private:
     std::unique_ptr<sf::Text> m_instructions;
     std::unique_ptr<sf::Text> m_sectionTitle;
     sf::RectangleShape m_background;
-    sf::RectangleShape m_titlePanel;         // NEW: Title panel
-    sf::RectangleShape m_contentPanel;       // NEW: Content panel
+    sf::RectangleShape m_titlePanel;
+    sf::RectangleShape m_contentPanel;
     
     // Analysis images
     std::vector<AnalysisImage> m_analysisImages;
