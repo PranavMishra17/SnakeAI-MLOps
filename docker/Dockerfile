@@ -32,7 +32,7 @@ WORKDIR /app
 # Copy configuration files
 COPY vcpkg.json .
 COPY CMakeLists.txt .
-COPY CMakePresets.json .
+COPY CMakePresets.json* .
 
 # Install vcpkg and dependencies
 RUN git clone https://github.com/Microsoft/vcpkg.git && \
@@ -46,10 +46,11 @@ COPY src/ src/
 RUN mkdir -p assets/fonts models data logs && \
     echo "Font placeholder for Docker" > assets/fonts/arial.ttf
 
-# Build the project
+# Build the project without LibTorch
 RUN cmake -B build \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE=/app/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    -DTORCH_AVAILABLE=OFF \
     -G Ninja && \
     cmake --build build --config Release
 
@@ -86,7 +87,7 @@ RUN mkdir -p models data logs && \
 
 # Copy pre-trained models if they exist (optional)
 RUN mkdir -p models
-COPY models* models/
+COPY models/ models/
 
 USER snakeai
 
@@ -102,3 +103,4 @@ LABEL org.opencontainers.image.title="SnakeAI-MLOps"
 LABEL org.opencontainers.image.description="Reinforcement Learning Snake Game with MLOps Pipeline"
 LABEL org.opencontainers.image.version="2.0"
 LABEL org.opencontainers.image.vendor="SnakeAI-MLOps Project"
+LABEL org.opencontainers.image.source="https://github.com/PranavMishra17/SnakeAI-MLOps"

@@ -1,12 +1,20 @@
 # Machine Learning Implementation Guide - SnakeAI-MLOps
 
-## Project Summary: Reinforcement Learning Snake AI
+## Overview
 
-SnakeAI-MLOps is a comprehensive reinforcement learning platform implementing multiple RL algorithms to train AI agents for the classic Snake game. Features GPU-accelerated training, production MLOps pipelines, model evaluation, and both Python training with C++ game integration.
+SnakeAI-MLOps is a comprehensive reinforcement learning game implementing multiple RL algorithms to train AI agents for the classic Snake game. The platform features GPU-accelerated training, production MLOps pipelines, model evaluation, and integration between Python training environments and C++ game implementation.
 
 **Core Techniques**: Q-Learning (tabular), DQN (deep Q-learning), PPO (policy optimization), Actor-Critic (value-policy hybrid)  
 **Key Features**: GPU acceleration, model comparison, C++ game integration, comprehensive evaluation  
 **Use Cases**: RL research, algorithm comparison, educational tool, production ML pipeline
+
+---
+
+[![CI/CD Pipeline](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml/badge.svg)](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml)
+[![Docker](https://img.shields.io/badge/Docker-Available-blue)](https://github.com/PranavMishra17/SnakeAI-MLOps/pkgs/container/snakeai-mlops)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-green)](https://pranavmishra17.github.io/SnakeAI-MLOps/)
+[![Release](https://img.shields.io/badge/Release-v2.0.0-orange)](https://github.com/PranavMishra17/SnakeAI-MLOps/releases)
+[![Project Readme](https://img.shields.io/badge/ML%20Documentation-Mathematical%20Foundations%20%7C%20Implementation%20Details%20%7C%20Performance%20Benchmarks-blue)](README.md)
 
 ---
 
@@ -29,9 +37,9 @@ SnakeAI-MLOps is a comprehensive reinforcement learning platform implementing mu
 
 ---
 
-## Overview
+## NOTE
 
-SnakeAI-MLOps is a comprehensive machine learning platform that implements multiple reinforcement learning algorithms for training AI agents to play Snake. The project features GPU-accelerated training, production MLOps pipelines, and extensive model evaluation capabilities.
+I have kept this file as referencea and a learnig guide, as I went thorugh learning about basic RL through this project.
 
 ### Implemented Techniques
 
@@ -894,39 +902,25 @@ vcpkg install sfml:x64-windows nlohmann-json:x64-windows spdlog:x64-windows
 cmake --preset windows-default
 ```
 
-### Adding New Features
-
-1. **New RL Algorithm**:
-   - Create `src/new_algorithm_trainer.py`
-   - Follow existing patterns from DQN/PPO
-   - Add to `train_models.py` orchestrator
-   - Add C++ placeholder in `MLAgents.cpp`
-
-2. **New Evaluation Metrics**:
-   - Update `model_evaluator.py`
-   - Add visualization to comparison plots
-   - Update evaluation reports
-
-3. **C++ Neural Network Support**:
-   - Integrate ONNX Runtime or LibTorch
-   - Convert trained PyTorch models to ONNX format
-   - Implement inference in C++ agents
-
-### Code Standards
-
-- Python: PEP 8, type hints, docstrings
-- C++: Google style guide, RAII, smart pointers
-- Git: Feature branches, descriptive commits
-- Testing: Unit tests for critical functions
-
----
-
-## Conclusion
-
-SnakeAI-MLOps provides a comprehensive platform for reinforcement learning research and development. With GPU-accelerated training, multiple RL algorithms including the advanced PPO method, and production-ready MLOps features, it serves as both an educational tool and a research platform.
-
-The modular architecture allows easy extension with new algorithms, and the multi-language implementation (Python for training, C++ for real-time inference) provides flexibility for different use cases.
 
 **Key Improvements**: Fixed state representation consistency (8D), optimized grid sizes (8-12), simplified network architectures (64 units), and working Actor-Critic evaluation make this a robust, high-performing RL platform.
 
-For questions or contributions, please refer to the project repository and documentation.
+---
+## Support & Contact
+
+Got questions? Running into issues? Want to collaborate?
+
+- 📧 **Email**: pmishr23@uic.edu
+- 🔗 **Portfolio**: [portfolio-pranav-mishra.vercel.app](https://portfolio-pranav-mishra.vercel.app)
+- 💼 **LinkedIn**: [linkedin.com/in/pranavgamedev](https://linkedin.com/in/pranavgamedev)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/PranavMishra17/SnakeAI-MLOps/issues)
+- 📂 **Repository**: [github.com/PranavMishra17/SnakeAI-MLOps](https://github.com/PranavMishra17/SnakeAI-MLOps)
+
+### Check Out My Other Work
+Visit my portfolio to see more projects involving machine learning, game development, and full-stack applications!
+
+---
+
+**License**: MIT License - Use it, modify it, learn from it!
+
+**Built with**: Python, PyTorch, C++, SFML, CMake, Docker, and lots of coffee ☕

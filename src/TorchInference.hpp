@@ -1,6 +1,10 @@
 #pragma once
+
+#ifdef TORCH_AVAILABLE
 #include <torch/torch.h>
 #include <torch/script.h>
+#endif
+
 #include <vector>
 #include <string>
 #include <memory>
@@ -10,10 +14,13 @@
 
 class TorchInference {
 protected:
+#ifdef TORCH_AVAILABLE
     torch::jit::script::Module m_model;
     torch::Device m_device;
+#endif
     bool m_isLoaded;
     std::string m_modelPath;
+    std::string m_lastError;
     
     // Convert EnhancedState to 8D vector matching Python training
     std::vector<float> convertToTrainingState(const EnhancedState& state) {
@@ -38,8 +45,16 @@ protected:
     }
     
 public:
-    TorchInference() : m_device(torch::kCPU), m_isLoaded(false) {
-        spdlog::debug("TorchInference: Base class constructor - using CPU device");
+    TorchInference() : 
+#ifdef TORCH_AVAILABLE
+        m_device(torch::kCPU),
+#endif
+        m_isLoaded(false) {
+        
+        spdlog::debug("TorchInference: Base class constructor");
+        
+#ifdef TORCH_AVAILABLE
+        spdlog::debug("TorchInference: LibTorch available - using CPU device");
         
         // Check if CUDA is available
         if (torch::cuda::is_available()) {
@@ -48,10 +63,23 @@ public:
         } else {
             spdlog::info("TorchInference: CUDA not available, using CPU");
         }
+#else
+        spdlog::warn("TorchInference: LibTorch not available - neural network features disabled");
+        m_lastError = "LibTorch not available in this build";
+#endif
     }
     
     virtual ~TorchInference() {
         spdlog::debug("TorchInference: Destructor called for model: {}", m_modelPath);
+    }
+    
+    // Check if LibTorch is available at compile time
+    bool isTorchAvailable() const {
+#ifdef TORCH_AVAILABLE
+        return true;
+#else
+        return false;
+#endif
     }
     
     virtual bool loadModel(const std::string& modelPath);
@@ -61,12 +89,15 @@ public:
     
     virtual bool isLoaded() const { return m_isLoaded; }
     const std::string& getModelPath() const { return m_modelPath; }
+    const std::string& getLastError() const { return m_lastError; }
     
     // Debug utilities
     void logModelInfo() const {
         if (m_isLoaded) {
             spdlog::info("TorchInference: Model loaded from {}", m_modelPath);
+#ifdef TORCH_AVAILABLE
             spdlog::info("TorchInference: Device: {}", m_device.str());
+#endif
         } else {
             spdlog::warn("TorchInference: No model loaded");
         }
@@ -74,6 +105,11 @@ public:
     
     // Test model with a variety of inputs
     bool runModelTests() {
+        if (!isTorchAvailable()) {
+            spdlog::error("TorchInference: Cannot run tests - LibTorch not available");
+            return false;
+        }
+        
         if (!m_isLoaded) {
             spdlog::error("TorchInference: Cannot run tests - model not loaded");
             return false;
@@ -115,6 +151,12 @@ public:
     bool loadModel(const std::string& modelPath) override {
         spdlog::info("DQNInference: Attempting to load DQN model from: {}", modelPath);
         
+        if (!isTorchAvailable()) {
+            spdlog::error("DQNInference: LibTorch not available - cannot load neural network models");
+            m_lastError = "LibTorch not available in this build";
+            return false;
+        }
+        
         // Try original path first
         if (TorchInference::loadModel(modelPath)) {
             spdlog::info("DQNInference: Successfully loaded DQN model");
@@ -145,7 +187,9 @@ private:
 // PPO-specific inference (loads policy network)
 class PPOInference : public TorchInference {
 private:
+#ifdef TORCH_AVAILABLE
     torch::jit::script::Module m_policyModel;
+#endif
     bool m_policyLoaded = false;
     
 public:
@@ -153,114 +197,9 @@ public:
         spdlog::debug("PPOInference: Constructor called");
     }
     
-    bool loadModel(const std::string& modelPath) override {
-        spdlog::info("PPOInference: Attempting to load PPO model from: {}", modelPath);
-        
-        // PPO creates separate _policy.pt and _value.pt files
-        std::vector<std::string> possiblePaths;
-        
-        // Try original path first
-        possiblePaths.push_back(modelPath);
-        
-        // Convert .pth to _policy.pt
-        if (modelPath.find(".pth") != std::string::npos) {
-            std::string policyPath = modelPath.substr(0, modelPath.find(".pth")) + "_policy.pt";
-            possiblePaths.push_back(policyPath);
-        }
-        
-        // Convert .pt to _policy.pt if not already
-        if (modelPath.find(".pt") != std::string::npos && modelPath.find("_policy") == std::string::npos) {
-            std::string policyPath = modelPath.substr(0, modelPath.find(".pt")) + "_policy.pt";
-            possiblePaths.push_back(policyPath);
-        }
-        
-        // Try base name + _policy.pt
-        std::filesystem::path basePath(modelPath);
-        std::string basePathStr = basePath.parent_path().string() + "/" + basePath.stem().string() + "_policy.pt";
-        possiblePaths.push_back(basePathStr);
-        
-        for (const auto& path : possiblePaths) {
-            spdlog::debug("PPOInference: Trying policy path: {}", path);
-            
-            if (!std::filesystem::exists(path)) {
-                spdlog::debug("PPOInference: Path does not exist: {}", path);
-                continue;
-            }
-            
-            try {
-                torch::NoGradGuard no_grad;
-                m_policyModel = torch::jit::load(path, m_device);
-                m_policyModel.eval();
-                m_policyLoaded = true;
-                m_modelPath = path;
-                m_isLoaded = true;
-                
-                spdlog::info("PPOInference: Successfully loaded policy model: {}", path);
-                
-                // Test with 8D input
-                std::vector<float> testInput(8, 0.0f);
-                auto testOutput = predict(testInput);
-                
-                if (!testOutput.empty()) {
-                    spdlog::info("PPOInference: Policy model validation successful");
-                    return true;
-                } else {
-                    spdlog::error("PPOInference: Policy model test failed");
-                    m_policyLoaded = false;
-                    m_isLoaded = false;
-                }
-                
-            } catch (const std::exception& e) {
-                spdlog::error("PPOInference: Failed to load policy model {}: {}", path, e.what());
-                m_policyLoaded = false;
-                m_isLoaded = false;
-            }
-        }
-        
-        spdlog::error("PPOInference: Failed to load PPO policy model from any path");
-        return false;
-    }
-    
-    std::vector<float> predict(const std::vector<float>& input) override {
-        if (!m_policyLoaded) {
-            spdlog::error("PPOInference: Policy model not loaded");
-            return {};
-        }
-        
-        try {
-            torch::NoGradGuard no_grad;
-            
-            if (input.size() != 8) {
-                spdlog::error("PPOInference: Expected 8D input, got {}D", input.size());
-                return {};
-            }
-            
-            torch::Tensor inputTensor = torch::from_blob(
-                const_cast<float*>(input.data()), 
-                {1, static_cast<long>(input.size())}, 
-                torch::kFloat32
-            ).to(m_device);
-            
-            std::vector<torch::jit::IValue> inputs;
-            inputs.push_back(inputTensor);
-            
-            at::Tensor output = m_policyModel.forward(inputs).toTensor();
-            output = output.to(torch::kCPU).contiguous();
-            
-            std::vector<float> result;
-            float* data_ptr = output.data_ptr<float>();
-            result.assign(data_ptr, data_ptr + output.numel());
-            
-            return result;
-            
-        } catch (const std::exception& e) {
-            spdlog::error("PPOInference: Prediction failed: {}", e.what());
-            return {};
-        }
-    }
-    
+    bool loadModel(const std::string& modelPath) override;
+    std::vector<float> predict(const std::vector<float>& input) override;
     bool isLoaded() const override { return m_policyLoaded; }
-    
     Direction getAction(const EnhancedState& state);
     
 private:
@@ -270,8 +209,10 @@ private:
 // Actor-Critic inference (loads both actor and critic)
 class ActorCriticInference : public TorchInference {
 private:
+#ifdef TORCH_AVAILABLE
     torch::jit::script::Module m_actorModel;
     torch::jit::script::Module m_criticModel;
+#endif
     bool m_actorLoaded = false;
     bool m_criticLoaded = false;
     
@@ -280,131 +221,9 @@ public:
         spdlog::debug("ActorCriticInference: Constructor called");
     }
     
-    bool loadModel(const std::string& modelPath) override {
-        spdlog::info("ActorCriticInference: Attempting to load Actor-Critic model from: {}", modelPath);
-        
-        // Actor-Critic creates separate _actor.pt and _critic.pt files
-        std::vector<std::pair<std::string, std::string>> possiblePaths;
-        
-        // Try original path variants
-        std::filesystem::path basePath(modelPath);
-        std::string basePathStr = basePath.parent_path().string() + "/" + basePath.stem().string();
-        
-        possiblePaths.push_back({basePathStr + "_actor.pt", basePathStr + "_critic.pt"});
-        
-        if (modelPath.find(".pth") != std::string::npos) {
-            std::string base = modelPath.substr(0, modelPath.find(".pth"));
-            possiblePaths.push_back({base + "_actor.pt", base + "_critic.pt"});
-        }
-        
-        if (modelPath.find(".pt") != std::string::npos) {
-            std::string base = modelPath.substr(0, modelPath.find(".pt"));
-            possiblePaths.push_back({base + "_actor.pt", base + "_critic.pt"});
-        }
-        
-        bool success = false;
-        
-        for (const auto& [actorPath, criticPath] : possiblePaths) {
-            spdlog::debug("ActorCriticInference: Trying actor: {}, critic: {}", actorPath, criticPath);
-            
-            // Load actor model (required)
-            if (std::filesystem::exists(actorPath)) {
-                try {
-                    torch::NoGradGuard no_grad;
-                    m_actorModel = torch::jit::load(actorPath, m_device);
-                    m_actorModel.eval();
-                    m_actorLoaded = true;
-                    m_modelPath = actorPath;
-                    m_isLoaded = true;
-                    spdlog::info("ActorCriticInference: Loaded actor model: {}", actorPath);
-                    success = true;
-                    break;
-                } catch (const std::exception& e) {
-                    spdlog::error("ActorCriticInference: Failed to load actor {}: {}", actorPath, e.what());
-                    m_actorLoaded = false;
-                }
-            } else {
-                spdlog::debug("ActorCriticInference: Actor file does not exist: {}", actorPath);
-            }
-        }
-        
-        if (!success) {
-            spdlog::error("ActorCriticInference: Failed to load actor model from any path");
-            return false;
-        }
-        
-        // Load critic model (optional for action selection)
-        for (const auto& [actorPath, criticPath] : possiblePaths) {
-            if (std::filesystem::exists(criticPath)) {
-                try {
-                    torch::NoGradGuard no_grad;
-                    m_criticModel = torch::jit::load(criticPath, m_device);
-                    m_criticModel.eval();
-                    m_criticLoaded = true;
-                    spdlog::info("ActorCriticInference: Loaded critic model: {}", criticPath);
-                    break;
-                } catch (const std::exception& e) {
-                    spdlog::error("ActorCriticInference: Failed to load critic {}: {}", criticPath, e.what());
-                    m_criticLoaded = false;
-                }
-            }
-        }
-        
-        if (success) {
-            // Test with 8D input
-            std::vector<float> testInput(8, 0.0f);
-            auto testOutput = predict(testInput);
-            
-            if (!testOutput.empty()) {
-                spdlog::info("ActorCriticInference: Actor-Critic validation successful");
-            } else {
-                spdlog::warn("ActorCriticInference: Actor model test failed, but model loaded");
-            }
-        }
-        
-        return success;
-    }
-    
-    std::vector<float> predict(const std::vector<float>& input) override {
-        if (!m_actorLoaded) {
-            spdlog::error("ActorCriticInference: Actor model not loaded");
-            return {};
-        }
-        
-        try {
-            torch::NoGradGuard no_grad;
-            
-            if (input.size() != 8) {
-                spdlog::error("ActorCriticInference: Expected 8D input, got {}D", input.size());
-                return {};
-            }
-            
-            torch::Tensor inputTensor = torch::from_blob(
-                const_cast<float*>(input.data()), 
-                {1, static_cast<long>(input.size())}, 
-                torch::kFloat32
-            ).to(m_device);
-            
-            std::vector<torch::jit::IValue> inputs;
-            inputs.push_back(inputTensor);
-            
-            at::Tensor output = m_actorModel.forward(inputs).toTensor();
-            output = output.to(torch::kCPU).contiguous();
-            
-            std::vector<float> result;
-            float* data_ptr = output.data_ptr<float>();
-            result.assign(data_ptr, data_ptr + output.numel());
-            
-            return result;
-            
-        } catch (const std::exception& e) {
-            spdlog::error("ActorCriticInference: Actor prediction failed: {}", e.what());
-            return {};
-        }
-    }
-    
+    bool loadModel(const std::string& modelPath) override;
+    std::vector<float> predict(const std::vector<float>& input) override;
     bool isLoaded() const override { return m_actorLoaded; }
-    
     Direction getAction(const EnhancedState& state);
     float getValue(const EnhancedState& state);
     

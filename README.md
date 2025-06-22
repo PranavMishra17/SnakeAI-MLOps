@@ -8,6 +8,7 @@ Build, train, and compare AI agents that learn to play Snake! This project imple
 [![Docker](https://img.shields.io/badge/Docker-Available-blue)](https://github.com/PranavMishra17/SnakeAI-MLOps/pkgs/container/snakeai-mlops)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-green)](https://pranavmishra17.github.io/SnakeAI-MLOps/)
 [![Release](https://img.shields.io/badge/Release-v2.0.0-orange)](https://github.com/PranavMishra17/SnakeAI-MLOps/releases)
+[![ML Documentation](https://img.shields.io/badge/ML%20Documentation-Mathematical%20Foundations%20%7C%20Implementation%20Details%20%7C%20Performance%20Benchmarks-blue)](ML.md)
 
 ![SnakeAI-MLOps System Overview](title.png)
 
@@ -17,7 +18,7 @@ Ever wondered which AI technique would be best at playing Snake? This project an
 
 - **Q-Learning**: Classic reinforcement learning with lookup tables
 - **Deep Q-Network (DQN)**: Neural networks that learn to predict the best moves
-- **Policy Gradient**: AI that directly learns a strategy for playing
+- **PPO**: AI that directly learns a strategy for playing
 - **Actor-Critic**: Combines the best of both worlds - strategy + value prediction
 
 You can train these AI agents from scratch, watch them learn and improve, then play against them or have them compete with each other!
@@ -70,7 +71,7 @@ Instead of a lookup table, this uses a neural network brain to figure out the be
 - Processes through neural network layers (256 → 128 neurons)
 - Outputs which direction to move
 
-### 3. Policy Gradient - The Strategy Learner
+### 3. PPO - The Strategy Learner
 This AI directly learns a playing strategy rather than trying to predict scores. It's like learning "in this type of situation, I should probably go left 70% of the time."
 
 **Cool Feature**: Uses entropy to encourage exploration - basically built-in curiosity!
@@ -448,8 +449,8 @@ python src/qlearning_trainer.py
 # Deep Q-Network
 python src/dqn_trainer.py
 
-# Policy Gradient
-python src/policy_gradient_trainer.py
+# Policy Gradient - PPO
+python src/ppo_trainer.py
 
 # Actor-Critic  
 python src/actor_critic_trainer.py
@@ -481,10 +482,10 @@ models/
 │   ├── dqn_aggressive.pth          # DQN models
 │   ├── dqn_balanced.pth
 │   └── dqn_conservative.pth
-├── policy_gradient/
-│   ├── pg_aggressive.pth           # Policy Gradient models
-│   ├── pg_balanced.pth
-│   └── pg_conservative.pth
+├── ppo/
+│   ├── ppo_aggressive.pth           # Policy Gradient models
+│   ├── ppo_balanced.pth
+│   └── ppo_conservative.pth
 └── actor_critic/
     ├── ac_aggressive.pth           # Actor-Critic models
     ├── ac_balanced.pth
@@ -532,11 +533,11 @@ Console Output:
 🏆 MODEL EVALUATION SUMMARY
 ═══════════════════════════════════
 📊 Top 5 Performing Models:
- 1. actor_critic    ac_conservative        Avg:  18.45 Max:  28
- 2. dqn            dqn_balanced            Avg:  17.23 Max:  25
- 3. policy_gradient pg_conservative        Avg:  16.78 Max:  24
- 4. qlearning      qtable_conservative     Avg:  15.92 Max:  22
- 5. actor_critic   ac_balanced             Avg:  15.34 Max:  21
+ 1. actor_critic   ac_conservative         Avg:  18.45  Max:  28
+ 2. dqn            dqn_balanced            Avg:  17.23  Max:  25
+ 3. ppo            pg_conservative         Avg:  16.78  Max:  24
+ 4. qlearning      qtable_conservative     Avg:  15.92  Max:  22
+ 5. actor_critic   ac_balanced             Avg:  15.34  Max:  21
 ```
 
 ---

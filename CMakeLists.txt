@@ -35,32 +35,8 @@ set(CORE_SOURCES
     src/StatsGallery.cpp
     src/Settings.cpp
     src/HowToPlay.cpp
+    src/TorchInference.cpp
 )
-
-# Conditional LibTorch setup
-if(TORCH_AVAILABLE)
-    # Try to find LibTorch
-    set(CMAKE_PREFIX_PATH "C:/libtorch")
-    set(Torch_DIR "C:/libtorch/share/cmake/Torch")
-    
-    find_package(Torch QUIET)
-    find_package(CUDAToolkit QUIET)
-    
-    if(Torch_FOUND)
-        message(STATUS "LibTorch found - neural network support enabled")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-        list(APPEND CORE_SOURCES src/TorchInference.cpp)
-        set(TORCH_AVAILABLE_ACTUAL ON)
-    else()
-        message(STATUS "LibTorch not found - continuing without neural network support")
-        list(APPEND CORE_SOURCES src/TorchInference.cpp)
-        set(TORCH_AVAILABLE_ACTUAL OFF)
-    endif()
-else()
-    message(STATUS "LibTorch support disabled - building without neural networks")
-    list(APPEND CORE_SOURCES src/TorchInference.cpp)
-    set(TORCH_AVAILABLE_ACTUAL OFF)
-endif()
 
 # Create executable with determined sources
 add_executable(${PROJECT_NAME} ${CORE_SOURCES})
@@ -74,15 +50,47 @@ target_link_libraries(${PROJECT_NAME}
     spdlog::spdlog
 )
 
-# Set compile definitions
-if(TORCH_AVAILABLE_ACTUAL AND Torch_FOUND)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE TORCH_AVAILABLE)
-    target_link_libraries(${PROJECT_NAME} ${TORCH_LIBRARIES})
+# Conditional LibTorch setup
+set(TORCH_AVAILABLE_ACTUAL OFF)
+
+if(TORCH_AVAILABLE)
+    # Try to find LibTorch
+    set(CMAKE_PREFIX_PATH "C:/libtorch")
+    set(Torch_DIR "C:/libtorch/share/cmake/Torch")
     
-    if(CUDAToolkit_FOUND)
-        target_link_libraries(${PROJECT_NAME} CUDA::cudart)
-        target_compile_definitions(${PROJECT_NAME} PRIVATE CUDA_AVAILABLE)
+    find_package(Torch QUIET)
+    find_package(CUDAToolkit QUIET)
+    
+    if(Torch_FOUND)
+        message(STATUS "LibTorch found - neural network support enabled")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+        set(TORCH_AVAILABLE_ACTUAL ON)
+        
+        # Define the TORCH_AVAILABLE preprocessor flag
+        target_compile_definitions(${PROJECT_NAME} PRIVATE TORCH_AVAILABLE)
+        target_link_libraries(${PROJECT_NAME} ${TORCH_LIBRARIES})
+        
+        if(CUDAToolkit_FOUND)
+            target_link_libraries(${PROJECT_NAME} CUDA::cudart)
+            target_compile_definitions(${PROJECT_NAME} PRIVATE CUDA_AVAILABLE)
+            message(STATUS "CUDA support enabled")
+        endif()
+        
+    else()
+        message(STATUS "LibTorch not found - continuing without neural network support")
+        set(TORCH_AVAILABLE_ACTUAL OFF)
     endif()
+else()
+    message(STATUS "LibTorch support disabled by TORCH_AVAILABLE=OFF")
+    set(TORCH_AVAILABLE_ACTUAL OFF)
+endif()
+
+# Print final configuration
+if(TORCH_AVAILABLE_ACTUAL)
+    message(STATUS "Final configuration: LibTorch ENABLED")
+else()
+    message(STATUS "Final configuration: LibTorch DISABLED")
+    message(STATUS "Note: Neural network agents will use fallback behavior")
 endif()
 
 # Suppress warnings for MSVC
@@ -100,6 +108,7 @@ if(MSVC)
             add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 ${TORCH_DLLS} $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+            message(STATUS "Will copy LibTorch DLLs to output directory")
         endif()
     endif()
 endif()
@@ -113,3 +122,9 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/models $<TARGET_FILE_DIR:${PROJECT_NAME}>/models)
+
+# Add a custom target to check LibTorch status
+add_custom_target(check_torch
+    COMMAND ${CMAKE_COMMAND} -E echo "LibTorch status: ${TORCH_AVAILABLE_ACTUAL}"
+    COMMENT "Checking LibTorch configuration"
+)

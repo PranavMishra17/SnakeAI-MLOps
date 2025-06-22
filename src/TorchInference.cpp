@@ -3,7 +3,7 @@
 #include <random>
 #include <spdlog/spdlog.h>
 
-// Helper function to normalize paths for LibTorch
+// Helper function to normalize paths for LibTorch (only when available)
 std::string normalizePath(const std::string& path) {
     std::filesystem::path fsPath(path);
     std::string normalized = fsPath.string();
@@ -25,13 +25,21 @@ std::string normalizePath(const std::string& path) {
 bool TorchInference::loadModel(const std::string& modelPath) {
     spdlog::info("TorchInference: Attempting to load model from: {}", modelPath);
     
+    if (!isTorchAvailable()) {
+        m_lastError = "LibTorch not available in this build - cannot load neural network models";
+        spdlog::error("TorchInference: {}", m_lastError);
+        return false;
+    }
+    
     if (modelPath.empty()) {
-        spdlog::error("TorchInference: Empty model path provided");
+        m_lastError = "Empty model path provided";
+        spdlog::error("TorchInference: {}", m_lastError);
         return false;
     }
     
     if (!std::filesystem::exists(modelPath)) {
-        spdlog::error("TorchInference: Model file not found: {}", modelPath);
+        m_lastError = "Model file not found: " + modelPath;
+        spdlog::error("TorchInference: {}", m_lastError);
         return false;
     }
     
@@ -39,10 +47,12 @@ bool TorchInference::loadModel(const std::string& modelPath) {
     spdlog::info("TorchInference: Model file exists, size: {} bytes", fileSize);
     
     if (fileSize == 0) {
-        spdlog::error("TorchInference: Model file is empty: {}", modelPath);
+        m_lastError = "Model file is empty: " + modelPath;
+        spdlog::error("TorchInference: {}", m_lastError);
         return false;
     }
     
+#ifdef TORCH_AVAILABLE
     // Normalize the path for LibTorch
     std::string normalizedPath = normalizePath(modelPath);
     spdlog::info("TorchInference: Normalized path: {}", normalizedPath);
@@ -61,6 +71,7 @@ bool TorchInference::loadModel(const std::string& modelPath) {
         
         m_isLoaded = true;
         m_modelPath = normalizedPath;
+        m_lastError.clear();
         
         spdlog::info("TorchInference: Successfully loaded model from {}", normalizedPath);
         
@@ -107,7 +118,8 @@ bool TorchInference::loadModel(const std::string& modelPath) {
                 }
                 
                 if (!hasValidOutput) {
-                    spdlog::error("TorchInference: Model outputs invalid values (NaN/Inf)");
+                    m_lastError = "Model outputs invalid values (NaN/Inf)";
+                    spdlog::error("TorchInference: {}", m_lastError);
                     m_isLoaded = false;
                     return false;
                 }
@@ -117,7 +129,8 @@ bool TorchInference::loadModel(const std::string& modelPath) {
                 spdlog::warn("TorchInference: Model output size {} < expected 4", testOutput.size());
             }
         } else {
-            spdlog::error("TorchInference: Model test inference failed - empty output");
+            m_lastError = "Model test inference failed - empty output";
+            spdlog::error("TorchInference: {}", m_lastError);
             m_isLoaded = false;
             return false;
         }
@@ -125,6 +138,7 @@ bool TorchInference::loadModel(const std::string& modelPath) {
         return true;
         
     } catch (const c10::Error& e) {
+        m_lastError = "LibTorch c10::Error: " + std::string(e.what());
         spdlog::error("TorchInference: LibTorch c10::Error loading {}: {}", normalizedPath, e.what());
         spdlog::error("TorchInference: Error type: c10::Error - this usually indicates model format issues");
         spdlog::error("TorchInference: Possible causes:");
@@ -134,42 +148,60 @@ bool TorchInference::loadModel(const std::string& modelPath) {
         m_isLoaded = false;
         return false;
     } catch (const torch::jit::ErrorReport& e) {
+        m_lastError = "LibTorch JIT ErrorReport: " + std::string(e.what());
         spdlog::error("TorchInference: LibTorch JIT ErrorReport loading {}: {}", normalizedPath, e.what());
         spdlog::error("TorchInference: Error type: JIT ErrorReport - model compilation/format issue");
         m_isLoaded = false;
         return false;
     } catch (const std::runtime_error& e) {
+        m_lastError = "Runtime error: " + std::string(e.what());
         spdlog::error("TorchInference: Runtime error loading {}: {}", normalizedPath, e.what());
         spdlog::error("TorchInference: Error type: Runtime error - check model compatibility");
         m_isLoaded = false;
         return false;
     } catch (const std::exception& e) {
+        m_lastError = "Standard exception: " + std::string(e.what());
         spdlog::error("TorchInference: Standard exception loading {}: {}", normalizedPath, e.what());
         spdlog::error("TorchInference: Error type: std::exception");
         m_isLoaded = false;
         return false;
     } catch (...) {
+        m_lastError = "Unknown exception occurred while loading model";
         spdlog::error("TorchInference: Unknown exception loading {}", normalizedPath);
         spdlog::error("TorchInference: Error type: Unknown exception");
         m_isLoaded = false;
         return false;
     }
+#else
+    m_lastError = "LibTorch not available in this build";
+    spdlog::error("TorchInference: {}", m_lastError);
+    return false;
+#endif
 }
 
 std::vector<float> TorchInference::predict(const std::vector<float>& input) {
+    if (!isTorchAvailable()) {
+        m_lastError = "LibTorch not available in this build";
+        spdlog::error("TorchInference: predict() called but LibTorch not available");
+        return {};
+    }
+    
     if (!m_isLoaded) {
+        m_lastError = "Model not loaded";
         spdlog::error("TorchInference: predict() called but model not loaded");
         return {};
     }
     
     spdlog::debug("TorchInference: predict() called with input size: {}", input.size());
     
+#ifdef TORCH_AVAILABLE
     try {
         torch::NoGradGuard no_grad;
         
         // Validate input size (should be 8D)
         if (input.size() != 8) {
-            spdlog::error("TorchInference: Expected 8D input, got {}D", input.size());
+            m_lastError = "Expected 8D input, got " + std::to_string(input.size()) + "D";
+            spdlog::error("TorchInference: {}", m_lastError);
             return {};
         }
         
@@ -213,21 +245,31 @@ std::vector<float> TorchInference::predict(const std::vector<float>& input) {
                          result[0], result[1], result[2], result[3]);
         }
         
+        m_lastError.clear();
         return result;
         
     } catch (const c10::Error& e) {
-        spdlog::error("TorchInference: LibTorch c10::Error during prediction: {}", e.what());
+        m_lastError = "LibTorch c10::Error during prediction: " + std::string(e.what());
+        spdlog::error("TorchInference: {}", m_lastError);
         return {};
     } catch (const std::runtime_error& e) {
-        spdlog::error("TorchInference: Runtime error during prediction: {}", e.what());
+        m_lastError = "Runtime error during prediction: " + std::string(e.what());
+        spdlog::error("TorchInference: {}", m_lastError);
         return {};
     } catch (const std::exception& e) {
-        spdlog::error("TorchInference: Exception during prediction: {}", e.what());
+        m_lastError = "Exception during prediction: " + std::string(e.what());
+        spdlog::error("TorchInference: {}", m_lastError);
         return {};
     } catch (...) {
-        spdlog::error("TorchInference: Unknown exception during prediction");
+        m_lastError = "Unknown exception during prediction";
+        spdlog::error("TorchInference: {}", m_lastError);
         return {};
     }
+#else
+    m_lastError = "LibTorch not available in this build";
+    spdlog::error("TorchInference: {}", m_lastError);
+    return {};
+#endif
 }
 
 int TorchInference::predictAction(const std::vector<float>& input) {
@@ -270,12 +312,12 @@ Direction DQNInference::getAction(const EnhancedState& state, float epsilon) {
         return randomAction;
     }
     
-    if (!isLoaded()) {
-        spdlog::debug("DQNInference: Model not loaded, using fallback");
+    if (!isLoaded() || !isTorchAvailable()) {
+        spdlog::debug("DQNInference: Model not loaded or LibTorch not available, using fallback");
         return fallbackAction(state);
     }
     
-    // CRITICAL FIX: Use 8D state representation
+    // Use 8D state representation
     auto stateVector = convertToTrainingState(state);
     spdlog::debug("DQNInference: State converted to 8D vector");
     
@@ -340,15 +382,152 @@ Direction DQNInference::fallbackAction(const EnhancedState& state) {
 }
 
 // PPOInference Implementation
+bool PPOInference::loadModel(const std::string& modelPath) {
+    spdlog::info("PPOInference: Attempting to load PPO model from: {}", modelPath);
+    
+    if (!isTorchAvailable()) {
+        m_lastError = "LibTorch not available in this build";
+        spdlog::error("PPOInference: {}", m_lastError);
+        return false;
+    }
+    
+#ifdef TORCH_AVAILABLE
+    // PPO creates separate _policy.pt and _value.pt files
+    std::vector<std::string> possiblePaths;
+    
+    // Try original path first
+    possiblePaths.push_back(modelPath);
+    
+    // Convert .pth to _policy.pt
+    if (modelPath.find(".pth") != std::string::npos) {
+        std::string policyPath = modelPath.substr(0, modelPath.find(".pth")) + "_policy.pt";
+        possiblePaths.push_back(policyPath);
+    }
+    
+    // Convert .pt to _policy.pt if not already
+    if (modelPath.find(".pt") != std::string::npos && modelPath.find("_policy") == std::string::npos) {
+        std::string policyPath = modelPath.substr(0, modelPath.find(".pt")) + "_policy.pt";
+        possiblePaths.push_back(policyPath);
+    }
+    
+    // Try base name + _policy.pt
+    std::filesystem::path basePath(modelPath);
+    std::string basePathStr = basePath.parent_path().string() + "/" + basePath.stem().string() + "_policy.pt";
+    possiblePaths.push_back(basePathStr);
+    
+    for (const auto& path : possiblePaths) {
+        spdlog::debug("PPOInference: Trying policy path: {}", path);
+        
+        if (!std::filesystem::exists(path)) {
+            spdlog::debug("PPOInference: Path does not exist: {}", path);
+            continue;
+        }
+        
+        try {
+            torch::NoGradGuard no_grad;
+            m_policyModel = torch::jit::load(path, m_device);
+            m_policyModel.eval();
+            m_policyLoaded = true;
+            m_modelPath = path;
+            m_isLoaded = true;
+            m_lastError.clear();
+            
+            spdlog::info("PPOInference: Successfully loaded policy model: {}", path);
+            
+            // Test with 8D input
+            std::vector<float> testInput(8, 0.0f);
+            auto testOutput = predict(testInput);
+            
+            if (!testOutput.empty()) {
+                spdlog::info("PPOInference: Policy model validation successful");
+                return true;
+            } else {
+                spdlog::error("PPOInference: Policy model test failed");
+                m_policyLoaded = false;
+                m_isLoaded = false;
+            }
+            
+        } catch (const std::exception& e) {
+            m_lastError = "Failed to load policy model: " + std::string(e.what());
+            spdlog::error("PPOInference: Failed to load policy model {}: {}", path, e.what());
+            m_policyLoaded = false;
+            m_isLoaded = false;
+        }
+    }
+    
+    m_lastError = "Failed to load PPO policy model from any path";
+    spdlog::error("PPOInference: {}", m_lastError);
+    return false;
+#else
+    m_lastError = "LibTorch not available in this build";
+    spdlog::error("PPOInference: {}", m_lastError);
+    return false;
+#endif
+}
+
+std::vector<float> PPOInference::predict(const std::vector<float>& input) {
+    if (!isTorchAvailable()) {
+        m_lastError = "LibTorch not available in this build";
+        spdlog::error("PPOInference: predict() called but LibTorch not available");
+        return {};
+    }
+    
+    if (!m_policyLoaded) {
+        m_lastError = "Policy model not loaded";
+        spdlog::error("PPOInference: {}", m_lastError);
+        return {};
+    }
+    
+#ifdef TORCH_AVAILABLE
+    try {
+        torch::NoGradGuard no_grad;
+        
+        if (input.size() != 8) {
+            m_lastError = "Expected 8D input, got " + std::to_string(input.size()) + "D";
+            spdlog::error("PPOInference: {}", m_lastError);
+            return {};
+        }
+        
+        torch::Tensor inputTensor = torch::from_blob(
+            const_cast<float*>(input.data()), 
+            {1, static_cast<long>(input.size())}, 
+            torch::kFloat32
+        ).to(m_device);
+        
+        std::vector<torch::jit::IValue> inputs;
+        inputs.push_back(inputTensor);
+        
+        at::Tensor output = m_policyModel.forward(inputs).toTensor();
+        output = output.to(torch::kCPU).contiguous();
+        
+        std::vector<float> result;
+        float* data_ptr = output.data_ptr<float>();
+        result.assign(data_ptr, data_ptr + output.numel());
+        
+        m_lastError.clear();
+        return result;
+        
+    } catch (const std::exception& e) {
+        m_lastError = "Prediction failed: " + std::string(e.what());
+        spdlog::error("PPOInference: {}", m_lastError);
+        return {};
+    }
+#else
+    m_lastError = "LibTorch not available in this build";
+    spdlog::error("PPOInference: {}", m_lastError);
+    return {};
+#endif
+}
+
 Direction PPOInference::getAction(const EnhancedState& state) {
     spdlog::debug("PPOInference: getAction() called");
     
-    if (!isLoaded()) {
-        spdlog::debug("PPOInference: Model not loaded, using fallback");
+    if (!isLoaded() || !isTorchAvailable()) {
+        spdlog::debug("PPOInference: Model not loaded or LibTorch not available, using fallback");
         return fallbackAction(state);
     }
     
-    // CRITICAL FIX: Use 8D state representation
+    // Use 8D state representation
     auto stateVector = convertToTrainingState(state);
     spdlog::debug("PPOInference: State converted to 8D vector");
     
@@ -457,15 +636,168 @@ Direction PPOInference::fallbackAction(const EnhancedState& state) {
 }
 
 // ActorCriticInference Implementation
+bool ActorCriticInference::loadModel(const std::string& modelPath) {
+    spdlog::info("ActorCriticInference: Attempting to load Actor-Critic model from: {}", modelPath);
+    
+    if (!isTorchAvailable()) {
+        m_lastError = "LibTorch not available in this build";
+        spdlog::error("ActorCriticInference: {}", m_lastError);
+        return false;
+    }
+    
+#ifdef TORCH_AVAILABLE
+    // Actor-Critic creates separate _actor.pt and _critic.pt files
+    std::vector<std::pair<std::string, std::string>> possiblePaths;
+    
+    // Try original path variants
+    std::filesystem::path basePath(modelPath);
+    std::string basePathStr = basePath.parent_path().string() + "/" + basePath.stem().string();
+    
+    possiblePaths.push_back({basePathStr + "_actor.pt", basePathStr + "_critic.pt"});
+    
+    if (modelPath.find(".pth") != std::string::npos) {
+        std::string base = modelPath.substr(0, modelPath.find(".pth"));
+        possiblePaths.push_back({base + "_actor.pt", base + "_critic.pt"});
+    }
+    
+    if (modelPath.find(".pt") != std::string::npos) {
+        std::string base = modelPath.substr(0, modelPath.find(".pt"));
+        possiblePaths.push_back({base + "_actor.pt", base + "_critic.pt"});
+    }
+    
+    bool success = false;
+    
+    for (const auto& [actorPath, criticPath] : possiblePaths) {
+        spdlog::debug("ActorCriticInference: Trying actor: {}, critic: {}", actorPath, criticPath);
+        
+        // Load actor model (required)
+        if (std::filesystem::exists(actorPath)) {
+            try {
+                torch::NoGradGuard no_grad;
+                m_actorModel = torch::jit::load(actorPath, m_device);
+                m_actorModel.eval();
+                m_actorLoaded = true;
+                m_modelPath = actorPath;
+                m_isLoaded = true;
+                m_lastError.clear();
+                spdlog::info("ActorCriticInference: Loaded actor model: {}", actorPath);
+                success = true;
+                break;
+            } catch (const std::exception& e) {
+                spdlog::error("ActorCriticInference: Failed to load actor {}: {}", actorPath, e.what());
+                m_actorLoaded = false;
+            }
+        } else {
+            spdlog::debug("ActorCriticInference: Actor file does not exist: {}", actorPath);
+        }
+    }
+    
+    if (!success) {
+        m_lastError = "Failed to load actor model from any path";
+        spdlog::error("ActorCriticInference: {}", m_lastError);
+        return false;
+    }
+    
+    // Load critic model (optional for action selection)
+    for (const auto& [actorPath, criticPath] : possiblePaths) {
+        if (std::filesystem::exists(criticPath)) {
+            try {
+                torch::NoGradGuard no_grad;
+                m_criticModel = torch::jit::load(criticPath, m_device);
+                m_criticModel.eval();
+                m_criticLoaded = true;
+                spdlog::info("ActorCriticInference: Loaded critic model: {}", criticPath);
+                break;
+            } catch (const std::exception& e) {
+                spdlog::error("ActorCriticInference: Failed to load critic {}: {}", criticPath, e.what());
+                m_criticLoaded = false;
+            }
+        }
+    }
+    
+    if (success) {
+        // Test with 8D input
+        std::vector<float> testInput(8, 0.0f);
+        auto testOutput = predict(testInput);
+        
+        if (!testOutput.empty()) {
+            spdlog::info("ActorCriticInference: Actor-Critic validation successful");
+        } else {
+            spdlog::warn("ActorCriticInference: Actor model test failed, but model loaded");
+        }
+    }
+    
+    return success;
+#else
+    m_lastError = "LibTorch not available in this build";
+    spdlog::error("ActorCriticInference: {}", m_lastError);
+    return false;
+#endif
+}
+
+std::vector<float> ActorCriticInference::predict(const std::vector<float>& input) {
+    if (!isTorchAvailable()) {
+        m_lastError = "LibTorch not available in this build";
+        spdlog::error("ActorCriticInference: predict() called but LibTorch not available");
+        return {};
+    }
+    
+    if (!m_actorLoaded) {
+        m_lastError = "Actor model not loaded";
+        spdlog::error("ActorCriticInference: {}", m_lastError);
+        return {};
+    }
+    
+#ifdef TORCH_AVAILABLE
+    try {
+        torch::NoGradGuard no_grad;
+        
+        if (input.size() != 8) {
+            m_lastError = "Expected 8D input, got " + std::to_string(input.size()) + "D";
+            spdlog::error("ActorCriticInference: {}", m_lastError);
+            return {};
+        }
+        
+        torch::Tensor inputTensor = torch::from_blob(
+            const_cast<float*>(input.data()), 
+            {1, static_cast<long>(input.size())}, 
+            torch::kFloat32
+        ).to(m_device);
+        
+        std::vector<torch::jit::IValue> inputs;
+        inputs.push_back(inputTensor);
+        
+        at::Tensor output = m_actorModel.forward(inputs).toTensor();
+        output = output.to(torch::kCPU).contiguous();
+        
+        std::vector<float> result;
+        float* data_ptr = output.data_ptr<float>();
+        result.assign(data_ptr, data_ptr + output.numel());
+        
+        m_lastError.clear();
+        return result;
+        
+    } catch (const std::exception& e) {
+        m_lastError = "Actor prediction failed: " + std::string(e.what());
+        spdlog::error("ActorCriticInference: {}", m_lastError);
+        return {};
+    }
+#else
+    m_lastError = "LibTorch not available in this build";
+    spdlog::error("ActorCriticInference: {}", m_lastError);
+    return {};
+#endif
+}
+
 Direction ActorCriticInference::getAction(const EnhancedState& state) {
     spdlog::debug("ActorCriticInference: getAction() called");
     
-    if (!isLoaded()) {
-        spdlog::debug("ActorCriticInference: Model not loaded, using fallback");
+    if (!isLoaded() || !isTorchAvailable()) {
+        spdlog::debug("ActorCriticInference: Model not loaded or LibTorch not available, using fallback");
         return fallbackAction(state);
     }
     
-    // CRITICAL FIX: Use 8D state representation
+    // Use 8D state representation
     auto stateVector = convertToTrainingState(state);
     spdlog::debug("ActorCriticInference: State converted to 8D vector");
     
@@ -518,17 +850,21 @@ Direction ActorCriticInference::getAction(const EnhancedState& state) {
 float ActorCriticInference::getValue(const EnhancedState& state) {
     spdlog::debug("ActorCriticInference: getValue() called");
     
+    if (!isTorchAvailable()) {
+        spdlog::debug("ActorCriticInference: LibTorch not available, returning 0.0");
+        return 0.0f;
+    }
+    
     if (!m_criticLoaded) {
         spdlog::debug("ActorCriticInference: Critic not loaded, returning 0.0");
         return 0.0f;
     }
     
+#ifdef TORCH_AVAILABLE
     try {
-        // CRITICAL FIX: Use 8D state representation
+        // Use 8D state representation
         auto stateVector = convertToTrainingState(state);
         spdlog::debug("ActorCriticInference: State converted for value estimation");
-        
-        std::string normalizedPath = normalizePath(m_modelPath);
         
         torch::NoGradGuard no_grad;
         
@@ -553,6 +889,10 @@ float ActorCriticInference::getValue(const EnhancedState& state) {
         spdlog::error("ActorCriticInference: Value prediction failed: {}", e.what());
         return 0.0f;
     }
+#else
+    spdlog::debug("ActorCriticInference: LibTorch not available, returning 0.0");
+    return 0.0f;
+#endif
 }
 
 Direction ActorCriticInference::fallbackAction(const EnhancedState& state) {

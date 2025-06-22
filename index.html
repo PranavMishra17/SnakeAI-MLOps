@@ -3,8 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SnakeAI-MLOps | Reinforcement Learning Snake Game</title>
+    <title>SnakeAI-MLOps | Multi-Agent Reinforcement Learning Platform</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Inter:wght@300;400;500;600&display=swap');
+        
+        :root {
+            --primary: #0a0a0a;
+            --secondary: #1a1a1a;
+            --accent: #00ff88;
+            --accent-dim: #00cc6a;
+            --accent-yellow: #ffeb3b;
+            --text: #ffffff;
+            --text-dim: #a0a0a0;
+            --border: #333;
+            --glow: rgba(0, 255, 136, 0.3);
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -12,188 +26,414 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', sans-serif;
+            background: var(--primary);
+            color: var(--text);
+            overflow-x: hidden;
             line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 0 20px;
         }
         
+        /* Header */
         header {
+            position: relative;
+            padding: 40px 0 60px;
             text-align: center;
-            padding: 60px 0;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            margin-bottom: 40px;
-            border-radius: 20px;
         }
         
-        h1 {
-            font-size: 3.5em;
+        .header-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 350px;
+            background: linear-gradient(180deg, var(--secondary) 0%, var(--primary) 100%);
+            z-index: -1;
+        }
+        
+        .title-image {
+            max-width: 50%;
+            height: auto;
+            margin-bottom: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 255, 136, 0.2);
+        }
+        
+        .project-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 3.5rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 15px;
+            text-shadow: 0 0 20px var(--glow);
+        }
+        
+        .project-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-dim);
             margin-bottom: 20px;
-            color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
         }
         
-        .subtitle {
-            font-size: 1.3em;
-            color: #f0f0f0;
+        .author-info {
+            font-size: 1rem;
+            color: var(--text);
             margin-bottom: 30px;
         }
         
-        .badges {
+        .author-name {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        .header-links {
             display: flex;
             justify-content: center;
-            gap: 10px;
+            gap: 20px;
             flex-wrap: wrap;
         }
         
-        .badge {
-            background: #28a745;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: bold;
+        .header-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: transparent;
+            border: 2px solid var(--accent);
+            color: var(--accent);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
         }
         
+        .header-btn:hover {
+            background: var(--accent);
+            color: var(--primary);
+            box-shadow: 0 0 20px var(--glow);
+        }
+        
+        /* Main Content */
+        main {
+            padding: 40px 0;
+        }
+        
+        /* Section Styles */
         .section {
-            background: white;
-            margin: 30px 0;
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        
-        h2 {
-            color: #2c3e50;
             margin-bottom: 20px;
-            font-size: 2.2em;
-            border-bottom: 3px solid #3498db;
-            padding-bottom: 10px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--secondary);
+            overflow: hidden;
         }
         
-        h3 {
-            color: #34495e;
-            margin: 25px 0 15px 0;
-            font-size: 1.4em;
+        .section-header {
+            padding: 20px 30px;
+            cursor: pointer;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            background: linear-gradient(90deg, var(--secondary) 0%, rgba(0, 255, 136, 0.05) 100%);
+            border-bottom: 1px solid var(--border);
+            transition: all 0.3s ease;
         }
         
-        .demo-videos {
+        .section-header:hover {
+            background: linear-gradient(90deg, var(--secondary) 0%, rgba(0, 255, 136, 0.1) 100%);
+        }
+        
+        .section-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--accent);
+            flex-grow: 1;
+        }
+        
+        .section-toggle {
+            font-size: 1.5rem;
+            color: var(--text-dim);
+            transition: transform 0.3s ease;
+        }
+        
+        .section-content {
+            padding: 0 30px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+        
+        .section.open .section-content {
+            padding: 30px;
+            max-height: 3000px;
+        }
+        
+        .section.open .section-toggle {
+            transform: rotate(180deg);
+        }
+        
+        /* Demo Section */
+        .demo-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 30px;
-            margin: 30px 0;
+            margin: 20px 0;
         }
         
-        .video-container {
+        .demo-item {
             text-align: center;
-            background: #f8f9fa;
             padding: 20px;
-            border-radius: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
         }
         
-        .video-placeholder {
+        .demo-placeholder {
             width: 100%;
             height: 250px;
-            background: #e9ecef;
-            border: 2px dashed #6c757d;
+            background: var(--primary);
+            border: 2px dashed var(--border);
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 8px;
             margin-bottom: 15px;
+            color: var(--text-dim);
         }
         
-        .features-grid {
+        /* Models Grid */
+        .models-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 25px;
-            margin: 30px 0;
+            margin: 20px 0;
         }
         
-        .feature-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 25px;
-            border-radius: 10px;
+        .model-card {
+            background: var(--primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 30px;
+            transition: all 0.3s ease;
+        }
+        
+        .model-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
+        }
+        
+        .model-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.3rem;
+            color: var(--accent);
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .model-desc {
+            color: var(--text-dim);
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .model-details {
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+        
+        .model-details ul {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+        
+        .model-details li {
+            margin: 5px 0;
+        }
+        
+        /* Architecture Diagram */
+        .arch-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 30px;
+            background: var(--primary);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        
+        .arch-layer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        .arch-box {
+            padding: 15px 25px;
+            background: var(--secondary);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
             text-align: center;
+            min-width: 120px;
         }
         
-        .feature-icon {
-            font-size: 2.5em;
+        .arch-arrow {
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+        
+        .arch-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        /* Q-Table Visualization */
+        .qtable-container {
+            background: var(--primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .qtable {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+        
+        .qtable th,
+        .qtable td {
+            padding: 8px 12px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        
+        .qtable th {
+            background: var(--accent);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .qtable td {
+            background: var(--secondary);
+        }
+        
+        .qtable .state-col {
+            text-align: left;
+            font-size: 0.7rem;
+        }
+        
+        /* Features List */
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 20px;
+            background: var(--primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        
+        .feature-text {
+            flex-grow: 1;
+        }
+        
+        .feature-title {
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+        
+        .feature-desc {
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+        
+        /* Content formatting */
+        p {
             margin-bottom: 15px;
         }
         
-        .tech-stack {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin: 20px 0;
+        h3 {
+            color: var(--accent-yellow);
+            margin: 25px 0 15px 0;
+            font-size: 1.2rem;
         }
         
-        .tech-item {
-            background: #e74c3c;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-weight: bold;
+        ul {
+            margin: 15px 0;
+            padding-left: 20px;
         }
         
-        .architecture {
-            text-align: center;
-            margin: 30px 0;
+        li {
+            margin: 8px 0;
+            color: var(--text-dim);
         }
         
-        .code-block {
-            background: #2c3e50;
-            color: #ecf0f1;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            overflow-x: auto;
-        }
-        
-        .btn {
-            display: inline-block;
-            background: #3498db;
-            color: white;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 25px;
-            font-weight: bold;
-            margin: 10px;
-            transition: transform 0.3s;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-        }
-        
+        /* Footer */
         footer {
             text-align: center;
-            color: white;
-            margin-top: 50px;
-            padding: 30px 0;
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 60px;
+            color: var(--text-dim);
         }
         
+        /* Responsive */
         @media (max-width: 768px) {
-            .demo-videos {
+            .project-title {
+                font-size: 2.5rem;
+            }
+            
+            .title-image {
+                max-width: 80%;
+            }
+            
+            .demo-container {
                 grid-template-columns: 1fr;
             }
             
-            h1 {
-                font-size: 2.5em;
+            .header-links {
+                flex-direction: column;
+                align-items: center;
             }
             
-            .container {
-                padding: 10px;
+            .section-content {
+                padding: 0 20px;
+            }
+            
+            .section.open .section-content {
+                padding: 20px;
+            }
+            
+            .arch-layer {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .arch-arrow {
+                transform: rotate(90deg);
             }
         }
     </style>
@@ -201,164 +441,381 @@
 <body>
     <div class="container">
         <header>
-            <h1>🐍 SnakeAI-MLOps</h1>
-            <p class="subtitle">Advanced Reinforcement Learning Snake Game with Real-time AI Inference</p>
-            <div class="badges">
-                <span class="badge">C++17</span>
-                <span class="badge">SFML 3</span>
-                <span class="badge">LibTorch</span>
-                <span class="badge">CI/CD</span>
-                <span class="badge">Cross-Platform</span>
+            <div class="header-bg"></div>
+            <img src="title.png" alt="SnakeAI-MLOps" class="title-image">
+            <h1 class="project-title">SnakeAI-MLOps</h1>
+            <p class="project-subtitle">Multi-Agent Reinforcement Learning Platform with Production MLOps Pipeline</p>
+            <p class="author-info">Created by <span class="author-name">Pranav Mishra</span> - Connect for collaboration and opportunities</p>
+            
+            <div class="header-links">
+                <a href="https://portfolio-pranav-mishra.vercel.app" class="header-btn">
+                    Portfolio
+                </a>
+                <a href="https://github.com/PranavMishra17/SnakeAI-MLOps" class="header-btn">
+                    GitHub Repository
+                </a>
+                <a href="https://www.linkedin.com/in/pranavgamedev/" class="header-btn">
+                    LinkedIn Profile
+                </a>
             </div>
         </header>
 
-        <div class="section">
-            <h2>🎮 AI in Action</h2>
-            <p>Watch how our trained AI models learn to master Snake compared to untrained agents:</p>
-            
-            <div class="demo-videos">
-                <div class="video-container">
-                    <div class="video-placeholder">
-                        <div>
-                            <p>🧠 Trained AI Agent</p>
-                            <small>Add your trained_snake.gif here</small>
+        <main>
+            <!-- AI Demonstration Section -->
+            <div class="section" id="demo-section">
+                <div class="section-header" onclick="toggleSection('demo-section')">
+                    <span class="section-title">AI in Action</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="section-content">
+                    <p>This project demonstrates the power of reinforcement learning by training AI agents to master the classic Snake game. Watch how trained agents exhibit intelligent navigation patterns compared to random exploration:</p>
+                    <div class="demo-container">
+                        <div class="demo-item">
+                            <div class="demo-placeholder">
+                                <div>
+                                    <div>Trained Agent Gameplay</div>
+                                    <small>trained_snake.gif</small>
+                                </div>
+                            </div>
+                            <h3>Intelligent Decision Making</h3>
+                            <p>Trained agents efficiently navigate towards food while avoiding obstacles, demonstrating learned strategic behavior and spatial awareness.</p>
+                        </div>
+                        <div class="demo-item">
+                            <div class="demo-placeholder">
+                                <div>
+                                    <div>Untrained Agent Behavior</div>
+                                    <small>untrained_snake.gif</small>
+                                </div>
+                            </div>
+                            <h3>Random Exploration</h3>
+                            <p>Untrained agents move randomly without strategy, frequently colliding with walls or their own body, highlighting the learning achievement.</p>
                         </div>
                     </div>
-                    <h3>Smart Navigation</h3>
-                    <p>Trained agents efficiently navigate towards food while avoiding obstacles</p>
                 </div>
-                
-                <div class="video-container">
-                    <div class="video-placeholder">
-                        <div>
-                            <p>🎲 Untrained Agent</p>
-                            <small>Add your untrained_snake.gif here</small>
+            </div>
+
+            <!-- Project Overview Section -->
+            <div class="section" id="overview-section">
+                <div class="section-header" onclick="toggleSection('overview-section')">
+                    <span class="section-title">Project Overview</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="section-content">
+                    <p>SnakeAI-MLOps is a comprehensive reinforcement learning platform that implements and compares four major machine learning paradigms within a unified experimental framework. The project bridges the gap between theoretical research and practical deployment by providing GPU-accelerated training pipelines, real-time inference capabilities, and systematic performance evaluation.</p>
+                    
+                    <p>This platform addresses critical challenges in reinforcement learning research: algorithm comparison, reproducibility, and production deployment. By implementing multiple RL techniques within the same environment, researchers and developers can conduct meaningful comparative studies and understand the strengths and limitations of different approaches.</p>
+
+                    <h3>Key Capabilities</h3>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">Multi-Algorithm Training</div>
+                                <div class="feature-desc">Train and compare Q-Learning, DQN, PPO, and Actor-Critic algorithms within the same environment using standardized evaluation metrics.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">GPU Acceleration</div>
+                                <div class="feature-desc">PyTorch CUDA support provides 15-50x training speedup over CPU-only implementations, enabling rapid experimentation and iteration.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">Production Integration</div>
+                                <div class="feature-desc">Python-trained models seamlessly integrate with C++ game engine using LibTorch for real-time inference during gameplay.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">MLOps Pipeline</div>
+                                <div class="feature-desc">Automated training, evaluation, model versioning, and deployment through GitHub Actions CI/CD with Docker containerization.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">Cross-Platform Deployment</div>
+                                <div class="feature-desc">Windows, Linux, and containerized deployment options with comprehensive dependency management and automated builds.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">Interactive Gameplay</div>
+                                <div class="feature-desc">Multiple game modes including human vs AI, AI vs AI, and hybrid interactions with real-time performance monitoring.</div>
+                            </div>
                         </div>
                     </div>
-                    <h3>Random Exploration</h3>
-                    <p>Untrained agents explore randomly, often colliding with walls or themselves</p>
                 </div>
             </div>
-        </div>
 
-        <div class="section">
-            <h2>🤖 Multi-Algorithm AI Implementation</h2>
-            <p>This project implements and compares multiple state-of-the-art reinforcement learning algorithms:</p>
-            
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🧠</div>
-                    <h3>Q-Learning</h3>
-                    <p>Tabular method with 9-bit state encoding for rapid learning</p>
+            <!-- AI Models Section -->
+            <div class="section" id="models-section">
+                <div class="section-header" onclick="toggleSection('models-section')">
+                    <span class="section-title">Reinforcement Learning Algorithms</span>
+                    <span class="section-toggle">▼</span>
                 </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🔗</div>
-                    <h3>Deep Q-Network</h3>
-                    <p>Neural network approximation of Q-values for complex state spaces</p>
+                <div class="section-content">
+                    <p>The platform implements four distinct reinforcement learning paradigms, each representing a different approach to learning optimal policies. These implementations provide comprehensive coverage of major RL methodologies, from classical tabular methods to modern deep learning approaches.</p>
+                    
+                    <div class="models-grid">
+                        <div class="model-card">
+                            <div class="model-name">Q-Learning (Tabular)</div>
+                            <div class="model-desc">Classical value-based reinforcement learning using tabular Q-value storage for discrete state spaces.</div>
+                            <div class="model-details">
+                                <strong>Approach:</strong> Builds a lookup table mapping state-action pairs to Q-values, learning through temporal difference updates.
+                                <ul>
+                                    <li>State Space: 512 discrete states (8-dimensional binary encoding)</li>
+                                    <li>Action Space: 4 discrete actions (Up, Down, Left, Right)</li>
+                                    <li>Learning: Bellman equation with epsilon-greedy exploration</li>
+                                    <li>Storage: JSON format for cross-platform compatibility</li>
+                                    <li>Performance: Fastest training, deterministic inference</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="model-card">
+                            <div class="model-name">Deep Q-Network (DQN)</div>
+                            <div class="model-desc">Neural network approximation of Q-values with experience replay and target networks for stable learning.</div>
+                            <div class="model-details">
+                                <strong>Approach:</strong> Uses deep neural networks to approximate Q-function, enabling learning in larger state spaces.
+                                <ul>
+                                    <li>Architecture: 8 → 64 → 64 → 4 fully connected layers</li>
+                                    <li>Features: Experience replay buffer, target network updates</li>
+                                    <li>Training: Double DQN to reduce overestimation bias</li>
+                                    <li>Optimization: Adam optimizer with gradient clipping</li>
+                                    <li>Memory: 10,000 transition replay buffer</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="model-card">
+                            <div class="model-name">Proximal Policy Optimization (PPO)</div>
+                            <div class="model-desc">Advanced policy gradient method with clipped objective functions for stable policy updates.</div>
+                            <div class="model-details">
+                                <strong>Approach:</strong> Direct policy optimization using clipped surrogate objective to prevent large policy updates.
+                                <ul>
+                                    <li>Networks: Separate policy and value networks</li>
+                                    <li>Policy: 8 → 64 → 64 → 4 (action probabilities)</li>
+                                    <li>Value: 8 → 64 → 64 → 1 (state value estimation)</li>
+                                    <li>Training: Multiple epochs per trajectory with clipping</li>
+                                    <li>Features: Entropy regularization for exploration</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="model-card">
+                            <div class="model-name">Actor-Critic (A2C)</div>
+                            <div class="model-desc">Hybrid approach combining policy gradients with value function estimation for reduced variance learning.</div>
+                            <div class="model-details">
+                                <strong>Approach:</strong> Combines actor (policy) and critic (value) networks, where critic reduces variance in policy gradient updates.
+                                <ul>
+                                    <li>Actor Network: 8 → 64 → 64 → 4 (policy π(a|s))</li>
+                                    <li>Critic Network: 8 → 64 → 64 → 1 (value V(s))</li>
+                                    <li>Updates: Simultaneous actor and critic optimization</li>
+                                    <li>Advantage: TD error provides variance reduction</li>
+                                    <li>Learning: Separate learning rates for actor and critic</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🎯</div>
-                    <h3>PPO</h3>
-                    <p>Proximal Policy Optimization for stable policy gradient learning</p>
+            </div>
+
+            <!-- Architecture Section -->
+            <div class="section" id="architecture-section">
+                <div class="section-header" onclick="toggleSection('architecture-section')">
+                    <span class="section-title">Model Architectures</span>
+                    <span class="section-toggle">▼</span>
                 </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">⚖️</div>
-                    <h3>Actor-Critic</h3>
-                    <p>Dual network architecture combining value and policy estimation</p>
+                <div class="section-content">
+                    <h3>Q-Learning Table Structure</h3>
+                    <p>Q-Learning uses a discrete state representation with 512 possible states, stored as a lookup table mapping state-action pairs to Q-values:</p>
+                    
+                    <div class="qtable-container">
+                        <table class="qtable">
+                            <thead>
+                                <tr>
+                                    <th class="state-col">State (Binary)</th>
+                                    <th>UP</th>
+                                    <th>DOWN</th>
+                                    <th>LEFT</th>
+                                    <th>RIGHT</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="state-col">000000000 (safe, no food)</td>
+                                    <td>0.12</td>
+                                    <td>0.15</td>
+                                    <td>0.08</td>
+                                    <td>0.11</td>
+                                </tr>
+                                <tr>
+                                    <td class="state-col">001001000 (food right)</td>
+                                    <td>0.05</td>
+                                    <td>0.07</td>
+                                    <td>-0.02</td>
+                                    <td>0.85</td>
+                                </tr>
+                                <tr>
+                                    <td class="state-col">100000010 (danger ahead, food up)</td>
+                                    <td>0.92</td>
+                                    <td>-0.85</td>
+                                    <td>0.15</td>
+                                    <td>0.18</td>
+                                </tr>
+                                <tr>
+                                    <td class="state-col">111000000 (surrounded)</td>
+                                    <td>-0.95</td>
+                                    <td>-0.92</td>
+                                    <td>-0.89</td>
+                                    <td>-0.88</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p><strong>State Encoding:</strong> [danger_straight, danger_left, danger_right, direction_bit1, direction_bit2, food_left, food_right, food_up, food_down]</p>
+
+                    <h3>Deep Q-Network (DQN) Architecture</h3>
+                    <div class="arch-diagram">
+                        <div class="arch-layer">
+                            <div class="arch-box">Input Layer<br>8D State Vector<br>[danger, direction, food]</div>
+                            <div class="arch-arrow">→</div>
+                            <div class="arch-box">Hidden Layer 1<br>64 Neurons<br>ReLU Activation</div>
+                            <div class="arch-arrow">→</div>
+                            <div class="arch-box">Hidden Layer 2<br>64 Neurons<br>ReLU Activation</div>
+                            <div class="arch-arrow">→</div>
+                            <div class="arch-box">Output Layer<br>4 Q-Values<br>[Q(s,up), Q(s,down), Q(s,left), Q(s,right)]</div>
+                        </div>
+                    </div>
+
+                    <h3>PPO & Actor-Critic Architecture (Shared Pattern)</h3>
+                    <p>Both PPO and Actor-Critic use the same dual-network architecture pattern with separate policy and value networks:</p>
+                    <div class="arch-diagram">
+                        <div class="arch-layer">
+                            <div class="arch-box">Input State<br>8D Vector</div>
+                            <div class="arch-arrow">→</div>
+                        </div>
+                        <div class="arch-split">
+                            <div class="arch-layer">
+                                <div class="arch-box">Policy/Actor Network<br>8 → 64 → 64 → 4<br>Softmax Output</div>
+                                <div class="arch-arrow">→</div>
+                                <div class="arch-box">Action Probabilities<br>[P(up), P(down), P(left), P(right)]</div>
+                            </div>
+                            <div class="arch-layer">
+                                <div class="arch-box">Value/Critic Network<br>8 → 64 → 64 → 1<br>Linear Output</div>
+                                <div class="arch-arrow">→</div>
+                                <div class="arch-box">State Value<br>V(s) - Expected Return</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p><strong>Key Difference:</strong> PPO uses clipped objective functions for policy updates, while Actor-Critic uses direct policy gradients with advantage estimation.</p>
                 </div>
             </div>
-        </div>
 
-        <div class="section">
-            <h2>🔬 Training to Production Pipeline</h2>
-            
-            <h3>Python Training Phase</h3>
-            <div class="code-block">
-# Train all algorithms with multiple profiles
-python src/train_models.py --technique all --profiles balanced,aggressive,conservative
-            </div>
-            
-            <h3>C++ Real-time Inference</h3>
-            <div class="code-block">
-// Load trained PyTorch models in C++ using LibTorch
-auto dqnAgent = std::make_unique&lt;DQNAgent&gt;(modelInfo);
-Direction action = dqnAgent-&gt;getAction(gameState, false);
-            </div>
-            
-            <p>Models are trained in Python using PyTorch, then exported and loaded in C++ using LibTorch for real-time inference during gameplay. This hybrid approach combines Python's flexibility for experimentation with C++'s performance for deployment.</p>
-        </div>
+            <!-- Technical Implementation Section -->
+            <div class="section" id="tech-section">
+                <div class="section-header" onclick="toggleSection('tech-section')">
+                    <span class="section-title">Technical Implementation</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="section-content">
+                    <p>The platform employs a hybrid architecture combining Python's flexibility for research and experimentation with C++'s performance for production deployment. This approach enables rapid algorithm development while maintaining real-time performance requirements.</p>
 
-        <div class="section">
-            <h2>🛠️ Technical Architecture</h2>
-            
-            <div class="tech-stack">
-                <span class="tech-item">C++17</span>
-                <span class="tech-item">SFML 3</span>
-                <span class="tech-item">LibTorch</span>
-                <span class="tech-item">Python</span>
-                <span class="tech-item">PyTorch</span>
-                <span class="tech-item">GitHub Actions</span>
-                <span class="tech-item">Docker</span>
-                <span class="tech-item">CMake</span>
-            </div>
-            
-            <h3>🎯 Key Features</h3>
-            <ul style="margin: 20px 0; padding-left: 30px;">
-                <li><strong>Multi-Platform Support:</strong> Windows, Linux, and Docker deployment</li>
-                <li><strong>Real-time Performance:</strong> 60fps gameplay with AI inference</li>
-                <li><strong>Model Comparison:</strong> Built-in analysis and visualization tools</li>
-                <li><strong>Interactive Modes:</strong> Human vs AI, AI vs AI, and hybrid gameplay</li>
-                <li><strong>Performance Analytics:</strong> Comprehensive training metrics and model evaluation</li>
-                <li><strong>Automated CI/CD:</strong> Continuous integration with artifact generation</li>
-            </ul>
-        </div>
+                    <h3>Training Pipeline (Python)</h3>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">PyTorch Framework</div>
+                                <div class="feature-desc">GPU-accelerated tensor operations with automatic differentiation for efficient neural network training. CUDA support provides significant speedup over CPU-only implementations.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">Modular Architecture</div>
+                                <div class="feature-desc">Separate trainer modules for each algorithm with shared utilities for environment interaction, state generation, and evaluation metrics.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">Comprehensive Logging</div>
+                                <div class="feature-desc">Detailed training metrics, model checkpointing, and performance visualization with automated report generation and statistical analysis.</div>
+                            </div>
+                        </div>
+                    </div>
 
-        <div class="section">
-            <h2>📊 Performance Analysis</h2>
-            <p>The game includes comprehensive performance analysis tools:</p>
-            
-            <h3>🏆 Leaderboard System</h3>
-            <p>Track performance across different AI algorithms and human players</p>
-            
-            <h3>📈 Training Visualization</h3>
-            <p>Generate detailed performance charts showing learning curves, score distributions, and convergence analysis</p>
-            
-            <h3>🔍 Model Comparison</h3>
-            <p>Side-by-side analysis of different algorithms' strengths and weaknesses</p>
-        </div>
+                    <h3>Game Engine (C++)</h3>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">SFML Graphics</div>
+                                <div class="feature-desc">Cross-platform multimedia library providing 60fps gameplay with responsive input handling and smooth graphics rendering.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">LibTorch Integration</div>
+                                <div class="feature-desc">Real-time neural network inference using PyTorch's C++ API, enabling seamless integration of trained Python models into the game engine.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">State Management</div>
+                                <div class="feature-desc">Efficient game state representation and agent interface supporting multiple AI algorithms with standardized action and observation spaces.</div>
+                            </div>
+                        </div>
+                    </div>
 
-        <div class="section">
-            <h2>🚀 Getting Started</h2>
-            
-            <h3>Quick Start (Prebuilt)</h3>
-            <div class="code-block">
-# Download from releases and run
-./SnakeAI-MLOps.exe  # Windows
-./SnakeAI-MLOps      # Linux
+                    <h3>MLOps Infrastructure</h3>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">CI/CD Pipeline</div>
+                                <div class="feature-desc">GitHub Actions workflow for automated testing, building, and deployment across Windows and Linux platforms with comprehensive artifact generation.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">Container Deployment</div>
+                                <div class="feature-desc">Docker containerization for consistent deployment environments with all dependencies pre-configured and optimized for different hardware configurations.</div>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-text">
+                                <div class="feature-title">Model Versioning</div>
+                                <div class="feature-desc">Automated model storage, versioning, and performance tracking with comprehensive metadata and evaluation metrics for reproducible research.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <h3>Build from Source</h3>
-            <div class="code-block">
-git clone https://github.com/yourusername/SnakeAI-MLOps.git
-cd SnakeAI-MLOps
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="https://github.com/yourusername/SnakeAI-MLOps" class="btn">📁 View on GitHub</a>
-                <a href="https://github.com/yourusername/SnakeAI-MLOps/releases" class="btn">⬇️ Download Release</a>
-            </div>
-        </div>
+        </main>
 
         <footer>
-            <p>Made with ❤️ using C++, LibTorch, and SFML</p>
-            <p>© 2024 SnakeAI-MLOps Project</p>
+            <p>Built with C++17, PyTorch, SFML, and LibTorch</p>
+            <p>© 2024 Pranav Mishra - Advanced Machine Learning Implementation</p>
         </footer>
     </div>
+
+    <script>
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const allSections = document.querySelectorAll('.section');
+            
+            // Close all other sections
+            allSections.forEach(s => {
+                if (s.id !== sectionId) {
+                    s.classList.remove('open');
+                }
+            });
+            
+            // Toggle current section
+            section.classList.toggle('open');
+        }
+
+        // Open first section by default
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('demo-section').classList.add('open');
+        });
+    </script>
 </body>
 </html>

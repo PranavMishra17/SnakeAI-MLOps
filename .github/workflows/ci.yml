@@ -252,12 +252,13 @@ jobs:
         echo "- Commit: ${{ github.sha }}" >> CHANGELOG.md
         echo "- Platform: Windows (x64) + Linux (x64)" >> CHANGELOG.md
         echo "- Docker: Available at ghcr.io/${{ github.repository_owner }}/snakeai-mlops" >> CHANGELOG.md
+        echo "- Note: CI builds compiled without LibTorch for compatibility" >> CHANGELOG.md
         echo "" >> CHANGELOG.md
         echo "### Installation" >> CHANGELOG.md
         echo "1. Download the appropriate package for your platform" >> CHANGELOG.md
         echo "2. Extract the archive" >> CHANGELOG.md
         echo "3. Run SnakeAI-MLOps executable" >> CHANGELOG.md
-        echo "4. Enjoy watching AI agents play Snake!" >> CHANGELOG.md
+        echo "4. For neural network support, build locally with LibTorch installed" >> CHANGELOG.md
         echo "" >> CHANGELOG.md
         echo "### Recent Changes" >> CHANGELOG.md
         git log --oneline -10 >> CHANGELOG.md
