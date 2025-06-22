@@ -40,18 +40,18 @@ jobs:
         foreach ($dir in $dirs) {
           if (-not (Test-Path $dir)) {
             New-Item -ItemType Directory -Path $dir -Force
-            Write-Host "✅ Created directory: $dir"
+            Write-Host "Created directory: $dir"
           } else {
-            Write-Host "📁 Directory already exists: $dir"
+            Write-Host "Directory already exists: $dir"
           }
         }
         
         # Create font placeholder if it doesn't exist
         if (-not (Test-Path "assets/fonts/arial.ttf")) {
           "Font placeholder" | Out-File -FilePath "assets/fonts/arial.ttf" -Encoding utf8
-          Write-Host "✅ Created font placeholder"
+          Write-Host "Created font placeholder"
         } else {
-          Write-Host "📄 Font placeholder already exists"
+          Write-Host "Font placeholder already exists"
         }
       shell: powershell
     
@@ -85,13 +85,13 @@ jobs:
           try {
             if (-not (Test-Path $dir)) {
               New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop
-              Write-Host "✅ Created: $dir"
+              Write-Host "Created: $dir"
             } else {
-              Write-Host "📁 Already exists: $dir"
+              Write-Host "Already exists: $dir"
             }
           }
           catch {
-            Write-Host "⚠️ Warning: Could not create $dir - $($_.Exception.Message)"
+            Write-Host "Warning: Could not create $dir - $($_.Exception.Message)"
             # Continue with other directories
           }
         }
@@ -101,16 +101,16 @@ jobs:
         try {
           if (-not (Test-Path $fontPath)) {
             "Font placeholder" | Out-File -FilePath $fontPath -Encoding utf8 -ErrorAction Stop
-            Write-Host "✅ Created build font placeholder"
+            Write-Host "Created build font placeholder"
           } else {
-            Write-Host "📄 Build font placeholder already exists"
+            Write-Host "Build font placeholder already exists"
           }
         }
         catch {
-          Write-Host "⚠️ Warning: Could not create font placeholder - $($_.Exception.Message)"
+          Write-Host "Warning: Could not create font placeholder - $($_.Exception.Message)"
         }
         
-        Write-Host "🎯 Build assets setup complete"
+        Write-Host "Build assets setup complete"
       shell: powershell
     
     - name: Test Release Build
@@ -118,23 +118,23 @@ jobs:
         $exePath = "out/build/windows-default/Release/SnakeAI-MLOps.exe"
         
         if (Test-Path $exePath) {
-          Write-Host "✅ Release executable found at: $exePath"
+          Write-Host "Release executable found at: $exePath"
           
           # Get file info
           $fileInfo = Get-Item $exePath
-          Write-Host "📊 File size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB"
-          Write-Host "📅 Created: $($fileInfo.CreationTime)"
+          Write-Host "File size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB"
+          Write-Host "Created: $($fileInfo.CreationTime)"
         } else {
-          Write-Host "❌ Release executable missing at: $exePath"
+          Write-Host "Release executable missing at: $exePath"
           
           # Debug: List contents of build directory
-          Write-Host "🔍 Debug: Contents of build directory:"
+          Write-Host "Debug: Contents of build directory:"
           if (Test-Path "out/build/windows-default/Release") {
             Get-ChildItem "out/build/windows-default/Release" -Recurse | ForEach-Object {
               Write-Host "  $($_.FullName)"
             }
           } else {
-            Write-Host "❌ Release directory doesn't exist"
+            Write-Host "Release directory doesn't exist"
           }
           
           exit 1
@@ -199,26 +199,26 @@ jobs:
           "logs"
         )
         
-        echo "🏗️ Creating required directories..."
+        echo "Creating required directories..."
         
         for dir in "${dirs[@]}"; do
           if [ ! -d "$dir" ]; then
             mkdir -p "$dir"
-            echo "✅ Created directory: $dir"
+            echo "Created directory: $dir"
           else
-            echo "📁 Directory already exists: $dir"
+            echo "Directory already exists: $dir"
           fi
         done
         
         # Create font placeholder if it doesn't exist
         if [ ! -f "assets/fonts/arial.ttf" ]; then
           echo "Font placeholder for CI" > "assets/fonts/arial.ttf"
-          echo "✅ Created font placeholder"
+          echo "Created font placeholder"
         else
-          echo "📄 Font placeholder already exists"
+          echo "Font placeholder already exists"
         fi
         
-        echo "🎯 Directory setup complete"
+        echo "Directory setup complete"
     
     - name: Configure CMake
       run: |
@@ -250,35 +250,35 @@ jobs:
         for dir in "${build_dirs[@]}"; do
           if [ ! -d "$dir" ]; then
             mkdir -p "$dir"
-            echo "✅ Created: $dir"
+            echo "Created: $dir"
           else
-            echo "📁 Already exists: $dir"
+            echo "Already exists: $dir"
           fi
         done
         
         # Create font placeholder in build directory
         if [ ! -f "build/assets/fonts/arial.ttf" ]; then
           echo "Font placeholder for CI" > "build/assets/fonts/arial.ttf"
-          echo "✅ Created build font placeholder"
+          echo "Created build font placeholder"
         else
-          echo "📄 Build font placeholder already exists"
+          echo "Build font placeholder already exists"
         fi
         
-        echo "🎯 Build assets setup complete"
+        echo "Build assets setup complete"
     
     - name: Test Build
       run: |
         if [ -f "build/SnakeAI-MLOps" ]; then
-          echo "✅ Linux executable found"
+          echo "Linux executable found"
           
           # Get file info
           ls -la "build/SnakeAI-MLOps"
           file "build/SnakeAI-MLOps"
         else
-          echo "❌ Linux executable missing"
+          echo "Linux executable missing"
           
           # Debug: List contents of build directory
-          echo "🔍 Debug: Contents of build directory:"
+          echo "Debug: Contents of build directory:"
           find build -type f -name "*" | head -20
           
           exit 1
@@ -312,11 +312,11 @@ jobs:
         
         if [ -n "$cpp_files" ]; then
           echo "$cpp_files" | xargs clang-format --dry-run --Werror || {
-            echo "⚠️ Code formatting issues found"
+            echo "Code formatting issues found"
             echo "Run: find src/ -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i"
           }
         else
-          echo "📄 No C++ files found to check"
+          echo "No C++ files found to check"
         fi
     
     - name: Count lines of code
@@ -354,25 +354,25 @@ jobs:
       run: |
         mkdir -p models
         echo "# Models directory" > models/README.md
-        echo "📁 Created models directory with README"
+        echo "Created models directory with README"
     
     - name: Build Docker image
       run: |
-        echo "🐳 Building Docker image..."
+        echo "Building Docker image..."
         docker build -f docker/Dockerfile -t snakeai-mlops:latest . || {
-          echo "❌ Docker build failed"
+          echo "Docker build failed"
           exit 1
         }
-        echo "✅ Docker image built successfully"
+        echo "Docker image built successfully"
     
     - name: Test Docker image
       run: |
-        echo "🧪 Testing Docker image..."
+        echo "Testing Docker image..."
         docker run --rm snakeai-mlops:latest echo "Docker test successful" || {
-          echo "❌ Docker test failed"
+          echo "Docker test failed"
           exit 1
         }
-        echo "✅ Docker image test passed"
+        echo "Docker image test passed"
     
     - name: Login to GitHub Container Registry
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -388,16 +388,16 @@ jobs:
         REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
         IMAGE_NAME=ghcr.io/${REPO_OWNER}/snakeai-mlops:latest
         
-        echo "🏷️ Tagging image as: $IMAGE_NAME"
+        echo "Tagging image as: $IMAGE_NAME"
         docker tag snakeai-mlops:latest $IMAGE_NAME
         
-        echo "📤 Pushing to registry..."
+        echo "Pushing to registry..."
         docker push $IMAGE_NAME || {
-          echo "❌ Docker push failed"
+          echo "Docker push failed"
           exit 1
         }
         
-        echo "✅ Successfully pushed to GitHub Container Registry"
+        echo "Successfully pushed to GitHub Container Registry"
 
   release:
     runs-on: ubuntu-latest
@@ -424,23 +424,23 @@ jobs:
     
     - name: Create release archives
       run: |
-        echo "📦 Creating release archives..."
+        echo "Creating release archives..."
         
         if [ -d "windows-release" ] && [ "$(ls -A windows-release)" ]; then
           cd windows-release && zip -r ../SnakeAI-MLOps-Windows.zip . && cd ..
-          echo "✅ Created Windows archive"
+          echo "Created Windows archive"
         else
-          echo "⚠️ Windows release directory is empty or missing"
+          echo "Windows release directory is empty or missing"
         fi
         
         if [ -d "linux-release" ] && [ "$(ls -A linux-release)" ]; then
           cd linux-release && tar -czf ../SnakeAI-MLOps-Linux.tar.gz . && cd ..
-          echo "✅ Created Linux archive"
+          echo "Created Linux archive"
         else
-          echo "⚠️ Linux release directory is empty or missing"
+          echo "Linux release directory is empty or missing"
         fi
         
-        echo "📋 Available files:"
+        echo "Available files:"
         ls -la *.zip *.tar.gz 2>/dev/null || echo "No archives created"
     
     - name: Generate changelog
@@ -448,11 +448,11 @@ jobs:
         echo "## SnakeAI-MLOps Release Build ${{ github.run_number }}" > CHANGELOG.md
         echo "" >> CHANGELOG.md
         echo "### Features" >> CHANGELOG.md
-        echo "- 🎮 Multiple AI agents: Q-Learning, DQN, Policy Gradient, Actor-Critic" >> CHANGELOG.md
-        echo "- 🧠 Enhanced state representation (20D neural network features)" >> CHANGELOG.md
-        echo "- 📊 Real-time performance monitoring and leaderboard" >> CHANGELOG.md
-        echo "- 🔄 Multiple game modes: Single Player, Agent vs Player, Agent vs System" >> CHANGELOG.md
-        echo "- 🎯 Trained models with different profiles (aggressive, balanced, conservative)" >> CHANGELOG.md
+        echo "- Multiple AI agents: Q-Learning, DQN, Policy Gradient, Actor-Critic" >> CHANGELOG.md
+        echo "- Enhanced state representation (20D neural network features)" >> CHANGELOG.md
+        echo "- Real-time performance monitoring and leaderboard" >> CHANGELOG.md
+        echo "- Multiple game modes: Single Player, Agent vs Player, Agent vs System" >> CHANGELOG.md
+        echo "- Trained models with different profiles (aggressive, balanced, conservative)" >> CHANGELOG.md
         echo "" >> CHANGELOG.md
         echo "### Technical Details" >> CHANGELOG.md
         echo "- Built on: $(date)" >> CHANGELOG.md
