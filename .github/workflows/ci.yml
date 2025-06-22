@@ -27,15 +27,33 @@ jobs:
       with:
         vs-version: '17.0'
     
-    # Create required directories BEFORE build
+    # Create required directories BEFORE build with proper Windows handling
     - name: Create required directories
       run: |
-        mkdir -p models
-        mkdir -p assets/fonts
-        mkdir -p data
-        mkdir -p logs
-        echo "Font placeholder" > assets/fonts/arial.ttf
-      shell: bash
+        $dirs = @(
+          "models",
+          "assets/fonts", 
+          "data",
+          "logs"
+        )
+        
+        foreach ($dir in $dirs) {
+          if (-not (Test-Path $dir)) {
+            New-Item -ItemType Directory -Path $dir -Force
+            Write-Host "✅ Created directory: $dir"
+          } else {
+            Write-Host "📁 Directory already exists: $dir"
+          }
+        }
+        
+        # Create font placeholder if it doesn't exist
+        if (-not (Test-Path "assets/fonts/arial.ttf")) {
+          "Font placeholder" | Out-File -FilePath "assets/fonts/arial.ttf" -Encoding utf8
+          Write-Host "✅ Created font placeholder"
+        } else {
+          Write-Host "📄 Font placeholder already exists"
+        }
+      shell: powershell
     
     - name: Configure CMake
       run: |
@@ -52,20 +70,73 @@ jobs:
       run: |
         cmake --build out/build/windows-default --config Release
     
-    - name: Create build assets
+    - name: Create build assets with error handling
       run: |
-        mkdir -p out/build/windows-default/Release/assets/fonts
-        mkdir -p out/build/windows-default/Release/models
-        mkdir -p out/build/windows-default/Release/data
-        mkdir -p out/build/windows-default/Release/logs
-        echo "Font placeholder" > out/build/windows-default/Release/assets/fonts/arial.ttf
+        $buildDirs = @(
+          "out/build/windows-default/Release/assets/fonts",
+          "out/build/windows-default/Release/models",
+          "out/build/windows-default/Release/data", 
+          "out/build/windows-default/Release/logs"
+        )
+        
+        Write-Host "🏗️ Creating build asset directories..."
+        
+        foreach ($dir in $buildDirs) {
+          try {
+            if (-not (Test-Path $dir)) {
+              New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop
+              Write-Host "✅ Created: $dir"
+            } else {
+              Write-Host "📁 Already exists: $dir"
+            }
+          }
+          catch {
+            Write-Host "⚠️ Warning: Could not create $dir - $($_.Exception.Message)"
+            # Continue with other directories
+          }
+        }
+        
+        # Create font placeholder in build directory
+        $fontPath = "out/build/windows-default/Release/assets/fonts/arial.ttf"
+        try {
+          if (-not (Test-Path $fontPath)) {
+            "Font placeholder" | Out-File -FilePath $fontPath -Encoding utf8 -ErrorAction Stop
+            Write-Host "✅ Created build font placeholder"
+          } else {
+            Write-Host "📄 Build font placeholder already exists"
+          }
+        }
+        catch {
+          Write-Host "⚠️ Warning: Could not create font placeholder - $($_.Exception.Message)"
+        }
+        
+        Write-Host "🎯 Build assets setup complete"
+      shell: powershell
     
     - name: Test Release Build
       run: |
-        if (Test-Path "out/build/windows-default/Release/SnakeAI-MLOps.exe") {
-          Write-Host "✅ Release executable found"
+        $exePath = "out/build/windows-default/Release/SnakeAI-MLOps.exe"
+        
+        if (Test-Path $exePath) {
+          Write-Host "✅ Release executable found at: $exePath"
+          
+          # Get file info
+          $fileInfo = Get-Item $exePath
+          Write-Host "📊 File size: $([math]::Round($fileInfo.Length / 1MB, 2)) MB"
+          Write-Host "📅 Created: $($fileInfo.CreationTime)"
         } else {
-          Write-Host "❌ Release executable missing"
+          Write-Host "❌ Release executable missing at: $exePath"
+          
+          # Debug: List contents of build directory
+          Write-Host "🔍 Debug: Contents of build directory:"
+          if (Test-Path "out/build/windows-default/Release") {
+            Get-ChildItem "out/build/windows-default/Release" -Recurse | ForEach-Object {
+              Write-Host "  $($_.FullName)"
+            }
+          } else {
+            Write-Host "❌ Release directory doesn't exist"
+          }
+          
           exit 1
         }
       shell: powershell
@@ -116,14 +187,38 @@ jobs:
         vcpkgJsonGlob: 'vcpkg.json'
         runVcpkgInstall: true
     
-    # Create required directories BEFORE build
+    # Create required directories BEFORE build with proper error handling
     - name: Create required directories
       run: |
-        mkdir -p models
-        mkdir -p assets/fonts
-        mkdir -p data
-        mkdir -p logs
-        echo "Font placeholder for CI" > assets/fonts/arial.ttf
+        set -e  # Exit on any error
+        
+        dirs=(
+          "models"
+          "assets/fonts"
+          "data" 
+          "logs"
+        )
+        
+        echo "🏗️ Creating required directories..."
+        
+        for dir in "${dirs[@]}"; do
+          if [ ! -d "$dir" ]; then
+            mkdir -p "$dir"
+            echo "✅ Created directory: $dir"
+          else
+            echo "📁 Directory already exists: $dir"
+          fi
+        done
+        
+        # Create font placeholder if it doesn't exist
+        if [ ! -f "assets/fonts/arial.ttf" ]; then
+          echo "Font placeholder for CI" > "assets/fonts/arial.ttf"
+          echo "✅ Created font placeholder"
+        else
+          echo "📄 Font placeholder already exists"
+        fi
+        
+        echo "🎯 Directory setup complete"
     
     - name: Configure CMake
       run: |
@@ -139,20 +234,53 @@ jobs:
       run: |
         cmake --build build --config Release -j$(nproc)
     
-    - name: Create build assets
+    - name: Create build assets with error handling
       run: |
-        mkdir -p build/assets/fonts
-        mkdir -p build/models
-        mkdir -p build/data
-        mkdir -p build/logs
-        echo "Font placeholder for CI" > build/assets/fonts/arial.ttf
+        set -e  # Exit on any error
+        
+        build_dirs=(
+          "build/assets/fonts"
+          "build/models"
+          "build/data"
+          "build/logs"
+        )
+        
+        echo "🏗️ Creating build asset directories..."
+        
+        for dir in "${build_dirs[@]}"; do
+          if [ ! -d "$dir" ]; then
+            mkdir -p "$dir"
+            echo "✅ Created: $dir"
+          else
+            echo "📁 Already exists: $dir"
+          fi
+        done
+        
+        # Create font placeholder in build directory
+        if [ ! -f "build/assets/fonts/arial.ttf" ]; then
+          echo "Font placeholder for CI" > "build/assets/fonts/arial.ttf"
+          echo "✅ Created build font placeholder"
+        else
+          echo "📄 Build font placeholder already exists"
+        fi
+        
+        echo "🎯 Build assets setup complete"
     
     - name: Test Build
       run: |
         if [ -f "build/SnakeAI-MLOps" ]; then
           echo "✅ Linux executable found"
+          
+          # Get file info
+          ls -la "build/SnakeAI-MLOps"
+          file "build/SnakeAI-MLOps"
         else
           echo "❌ Linux executable missing"
+          
+          # Debug: List contents of build directory
+          echo "🔍 Debug: Contents of build directory:"
+          find build -type f -name "*" | head -20
+          
           exit 1
         fi
     
@@ -178,16 +306,38 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y clang-format
         echo "Checking code formatting..."
-        find src/ -name "*.cpp" -o -name "*.hpp" | xargs clang-format --dry-run --Werror || echo "⚠️ Code formatting issues found"
+        
+        # Find C++ files and check formatting
+        cpp_files=$(find src/ -name "*.cpp" -o -name "*.hpp" 2>/dev/null || true)
+        
+        if [ -n "$cpp_files" ]; then
+          echo "$cpp_files" | xargs clang-format --dry-run --Werror || {
+            echo "⚠️ Code formatting issues found"
+            echo "Run: find src/ -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i"
+          }
+        else
+          echo "📄 No C++ files found to check"
+        fi
     
     - name: Count lines of code
       run: |
         echo "## Code Statistics" >> $GITHUB_STEP_SUMMARY
         echo "| Language | Files | Lines |" >> $GITHUB_STEP_SUMMARY
         echo "|----------|-------|-------|" >> $GITHUB_STEP_SUMMARY
-        echo "| C++ | $(find src/ -name "*.cpp" -o -name "*.hpp" | wc -l) | $(find src/ -name "*.cpp" -o -name "*.hpp" -exec cat {} \; | wc -l) |" >> $GITHUB_STEP_SUMMARY
-        echo "| CMake | $(find . -name "CMakeLists.txt" -o -name "*.cmake" | wc -l) | $(find . -name "CMakeLists.txt" -o -name "*.cmake" -exec cat {} \; | wc -l) |" >> $GITHUB_STEP_SUMMARY
-        echo "| JSON | $(find . -name "*.json" | wc -l) | $(find . -name "*.json" -exec cat {} \; | wc -l) |" >> $GITHUB_STEP_SUMMARY
+        
+        # Count C++ files safely
+        cpp_files=$(find src/ -name "*.cpp" -o -name "*.hpp" 2>/dev/null | wc -l || echo "0")
+        cpp_lines=$(find src/ -name "*.cpp" -o -name "*.hpp" -exec cat {} \; 2>/dev/null | wc -l || echo "0")
+        
+        cmake_files=$(find . -name "CMakeLists.txt" -o -name "*.cmake" 2>/dev/null | wc -l || echo "0")
+        cmake_lines=$(find . -name "CMakeLists.txt" -o -name "*.cmake" -exec cat {} \; 2>/dev/null | wc -l || echo "0")
+        
+        json_files=$(find . -name "*.json" 2>/dev/null | wc -l || echo "0")
+        json_lines=$(find . -name "*.json" -exec cat {} \; 2>/dev/null | wc -l || echo "0")
+        
+        echo "| C++ | $cpp_files | $cpp_lines |" >> $GITHUB_STEP_SUMMARY
+        echo "| CMake | $cmake_files | $cmake_lines |" >> $GITHUB_STEP_SUMMARY
+        echo "| JSON | $json_files | $json_lines |" >> $GITHUB_STEP_SUMMARY
 
   docker:
     runs-on: ubuntu-latest
@@ -204,14 +354,25 @@ jobs:
       run: |
         mkdir -p models
         echo "# Models directory" > models/README.md
+        echo "📁 Created models directory with README"
     
     - name: Build Docker image
       run: |
-        docker build -f docker/Dockerfile -t snakeai-mlops:latest .
+        echo "🐳 Building Docker image..."
+        docker build -f docker/Dockerfile -t snakeai-mlops:latest . || {
+          echo "❌ Docker build failed"
+          exit 1
+        }
+        echo "✅ Docker image built successfully"
     
     - name: Test Docker image
       run: |
-        docker run --rm snakeai-mlops:latest echo "Docker test successful"
+        echo "🧪 Testing Docker image..."
+        docker run --rm snakeai-mlops:latest echo "Docker test successful" || {
+          echo "❌ Docker test failed"
+          exit 1
+        }
+        echo "✅ Docker image test passed"
     
     - name: Login to GitHub Container Registry
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -226,8 +387,17 @@ jobs:
       run: |
         REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
         IMAGE_NAME=ghcr.io/${REPO_OWNER}/snakeai-mlops:latest
+        
+        echo "🏷️ Tagging image as: $IMAGE_NAME"
         docker tag snakeai-mlops:latest $IMAGE_NAME
-        docker push $IMAGE_NAME
+        
+        echo "📤 Pushing to registry..."
+        docker push $IMAGE_NAME || {
+          echo "❌ Docker push failed"
+          exit 1
+        }
+        
+        echo "✅ Successfully pushed to GitHub Container Registry"
 
   release:
     runs-on: ubuntu-latest
@@ -243,17 +413,35 @@ jobs:
       with:
         name: SnakeAI-MLOps-Windows
         path: ./windows-release
+      continue-on-error: true
     
     - name: Download Linux artifacts
       uses: actions/download-artifact@v4
       with:
         name: SnakeAI-MLOps-Linux
         path: ./linux-release
+      continue-on-error: true
     
     - name: Create release archives
       run: |
-        cd windows-release && zip -r ../SnakeAI-MLOps-Windows.zip . && cd ..
-        cd linux-release && tar -czf ../SnakeAI-MLOps-Linux.tar.gz . && cd ..
+        echo "📦 Creating release archives..."
+        
+        if [ -d "windows-release" ] && [ "$(ls -A windows-release)" ]; then
+          cd windows-release && zip -r ../SnakeAI-MLOps-Windows.zip . && cd ..
+          echo "✅ Created Windows archive"
+        else
+          echo "⚠️ Windows release directory is empty or missing"
+        fi
+        
+        if [ -d "linux-release" ] && [ "$(ls -A linux-release)" ]; then
+          cd linux-release && tar -czf ../SnakeAI-MLOps-Linux.tar.gz . && cd ..
+          echo "✅ Created Linux archive"
+        else
+          echo "⚠️ Linux release directory is empty or missing"
+        fi
+        
+        echo "📋 Available files:"
+        ls -la *.zip *.tar.gz 2>/dev/null || echo "No archives created"
     
     - name: Generate changelog
       run: |
@@ -293,3 +481,4 @@ jobs:
         files: |
           SnakeAI-MLOps-Windows.zip
           SnakeAI-MLOps-Linux.tar.gz
+      continue-on-error: true
