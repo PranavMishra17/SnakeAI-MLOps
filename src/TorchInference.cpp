@@ -826,7 +826,14 @@ Direction ActorCriticInference::getAction(const EnhancedState& state) {
                  actionProbs[0], actionProbs[1], actionProbs[2], actionProbs[3]);
     
     // Apply softmax to ensure valid probability distribution
-    float maxLogit = *std::max_element(actionProbs.begin(), actionProbs.end());
+    // Find max logit manually
+    float maxLogit = actionProbs[0];
+    for (int i = 1; i < 4 && i < actionProbs.size(); ++i) {
+        if (actionProbs[i] > maxLogit) {
+            maxLogit = actionProbs[i];
+        }
+    }
+    
     float sum = 0.0f;
     
     for (auto& prob : actionProbs) {
@@ -857,6 +864,7 @@ Direction ActorCriticInference::getAction(const EnhancedState& state) {
     
     return result;
 }
+
 
 float ActorCriticInference::getValue(const EnhancedState& state) {
     spdlog::debug("ActorCriticInference: getValue() called");
@@ -905,6 +913,7 @@ float ActorCriticInference::getValue(const EnhancedState& state) {
     return 0.0f;
 #endif
 }
+
 
 Direction ActorCriticInference::fallbackAction(const EnhancedState& state) {
     spdlog::debug("ActorCriticInference: Using fallback value-based action selection");
@@ -958,8 +967,15 @@ Direction ActorCriticInference::fallbackAction(const EnhancedState& state) {
     spdlog::debug("ActorCriticInference: Action values: [{:.4f}, {:.4f}, {:.4f}, {:.4f}]",
                  actionValues[0], actionValues[1], actionValues[2], actionValues[3]);
     
-    int bestAction = std::distance(actionValues.begin(), 
-                                 std::max_element(actionValues.begin(), actionValues.end()));
+    // Find best action manually instead of using std::max_element and std::distance
+    int bestAction = 0;
+    float maxValue = actionValues[0];
+    for (int i = 1; i < 4; ++i) {
+        if (actionValues[i] > maxValue) {
+            maxValue = actionValues[i];
+            bestAction = i;
+        }
+    }
     
     Direction result = static_cast<Direction>(bestAction);
     spdlog::debug("ActorCriticInference: Fallback selected action: {} (value: {:.4f})", 
