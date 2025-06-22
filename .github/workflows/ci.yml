@@ -34,7 +34,7 @@ jobs:
           -A x64 `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" `
-          -DCMAKE_IGNORE_PATH="C:/libtorch"
+          -DTORCH_AVAILABLE=OFF
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
     
@@ -109,8 +109,10 @@ jobs:
     - name: Configure CMake
       run: |
         cmake -B build \
+          -G "Unix Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+          -DTORCH_AVAILABLE=OFF
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
     

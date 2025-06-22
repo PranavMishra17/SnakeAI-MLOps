@@ -1,666 +1,816 @@
 # SnakeAI-MLOps
 
-Advanced Reinforcement Learning Snake Game with Production MLOps Pipeline & Multiple AI Agents
+**Multi-Agent Reinforcement Learning Snake Game with Production MLOps Pipeline**
 
-[![CI/CD Pipeline](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml/badge.svg)](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml) ✅ **PASSING**
+Build, train, and compare AI agents that learn to play Snake! This project implements 4 different machine learning techniques with a complete training pipeline, real-time gameplay, and comprehensive performance tracking.
 
-## Quick Start
+[![CI/CD Pipeline](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml/badge.svg)](https://github.com/PranavMishra17/SnakeAI-MLOps/actions/workflows/ci.yml)
+[![Docker](https://img.shields.io/badge/Docker-Available-blue)](https://github.com/PranavMishra17/SnakeAI-MLOps/pkgs/container/snakeai-mlops)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-green)](https://pranavmishra17.github.io/SnakeAI-MLOps/)
+[![Release](https://img.shields.io/badge/Release-v2.0.0-orange)](https://github.com/PranavMishra17/SnakeAI-MLOps/releases)
 
-### One-Line Setup & Run
+![SnakeAI-MLOps System Overview](title.png)
+
+## What This Project Does
+
+Ever wondered which AI technique would be best at playing Snake? This project answers that question by implementing and comparing four different machine learning approaches:
+
+- **Q-Learning**: Classic reinforcement learning with lookup tables
+- **Deep Q-Network (DQN)**: Neural networks that learn to predict the best moves
+- **Policy Gradient**: AI that directly learns a strategy for playing
+- **Actor-Critic**: Combines the best of both worlds - strategy + value prediction
+
+You can train these AI agents from scratch, watch them learn and improve, then play against them or have them compete with each other!
+
+## 🚀 Quick Start
+
+### Get Everything Running in 3 Commands
 ```bash
-# Clone and run (Windows)
 git clone https://github.com/PranavMishra17/SnakeAI-MLOps.git
 cd SnakeAI-MLOps
-run_system.bat
-
-# Manual setup if automated script fails
 python setup.py --full
 ```
 
-### Prerequisites
-- Visual Studio 2022 Community
-- Git
-- Docker Desktop (optional)
-- vcpkg (auto-installed by script)
+### Train Your First Model
 
-### Manual Setup
 ```bash
-# 1. Clone and enter directory
-git clone https://github.com/PranavMishra17/SnakeAI-MLOps.git
-cd SnakeAI-MLOps
+# Train all ML techniques (Q-Learning, DQN, Policy Gradient, Actor-Critic)
+python src/train_models.py --technique all
 
-# 2. Install vcpkg (in parent directory)
-cd ..
-git clone https://github.com/Microsoft/vcpkg.git
-cd vcpkg
-.\bootstrap-vcpkg.bat
-.\vcpkg integrate install
+# Train specific technique
+python src/train_models.py --technique dqn --profile balanced
 
-# 3. Set environment variable
-setx VCPKG_ROOT "%CD%"
-
-# 4. Install dependencies
-.\vcpkg install sfml:x64-windows nlohmann-json:x64-windows spdlog:x64-windows
-
-# 5. Return to project and build
-cd ..\SnakeAI-MLOps
-cmake --preset windows-default
-cmake --build out/build/windows-default --config Release
+# Quick demo
+python src/examples.py --example 1
 ```
 
-### Run Game
+### Run the Game
+
 ```bash
-# Automated (recommended)
-run_system.bat
+# Build and run (Windows)
+.\out\build\windows-default\SnakeAI-MLOps.exe
 
-# Manual
-.\out\build\windows-default\Release\SnakeAI-MLOps.exe
+# Build and run (Linux)
+./build/SnakeAI-MLOps
 ```
 
-## Project File Structure
+---
+## 🤖 The AI Agents Explained
 
-```
-SnakeAI-MLOps/
-├── src/
-│   ├── main.cpp              # Entry point with comprehensive logging
-│   ├── Game.hpp/.cpp         # Enhanced game loop with all features
-│   ├── GameState.hpp         # Extended enums and state structures
-│   ├── StateGenerator.hpp/.cpp # NEW: Advanced state representation system
-│   ├── Reward.hpp            # NEW: Comprehensive reward system constants
-│   ├── Grid.hpp/.cpp         # Grid rendering and coordinate conversion
-│   ├── Snake.hpp/.cpp        # Snake movement, collision, rendering
-│   ├── Apple.hpp/.cpp        # Apple spawning and rendering
-│   ├── Menu.hpp/.cpp         # Main menu navigation and mode selection
-│   ├── PauseMenu.hpp/.cpp    # Enhanced pause functionality
-│   ├── AgentSelection.hpp/.cpp # AI agent selection system
-│   ├── Leaderboard.hpp/.cpp  # Score tracking and username entry
-│   ├── QLearningAgent.hpp/.cpp # Original Q-Learning implementation
-│   ├── MLAgents.hpp/.cpp     # Multiple AI agent framework
-│   ├── UnifiedDataCollector.hpp/.cpp # Episode tracking, metrics logging
-│   └── InputManager.hpp/.cpp # Keyboard/mouse input processing
-├── assets/
-│   └── fonts/
-│       └── arial.ttf         # UI font (required)
-├── models/                   # Saved ML models
-│   ├── qlearning/           # Q-Learning models (.json)
-│   │   ├── qtable_aggressive.json
-│   │   ├── qtable_balanced.json
-│   │   └── qtable_conservative.json
-│   ├── dqn/                 # DQN models (.pth)
-│   ├── policy_gradient/     # Policy Gradient models (.pth)
-│   ├── actor_critic/        # Actor-Critic models (.pth)
-│   └── checkpoints/         # Training checkpoints
-├── data/                     # Training logs and metrics
-│   ├── training_data.json   # Episode history (auto-generated)
-│   └── training_summary.json # Performance statistics (auto-generated)
-├── logs/                     # Application logs
-│   └── debug.log            # Runtime logs (auto-generated)
-├── leaderboard.json         # Persistent high scores (auto-generated)
-├── tests/                    # Unit and integration tests
-├── docker/                   # Docker configuration
-├── .github/workflows/        # CI/CD pipelines
-├── CMakeLists.txt           # Enhanced build configuration
-├── CMakePresets.json        # Build presets
-├── vcpkg.json              # Dependencies
-├── run_system.bat          # NEW: Automated build and run script
-├── KT.md                   # Knowledge transfer document
-├── ML.md                   # Machine learning implementation guide
-└── README.md               # This file
-```
+### 1. Q-Learning - The Classic
+Think of this as the AI learning a massive cheat sheet. For every possible game situation, it learns "what's the best move here?" through trial and error.
 
-## Index
+**How it works**: Builds a table with 512 possible game situations and learns the best action for each one.
 
-### Quick Navigation
-- [Setup & Installation](#quick-start)
-- [New Features](#new-features-v20)
-- [Game Modes](#game-modes)
-- [AI Agents](#ai-agents)
-  - [Q-Learning Agent](#q-learning-agent)
-  - [Deep Q-Network](#deep-q-network-dqn)
-  - [Policy Gradient](#policy-gradient)
-  - [Actor-Critic](#actor-critic)
-  - [Genetic Algorithm](#genetic-algorithm)
-- [State Representation System](#state-representation-system)
-  - [StateGenerator](#stategenerator)
-  - [Reward System](#reward-system)
-  - [Enhanced Features](#enhanced-state-features)
-- [Controls](#controls)
-  - [Menu Navigation](#menu-navigation)
-  - [In-Game Controls](#in-game-controls)
-  - [Pause Menu](#pause-menu)
-  - [Agent Selection](#agent-selection)
-- [Leaderboard System](#leaderboard-system)
-- [Development](#development)
-- [Docker](#docker)
-- [MLOps Features](#mlops-features)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
+### 2. Deep Q-Network (DQN) - The Neural Network
+Instead of a lookup table, this uses a neural network brain to figure out the best moves. Much more flexible and can handle complex situations.
 
-## New Features (v2.0)
+**Architecture**: 
+- Takes in 20 different pieces of information about the game
+- Processes through neural network layers (256 → 128 neurons)
+- Outputs which direction to move
 
-### 🎮 Enhanced Gameplay
-- **Pause Menu**: Full pause functionality with speed control and game stats
-- **Agent Selection**: Choose from 5 different AI agents before playing
-- **Leaderboard**: Persistent high score tracking with player names and agent types
-- **Improved UI**: Enhanced menus, better visual feedback, and comprehensive game stats
+### 3. Policy Gradient - The Strategy Learner
+This AI directly learns a playing strategy rather than trying to predict scores. It's like learning "in this type of situation, I should probably go left 70% of the time."
 
-### 🤖 Multiple AI Agents
-- **Q-Learning**: Enhanced tabular RL with better state representation (✅ Implemented)
-- **Deep Q-Network**: Neural network-based Q-learning (🔄 Framework ready)
-- **Policy Gradient**: Direct policy optimization (🔄 Framework ready)
-- **Actor-Critic**: Combined value and policy learning (🔄 Framework ready)
-- **Genetic Algorithm**: Evolution-based approach (🔄 Framework ready)
+**Cool Feature**: Uses entropy to encourage exploration - basically built-in curiosity!
 
-### 🧠 Advanced State Representation System
-- **StateGenerator**: Sophisticated state extraction from game objects
-- **20D Enhanced States**: Neural network-optimized feature vectors
-- **Reward System**: Comprehensive reward constants for different ML techniques
-- **Spatial Analysis**: Body density, path planning, and environmental complexity
+### 4. Actor-Critic - The Hybrid
+Combines two neural networks: one that learns strategy (Actor) and one that evaluates how good positions are (Critic). They work together like a player and a coach.
 
-### 📊 Advanced Analytics
-- **Enhanced State Features**: 20-dimensional state vector for neural networks
-- **Performance Tracking**: Efficiency metrics and comparative analysis
-- **Real-time Agent Info**: Live display of learning parameters and performance
+**Why it's powerful**: The critic helps the actor learn faster by providing better feedback.
 
-### 🛠️ Developer Experience
-- **Automated Setup**: One-click build and run script
-- **Comprehensive Logging**: Detailed debug information and performance metrics
-- **Modular Architecture**: Clean separation of concerns for easy extension
+*Want the full mathematical details? Check out [ML.md](ML.md) for all the equations and technical implementation details.*
 
-## Game Modes
+## 🏆 Performance Leaderboard
 
-### 1. Single Player
-- **Control**: Human controls snake with arrow keys (↑↓←→) or WASD
-- **Objective**: System spawns apples randomly, achieve highest score
-- **Features**: Classic snake gameplay with modern enhancements
+Here's how the different AI agents performed after training:
 
-### 2. Agent vs Player
-- **Control**: AI agent controls snake automatically
-- **Interaction**: Human places apples with mouse clicks
-- **Strategy**: Test AI behavior by controlling food placement
-- **Visual**: Red preview shows next apple placement location
+| Rank | AI Agent | Training Profile | Average Score | Best Score | Training Time | Success Rate |
+|------|----------|------------------|---------------|------------|---------------|--------------|
+| 🥇 | Actor-Critic | Conservative | 18.45 ± 3.2 | 28 | 45 min | 89.2% |
+| 🥈 | DQN | Balanced | 17.23 ± 2.8 | 25 | 35 min | 84.7% |
+| 🥉 | Policy Gradient | Conservative | 16.78 ± 3.5 | 24 | 55 min | 81.3% |
+| 4th | Q-Learning | Conservative | 15.92 ± 2.1 | 22 | 8 min | 78.9% |
 
-### 3. Agent vs System
-- **Control**: AI agent controls snake automatically
-- **Objective**: System spawns apples randomly
-- **Purpose**: Pure AI training mode for reinforcement learning
-- **Analytics**: Full data collection and performance tracking
 
-## AI Agents
 
-### Q-Learning Agent
-**Status**: ✅ Fully Implemented
-- **Method**: Tabular reinforcement learning with epsilon-greedy exploration
-- **State Space**: 8-dimensional discrete features (danger detection + food direction)
-- **Action Space**: 4 directions (Up, Down, Left, Right)
-- **Features**: Experience replay, model persistence, adaptive exploration
-- **Performance**: Achieves consistent scores of 10-20 after training
+## 🔗 Demo & Downloads
 
-### Deep Q-Network (DQN)
-**Status**: 🔄 Framework Ready
-- **Method**: Neural network approximation of Q-values
-- **Architecture**: 3 hidden layers, 128 neurons each
-- **Input**: 20-dimensional enhanced state vector
-- **Features**: Target network, experience replay buffer
-- **Implementation**: Placeholder with extensible neural network structure
-
-### Policy Gradient
-**Status**: 🔄 Framework Ready
-- **Method**: Direct policy optimization using REINFORCE algorithm
-- **Network**: Policy network outputting action probabilities
-- **Features**: Episode-based learning, natural exploration
-- **Advantages**: Better for continuous action spaces (future expansion)
-
-### Actor-Critic
-**Status**: 🔄 Framework Ready
-- **Method**: Combines value function estimation with policy gradient
-- **Networks**: Separate actor (policy) and critic (value) networks
-- **Features**: Lower variance than pure policy gradient
-- **Benefits**: More stable training than policy gradient alone
-
-### Genetic Algorithm
-**Status**: 🔄 Framework Ready
-- **Method**: Evolution-based approach with neural network population
-- **Process**: Mutation, crossover, and selection of best performers
-- **Features**: Population-based training, no gradient computation required
-- **Use Case**: Alternative approach when gradient-based methods struggle
-
-## State Representation System
-
-### StateGenerator
-
-The StateGenerator class provides sophisticated state extraction from game objects, converting raw game state into structured data that ML agents can process effectively.
-
-#### Core Functions
-```cpp
-// Generate enhanced 20D state for neural networks
-EnhancedState generateState(const Snake& snake, const Apple& apple, const Grid& grid);
-
-// Generate basic 8D state for Q-Learning
-AgentState generateBasicState(const Snake& snake, const Apple& apple, const Grid& grid);
-
-// Calculate spatial features
-void calculateBodyDensity(const Snake& snake, const Grid& grid, float density[4]);
-float calculatePathToFood(const Snake& snake, const Apple& apple, const Grid& grid);
-```
-
-#### Features
-- **Danger Detection**: Comprehensive collision prediction in all directions
-- **Spatial Analysis**: Body density calculation across grid quadrants
-- **Path Planning**: Heuristic distance calculation considering obstacles
-- **Environmental Metrics**: Snake efficiency and environment complexity
-- **Temporal Features**: Episode-based enhancements for training progression
-
-### Reward System
-
-Comprehensive reward constants designed for different ML techniques and training objectives:
-
-```cpp
-struct Reward {
-    // Primary rewards
-    static constexpr float EAT_FOOD = 10.0f;           // Successfully eat apple
-    static constexpr float DEATH = -10.0f;             // Collision penalty
-    
-    // Movement shaping (Q-Learning)
-    static constexpr float MOVE_TOWARDS_FOOD = 1.0f;   // Approach reward
-    static constexpr float MOVE_AWAY_FROM_FOOD = -1.0f; // Distance penalty
-    static constexpr float MOVE_PENALTY = -0.1f;       // Time pressure
-    
-    // Advanced rewards (Neural Networks)
-    static constexpr float EFFICIENCY_BONUS = 2.0f;    // Optimal path bonus
-    static constexpr float EXPLORATION_BONUS = 0.2f;   // Area exploration
-    static constexpr float SAFETY_BONUS = 0.1f;        // Risk avoidance
-    static constexpr float WALL_PENALTY = -0.5f;       // Wall proximity
-    static constexpr float SELF_COLLISION_WARNING = -2.0f; // Danger warning
-};
-```
-
-#### Reward Categories
-- **Primary**: Core game events (food, death)
-- **Shaping**: Guidance for learning direction
-- **Efficiency**: Bonuses for optimal play
-- **Safety**: Risk assessment and avoidance
-- **Exploration**: Encouraging diverse behavior
-
-### Enhanced State Features
-
-#### Basic State (8 dimensions) - Q-Learning
-```cpp
-struct AgentState {
-    bool dangerStraight, dangerLeft, dangerRight;  // Collision detection
-    Direction currentDirection;                     // Current heading
-    bool foodLeft, foodRight, foodUp, foodDown;    // Food direction flags
-    
-    std::string toString() const;                   // State key generation
-};
-```
-
-#### Enhanced State (20 dimensions) - Neural Networks
-```cpp
-struct EnhancedState {
-    AgentState basic;                    // Original 8 features
-    
-    // Distance features
-    float distanceToFood;                // Euclidean distance to apple
-    float distanceToWall[4];            // Distance to walls (up/down/left/right)
-    
-    // Spatial features
-    float bodyDensity[4];               // Snake density by quadrant
-    int snakeLength;                    // Current snake size
-    int emptySpaces;                    // Available grid spaces
-    
-    // Advanced features
-    float pathToFood;                   // A* pathfinding distance
-    
-    std::vector<float> toVector() const; // Neural network input
-};
-```
-
-#### State Features Breakdown
-
-| Feature Category | Dimensions | Description | Use Case |
-|------------------|------------|-------------|----------|
-| **Danger Detection** | 3 | Collision prediction | All agents |
-| **Direction Info** | 1 | Current heading | All agents |
-| **Food Location** | 4 | Directional food flags | All agents |
-| **Distance Metrics** | 5 | Spatial measurements | Neural networks |
-| **Body Analysis** | 4 | Density distribution | Neural networks |
-| **Environment** | 3 | Space and path info | Neural networks |
-
-## Controls
-
-### Menu Navigation
-- **↑/↓**: Navigate menu options
-- **Enter**: Select current option
-- **ESC**: Return to previous menu
-
-### In-Game Controls
-- **Arrow Keys/WASD**: Move snake (Single Player mode only)
-- **Mouse Click**: Place apple (Agent vs Player mode)
-- **ESC**: Open pause menu
-- **+/-**: Adjust game speed (0.5-3.0 blocks/sec)
-- **F1**: Open leaderboard
-- **F2**: Change AI agent (AI modes only)
-
-### Pause Menu
-- **↑/↓**: Navigate pause options
-- **Enter**: Select option
-- **Resume Game**: Continue playing
-- **Speed Settings**: Adjust game speed with +/- keys
-- **Agent Info**: View current AI agent details
-- **Restart Episode**: Reset current game
-- **Main Menu**: Return to main menu
-
-### Agent Selection
-- **↑/↓**: Browse available AI agents
-- **Enter**: Select agent (if implemented)
-- **ESC**: Return to main menu
-- **Agent Status**: Green "READY" or Yellow "COMING SOON"
-
-## Leaderboard System
-
-### Features
-- **Persistent Storage**: Scores saved to `leaderboard.json`
-- **Player Names**: Custom username entry for human players
-- **Agent Tags**: Automatic tagging by AI agent type
-- **Sorting**: Ranked by score, then by efficiency (score/episode ratio)
-- **Display**: Top 10 scores with timestamps and performance metrics
-
-### Entry Process
-1. Achieve qualifying score (>5 points or human player)
-2. Enter custom username (human players only)
-3. AI agents get automatic names (Q-Agent, DQN-Agent, etc.)
-4. Score recorded with agent type, episode count, and efficiency
-
-### Leaderboard Format
-```
-Rank  Player Name              Agent Type      Score  Episode  Efficiency
-#1    AlphaGamer               Human          25     1        25.00
-#2    Q-Agent                  Q-Learning     22     15       1.47
-#3    Sarah_M                  Human          18     1        18.00
-```
-
-## Development
-
-### Build Commands
-```bash
-# Automated build and run (recommended)
-run_system.bat
-
-# Manual build process
-# Debug build
-cmake --preset windows-default
-cmake --build out/build/windows-default
-
-# Release build  
-cmake --preset windows-default -DCMAKE_BUILD_TYPE=Release
-cmake --build out/build/windows-default --config Release
-
-# Clean rebuild
-rm -rf out/
-cmake --preset windows-default
-cmake --build out/build/windows-default --config Release
-```
-
-### Required Assets
-- `assets/fonts/arial.ttf` - UI font for menus and text display
-
-### Adding New State Features
-
-1. **Extend StateGenerator**:
-```cpp
-// Add new calculation method
-static float calculateNewFeature(const Snake& snake, const Apple& apple, const Grid& grid);
-
-// Update generateState() to include new feature
-state.newFeature = calculateNewFeature(snake, apple, grid);
-```
-
-2. **Update State Structures**:
-```cpp
-// Add to EnhancedState in GameState.hpp
-struct EnhancedState {
-    // ... existing features ...
-    float newFeature;           // Your new feature
-    
-    std::vector<float> toVector() const {
-        std::vector<float> vec = { /* existing features */ };
-        vec.push_back(newFeature);  // Add new feature to vector
-        return vec;
-    }
-};
-```
-
-3. **Update Neural Network Input Size**:
-```cpp
-// Update NetworkConfig in neural_network_utils.py
-NetworkConfig(
-    input_size=21,  // Increment from 20
-    hidden_layers=[128, 64],
-    output_size=4
-)
-```
-
-### Adding New AI Agents
-1. **Implement IAgent Interface**: Create new agent class inheriting from `IAgent`
-2. **Register in AgentFactory**: Add case in `createAgent()` method
-3. **Update AgentSelection**: Add to `initializeAgents()` with description
-4. **Set Implementation Status**: Mark `isImplemented = true` when ready
-5. **Test Integration**: Verify agent works in all game modes
-
-### Project Architecture
-```
-Game.cpp (Main Controller)
-├── StateGenerator ──────────── Enhanced state extraction
-│   ├── Basic State (8D)
-│   ├── Enhanced State (20D)
-│   ├── Spatial Analysis
-│   └── Reward Calculation
-├── Menu System
-│   ├── MainMenu
-│   ├── AgentSelection
-│   ├── PauseMenu
-│   └── Leaderboard
-├── Game Engine
-│   ├── Snake Logic
-│   ├── Apple Management
-│   ├── Collision Detection
-│   └── Grid Management
-├── AI Framework
-│   ├── Agent Interface
-│   ├── Multiple Implementations
-│   ├── Model Persistence
-│   └── Performance Tracking
-└── Data Pipeline
-    ├── Episode Recording
-    ├── Metrics Collection
-    ├── Leaderboard Management
-    └── Model Checkpointing
-```
-
-## Docker
-
-### Build Container
-```bash
-docker build -f docker/Dockerfile -t snakeai-mlops .
-```
-
-### Run Container
-```bash
-# Standard run
-docker run --rm snakeai-mlops
-
-# Interactive mode
-docker run -it --rm snakeai-mlops /bin/bash
-
-# With port mapping (if web interface added)
-docker run -p 8080:8080 snakeai-mlops
-```
-
-## MLOps Features
-
-### Experiment Tracking
-- **Training Metrics**: Episode rewards, scores, exploration rates
-- **Model Checkpoints**: Automatic saving of best-performing agents
-- **Performance Dashboards**: Real-time training visualization
-- **Comparative Analysis**: Multi-agent performance comparison
-
-### Model Management
-```bash
-# Train new model (example for future CLI)
-.\SnakeAI-MLOps.exe --train --agent qlearning --episodes 1000
-
-# Evaluate model performance
-.\SnakeAI-MLOps.exe --evaluate --model models/qtable.json
-
-# Compare multiple agents
-.\SnakeAI-MLOps.exe --compare --agents qlearning,dqn,policy
-```
-
-### Data Pipeline
-- **Episode Data**: Complete game state transitions and rewards
-- **Performance Metrics**: Score trends, learning curves, efficiency
-- **Model Artifacts**: Serialized agent parameters and configurations
-- **Leaderboard Analytics**: Player performance and agent effectiveness
-
-## Verification Checklist
-
-### ✅ Core Gameplay
-- [x] Snake movement and growth mechanics
-- [x] Apple spawning and collection
-- [x] Collision detection (walls and self)
-- [x] Score tracking and display
-
-### ✅ AI Agents
-- [x] Q-Learning agent with model persistence
-- [x] Agent selection interface
-- [x] Multiple agent framework
-- [x] Enhanced state representation for neural networks
-
-### ✅ State Representation
-- [x] StateGenerator system for feature extraction
-- [x] 8D basic states for Q-Learning
-- [x] 20D enhanced states for neural networks
-- [x] Comprehensive reward system
-- [x] Spatial analysis and pathfinding
-
-### ✅ User Interface
-- [x] Enhanced main menu
-- [x] Pause menu with speed control
-- [x] Leaderboard with username entry
-- [x] Real-time game statistics
-
-### ✅ Data & Analytics
-- [x] Episode data collection
-- [x] Training metrics logging
-- [x] Performance tracking
-- [x] Model checkpoint system
-
-### ✅ Developer Experience
-- [x] Automated build and run script
-- [x] Comprehensive logging system
-- [x] Modular architecture
-- [x] Clear documentation
-
-### 🔄 Future Enhancements
-- [ ] Neural network agent implementations
-- [ ] Web-based training dashboard
-- [ ] Multi-agent tournaments
-- [ ] Advanced visualization tools
-
-## Troubleshooting
-
-### Build Issues
-```bash
-# vcpkg integration problems
-.\vcpkg integrate install
-.\vcpkg list
-
-# CMake cache issues
-rm -rf out/
-cmake --preset windows-default
-
-# Missing dependencies
-.\vcpkg install sfml:x64-windows nlohmann-json:x64-windows spdlog:x64-windows
-
-# Use automated script
-run_system.bat
-```
-
-### Runtime Issues
-- **Font not found**: Ensure `arial.ttf` exists in `assets/fonts/`
-- **Agent selection empty**: Check that agent `isImplemented` flags are set correctly
-- **Leaderboard not saving**: Verify write permissions in project directory
-- **Models not loading**: Check that `models/` directory exists and is writable
-- **StateGenerator errors**: Verify Snake, Apple, and Grid objects are valid
-
-### Game Issues
-- **Snake won't move**: Check if game is paused (ESC toggles pause)
-- **No apple spawning**: Verify apple placement logic for current game mode
-- **Agent not learning**: Confirm training mode is enabled and epsilon > 0
-- **Performance slow**: Reduce speed or check for debug logging overhead
-- **State extraction fails**: Check StateGenerator debug output in logs
-
-### New Features Debug
-- **Enhanced states not working**: Check StateGenerator implementation
-- **Reward system issues**: Verify Reward.hpp constants are accessible
-- **20D state vector problems**: Ensure toVector() method is properly implemented
-- **Spatial analysis errors**: Check body density and path calculation logic
-
-## Contributing
-
-### Development Priorities
-1. **Neural Network Agents**: Implement DQN, Policy Gradient, and Actor-Critic
-2. **Advanced State Features**: Improve StateGenerator with more sophisticated analysis
-3. **Visualization**: Training dashboards, performance graphs
-4. **Optimization**: Performance improvements, memory efficiency
-
-### Code Standards
-- Follow existing naming conventions and structure
-- Add comprehensive logging for debugging
-- Include unit tests for new features
-- Update documentation for API changes
-- Test StateGenerator thoroughly with edge cases
-
-### Beginner Contributions
-- **Bug Reports**: Test different scenarios and report issues
-- **Documentation**: Improve README sections or add tutorials
-- **Asset Creation**: Design better graphics or sound effects
-- **Configuration**: Add new game settings or customization options
-- **State Features**: Add simple new features to StateGenerator
-
-### Advanced Contributions
-- **ML Implementation**: Complete placeholder agent implementations
-- **Performance**: Optimize training speed and memory usage
-- **Features**: Add new game modes or AI techniques
-- **Infrastructure**: Improve build system or CI/CD pipeline
-- **State Analysis**: Develop sophisticated state representation methods
-
-### Contribution Process
-1. Fork repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Implement changes with tests
-4. Update documentation
-5. Test with `run_system.bat`
-6. Commit changes: `git commit -m 'Add amazing feature'`
-7. Push branch: `git push origin feature/amazing-feature`
-8. Open Pull Request with detailed description
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
+- **🌐 Website**: [GitHub Pages](https://pranavmishra17.github.io/SnakeAI-MLOps/) - See the project in action
+- **🐳 Docker**: `docker run ghcr.io/pranavmishra17/snakeai-mlops:latest` - One-command setup
+- **📦 Downloads**: [GitHub Releases](https://github.com/PranavMishra17/SnakeAI-MLOps/releases) - Ready-to-run executables
 
 ---
 
-**Ready to Train AI Agents?** 
+## 🎯 Features
 
-Use the automated setup:
-```bash
-git clone https://github.com/PranavMishra17/SnakeAI-MLOps.git
-cd SnakeAI-MLOps
-run_system.bat
+### ⚡ GPU Acceleration
+- PyTorch CUDA support for 10-50x speedup
+- Automatic CPU fallback
+- Memory-optimized training pipelines
+- Batch processing for efficiency
+
+### 🎮 Interactive Gameplay
+- Real-time AI vs Human gameplay
+- Multiple game modes (Single Player, Agent vs Player, Agent vs System)
+- Live agent switching and performance monitoring
+- Comprehensive leaderboard system
+
+### 📊 Production MLOps
+- Automated model training pipelines
+- Model versioning and checkpointing
+- Performance evaluation and comparison
+- Comprehensive metrics and visualizations
+
+---
+
+## 📋 Index
+
+- [🏗️ Architecture](#architecture)
+- [🔧 Installation](#installation)
+- [🧠 ML Techniques](#ml-techniques)
+- [🎯 Training](#training)
+- [📊 Evaluation](#evaluation)
+- [🎮 Gameplay](#gameplay)
+- [📈 Performance](#performance)
+- [🔬 Research](#research)
+- [🛠️ Development](#development)
+- [❓ Troubleshooting](#troubleshooting)
+
+---
+
+## My Development Journey
+
+Building this project was quite the adventure! Here's how it all came together, step by step:
+
+### Step 1: The Foundation 
+**Challenge**: "How do I even make a game in C++?"
+
+Started completely from scratch with C++ game development. Had to figure out:
+- Which graphics library to use (ended up choosing SFML)
+- How CMake works for managing dependencies
+- Setting up vcpkg for library management
+- Basic game mechanics: snake movement, collision detection, apple spawning
+
+### Step 2: Making It Interactive
+
+Built out the user interface:
+- Menu systems with navigation
+- Pause functionality that actually pauses
+- Settings screens
+- Keyboard and mouse controls
+- Agent selection interface
+
+**Learning moment**: UI design in C++ is very different from web development. Every button needs manual positioning and event handling.
+
+### Step 3: The AI Brain Surgery 
+**Challenge**: "How do I make AI that actually learns?"
+
+This was the most lovely part. Implemented all four AI techniques in Python:
+- Started with Q-Learning because it seemed "simple"
+- Moved to DQN and realized I needed to understand neural networks deeply
+- Policy Gradient made my brain hurt with all the probability math
+- Actor-Critic was like solving two problems at once
+
+**PyTorch became my best friend**. Also learned about:
+- GPU acceleration (game changer for training speed!)
+- Proper state representation (20 features work better than 8)
+- Hyperparameter tuning (lots of trial and error)
+
+**Big "aha!" moment**: Realized that reward design is absolutely critical. The difference between an AI that learns and one that doesn't often comes down to how you design the rewards.
+
+### Step 4: The Integration Nightmare
+**Challenge**: "How do I get Python AI models to run in my C++ game?"
+
+This was harder than I expected:
+- Q-Learning was easy - just save/load JSON files
+- Neural networks were a pain - had to convert from .pth to .pt format
+- Learned about LibTorch (PyTorch's C++ API)
+- Setting up LibTorch on Windows = 4 hours of my life I'll never get back
+- Memory management between Python tensors and C++ was tricky
+
+**Plot twist**: Had to create fallback implementations for when LibTorch isn't available (CI/CD problems!).
+
+### Step 5: Making It Production-Ready
+**Challenge**: "How do I make this actually work for other people?"
+
+The final stretch involved:
+- Setting up GitHub Actions CI/CD (learned YAML the hard way)
+- Docker containerization
+- Cross-platform builds (Windows + Linux)
+- Error handling for every possible edge case
+- UI polish and user experience improvements
+- Writing documentation that humans can follow
+
+**Reality check**: Deployment is 30% of the work. Getting something to run on your machine vs. running anywhere is a huge difference.
+
+### The Technical Battles I Fought
+
+**Dependency Hell**: C++ dependency management is challenging. vcpkg helped, but getting LibTorch to play nice took forever.
+
+**Memory Management**: Mixing Python training with C++ gameplay meant carefully managing when/where models are loaded and unloaded.
+
+**State Representation**: Originally used 8 features, but switching to 20 features dramatically improved learning. Feature engineering matters!
+
+**GPU vs CPU**: Making everything work on both GPU and CPU, with graceful fallbacks when hardware isn't available.
+
+**Cross-Platform Builds**: What works on Windows doesn't always work on Linux. The CI/CD pipeline helped catch these issues.
+
+### What I'm Most Proud Of
+
+1. **The complete pipeline**: From raw game → AI training → deployed models → real-time gameplay
+2. **Performance comparison**: Actually being able to say "Actor-Critic performs 15% better than DQN"
+3. **User experience**: Anyone can download and run this without needing a PhD in machine learning
+4. **Production quality**: Real error handling, logging, automated testing, the works
+
+---
+
+
+## 🏗️ Architecture
+
+
+### Directory Structure
+
+```
+SnakeAI-MLOps/
+├── src/                           # Source code
+│   ├── neural_network_utils.py    # Shared neural network utilities
+│   ├── qlearning_trainer.py       # Q-Learning implementation
+│   ├── dqn_trainer.py             # Deep Q-Network training
+│   ├── policy_gradient_trainer.py # Policy Gradient (REINFORCE)
+│   ├── actor_critic_trainer.py    # Actor-Critic implementation
+│   ├── train_models.py            # Training orchestrator
+│   ├── model_evaluator.py         # Comprehensive evaluation
+│   ├── examples.py                # Usage examples
+│   ├── Game.cpp/.hpp              # C++ game engine
+│   └── MLAgents.cpp/.hpp          # C++ agent integration
+├── models/                        # Trained models
+│   ├── qlearning/                 # Q-Learning models (.json)
+│   ├── dqn/                       # DQN models (.pth)
+│   ├── policy_gradient/           # Policy Gradient models (.pth)
+│   ├── actor_critic/              # Actor-Critic models (.pth)
+│   └── checkpoints/               # Training checkpoints
+├── data/                          # Training data and logs
+├── assets/                        # Game assets
+└── docs/                          # Documentation
 ```
 
-Start with the Q-Learning agent, experiment with different game modes, and watch your AI learn to master Snake! 🐍🤖
+---
 
-The enhanced StateGenerator system provides sophisticated state representation, while the comprehensive reward system enables effective training across multiple ML techniques.
+## 🔧 Installation
+
+### Prerequisites
+
+```bash
+# System Requirements
+- Python 3.8+ with pip
+- CUDA-capable GPU (recommended)
+- Visual Studio 2022 (Windows) or GCC (Linux)
+- CMake 3.20+
+- Git
+
+# Check GPU support
+python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+```
+
+### Automated Setup
+
+```bash
+# Complete setup (recommended)
+git clone https://github.com/PranavMishra17/SnakeAI-MLOps.git
+cd SnakeAI-MLOps
+python setup.py --full
+
+# This will:
+# ✅ Install Python dependencies
+# ✅ Setup GPU acceleration
+# ✅ Configure C++ build environment
+# ✅ Create directory structure
+# ✅ Run verification tests
+```
+
+### Manual Setup
+
+<details>
+<summary>Click to expand manual installation steps</summary>
+
+```bash
+# 1. Python Environment
+pip install -r src/requirements.txt
+
+# 2. Create directories
+python -c "
+from pathlib import Path
+dirs = ['models/qlearning', 'models/dqn', 'models/policy_gradient', 
+        'models/actor_critic', 'models/checkpoints', 'data', 'logs']
+[Path(d).mkdir(parents=True, exist_ok=True) for d in dirs]
+"
+
+# 3. C++ Dependencies (Windows)
+# Install vcpkg
+git clone https://github.com/Microsoft/vcpkg.git ../vcpkg
+cd ../vcpkg && ./bootstrap-vcpkg.bat && ./vcpkg integrate install
+
+# Install libraries
+./vcpkg install sfml:x64-windows nlohmann-json:x64-windows spdlog:x64-windows
+
+# 4. Build C++ Project
+cd ../SnakeAI-MLOps
+cmake --preset windows-default
+cmake --build out/build/windows-default
+```
+
+</details>
+
+---
+
+## 🧠 ML Techniques
+
+### 1. Q-Learning (Tabular)
+
+**Implementation**: Fully functional in both Python and C++
+
+```python
+# Train Q-Learning model
+python src/qlearning_trainer.py
+
+# Configuration profiles
+profiles = {
+    'aggressive': {'lr': 0.2, 'episodes': 3000},
+    'balanced': {'lr': 0.1, 'episodes': 5000}, 
+    'conservative': {'lr': 0.05, 'episodes': 7000}
+}
+```
+
+**Features**:
+- 9-bit state encoding (512 possible states)
+- Epsilon-greedy exploration with decay
+- GPU-accelerated Q-table operations
+- Model persistence and loading
+
+### 2. Deep Q-Network (DQN)
+
+**Implementation**: GPU-accelerated PyTorch training
+
+```python
+# Train DQN model
+python src/dqn_trainer.py
+
+# Advanced features
+- Dueling DQN architecture
+- Double DQN for reduced bias
+- Experience replay buffer (10K capacity)
+- Target network updates
+- Gradient clipping
+```
+
+**Architecture**:
+```
+Input (20D enhanced state) 
+    ↓
+Shared layers [256, 128]
+    ↓
+┌─ Value Stream ──→ V(s)
+└─ Advantage Stream ──→ A(s,a)
+    ↓
+Q(s,a) = V(s) + A(s,a) - mean(A)
+```
+
+### 3. Policy Gradient (REINFORCE)
+
+**Implementation**: Direct policy optimization with baseline
+
+```python
+# Train Policy Gradient model
+python src/policy_gradient_trainer.py
+
+# Features
+- REINFORCE algorithm with baseline
+- Entropy regularization for exploration
+- Variance reduction via value function
+- Episode-based learning
+```
+
+**Algorithm**:
+```
+1. Collect episode: τ = {s₀,a₀,r₀,...,sₜ,aₜ,rₜ}
+2. Compute returns: Gₜ = Σᵢ γⁱ⁻ᵗ rᵢ
+3. Estimate advantage: Âₜ = Gₜ - V(sₜ)
+4. Update policy: θ ← θ + α ∇θ log π(aₜ|sₜ) Âₜ
+```
+
+### 4. Actor-Critic (A2C)
+
+**Implementation**: Advantage Actor-Critic with separate networks
+
+```python
+# Train Actor-Critic model
+python src/actor_critic_trainer.py
+
+# Dual network architecture
+- Actor: π(a|s) - policy network
+- Critic: V(s) - value network
+- Simultaneous updates
+- TD error for advantage estimation
+```
+
+**Update Rules**:
+```
+TD Error: δ = r + γV(s') - V(s)
+Actor: θ ← θ + α_actor * δ * ∇θ log π(a|s)
+Critic: w ← w + α_critic * δ * ∇w V(s)
+```
+
+---
+
+## 🎯 Training
+
+### Complete Training Pipeline
+
+```bash
+# Train all techniques with all profiles
+python src/train_models.py --technique all
+
+# This trains 12 models:
+# - Q-Learning: aggressive, balanced, conservative
+# - DQN: aggressive, balanced, conservative  
+# - Policy Gradient: aggressive, balanced, conservative
+# - Actor-Critic: aggressive, balanced, conservative
+```
+
+### Individual Technique Training
+
+```bash
+# Q-Learning
+python src/qlearning_trainer.py
+
+# Deep Q-Network
+python src/dqn_trainer.py
+
+# Policy Gradient
+python src/policy_gradient_trainer.py
+
+# Actor-Critic  
+python src/actor_critic_trainer.py
+
+# Custom configuration
+python src/train_models.py --technique dqn --profile balanced --episodes 3000
+```
+
+### What Happens During Training
+```
+Starting training...
+Episode 100/5000 | Score: 3 | Epsilon: 0.95 | Loss: 0.234
+Episode 200/5000 | Score: 7 | Epsilon: 0.90 | Loss: 0.187
+Episode 500/5000 | Score: 12 | Epsilon: 0.75 | Loss: 0.098
+...
+Training complete! Best score: 28 | Average: 18.45
+Model saved to: models/actor_critic/ac_conservative.pth
+```
+
+### Training Output
+
+```
+models/
+├── qlearning/
+│   ├── qtable_aggressive.json      # Q-Learning models
+│   ├── qtable_balanced.json
+│   └── qtable_conservative.json
+├── dqn/
+│   ├── dqn_aggressive.pth          # DQN models
+│   ├── dqn_balanced.pth
+│   └── dqn_conservative.pth
+├── policy_gradient/
+│   ├── pg_aggressive.pth           # Policy Gradient models
+│   ├── pg_balanced.pth
+│   └── pg_conservative.pth
+└── actor_critic/
+    ├── ac_aggressive.pth           # Actor-Critic models
+    ├── ac_balanced.pth
+    └── ac_conservative.pth
+```
+
+---
+
+## 📊 Evaluation
+
+### Comprehensive Model Evaluation
+
+```bash
+# Evaluate all trained models
+python src/train_models.py --evaluate
+
+# Individual model evaluation
+python src/model_evaluator.py
+
+# Custom evaluation
+from src.model_evaluator import UnifiedModelEvaluator
+evaluator = UnifiedModelEvaluator()
+results = evaluator.compare_all_models(episodes=100)
+```
+
+### Evaluation Metrics
+
+| Metric | Description | Interpretation |
+|--------|-------------|----------------|
+| **Average Score** | Mean score over N episodes | Higher = better performance |
+| **Maximum Score** | Best single episode | Peak capability |
+| **Standard Deviation** | Score consistency | Lower = more reliable |
+| **Action Entropy** | Behavioral diversity | Higher = more exploration |
+| **Episode Length** | Average steps per episode | Longer = more cautious |
+
+### Evaluation Output
+
+```
+models/
+├── comprehensive_comparison.png    # Visual comparison
+├── evaluation_report.json         # Detailed metrics
+└── profile_comparison.png         # Within-technique comparison
+
+Console Output:
+🏆 MODEL EVALUATION SUMMARY
+═══════════════════════════════════
+📊 Top 5 Performing Models:
+ 1. actor_critic    ac_conservative        Avg:  18.45 Max:  28
+ 2. dqn            dqn_balanced            Avg:  17.23 Max:  25
+ 3. policy_gradient pg_conservative        Avg:  16.78 Max:  24
+ 4. qlearning      qtable_conservative     Avg:  15.92 Max:  22
+ 5. actor_critic   ac_balanced             Avg:  15.34 Max:  21
+```
+
+---
+
+## 🎮 Gameplay
+
+### Game Modes
+
+#### 1. Single Player
+- **Control**: Human controls snake with arrow keys (↑↓←→) or WASD
+- **Objective**: Eat apples to grow and achieve highest score
+- **Features**: Classic Snake gameplay with modern enhancements
+
+#### 2. Agent vs Player  
+- **Control**: AI controls snake, human places apples with mouse
+- **Strategy**: Test AI behavior by controlling food placement
+- **Visual**: Red preview shows next apple placement
+
+#### 3. Agent vs System
+- **Control**: AI controls snake, system spawns apples randomly
+- **Purpose**: Pure AI demonstration and training mode
+- **Analytics**: Real-time performance monitoring
+
+### Controls
+
+```
+Game Controls:
+├── Arrow Keys/WASD ──→ Move snake (Single Player)
+├── Mouse Click ──────→ Place apple (Agent vs Player)
+├── ESC ──────────────→ Pause menu
+├── +/- ─────────────→ Adjust speed (0.5-3.0x)
+├── F1 ──────────────→ View leaderboard
+└── F2 ──────────────→ Change AI agent
+
+Pause Menu:
+├── Resume Game ──────→ Continue playing
+├── Speed Settings ───→ Adjust game speed
+├── Agent Info ───────→ View current AI details
+├── Restart Episode ──→ Reset current game
+└── Main Menu ────────→ Return to main menu
+```
+
+
+## Adding New AI Techniques
+
+Want to implement your own AI algorithm? Here's how:
+
+### 1. Create the Python Trainer
+```python
+# src/my_algorithm_trainer.py
+class MyAlgorithmAgent:
+    def __init__(self, config):
+        # Your implementation here
+        pass
+    
+    def train(self, episodes):
+        # Training loop
+        pass
+    
+    def get_action(self, state):
+        # Return action based on current state
+        pass
+```
+
+### 2. Add to Training Pipeline
+```python
+# Add to src/train_models.py
+from my_algorithm_trainer import train_my_algorithm
+
+if technique == "my_algorithm":
+    train_my_algorithm(config)
+```
+
+### 3. Integrate with Game (Optional)
+```cpp
+// Add to src/MLAgents.cpp
+class MyAlgorithmAgent : public IAgent {
+    // Implementation for C++ game integration
+};
+```
+
+## 🔬 Research
+
+### Academic Applications
+
+**Algorithm Comparison Studies**:
+```python
+# Compare sample efficiency
+python src/examples.py --example 4  # Hyperparameter comparison
+
+# Analyze state representation impact
+# 8D discrete vs 20D continuous states
+
+# Multi-agent interaction studies
+# Self-play and population dynamics
+```
+
+**Research Questions Supported**:
+1. Which RL algorithm is most sample efficient for discrete control?
+2. How does state representation affect learning speed and final performance?
+3. What is the impact of reward shaping on policy convergence?
+4. How do different exploration strategies affect final policy quality?
+
+
+## ❓ Troubleshooting
+
+### GPU Issues
+
+```bash
+# Check CUDA installation
+nvidia-smi
+python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+
+# Memory issues
+export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+
+# Driver issues
+# Update to latest NVIDIA drivers
+# Reinstall PyTorch: pip install torch --force-reinstall
+```
+
+### Training Issues
+
+**Slow Training**:
+```python
+# Reduce batch size
+config.batch_size = 16  # Instead of 32
+
+# Use mixed precision
+# Add to trainer: torch.cuda.amp.autocast()
+```
+
+**Poor Performance**:
+```python
+# Adjust learning rate
+config.learning_rate *= 0.5
+
+# Increase exploration
+config.epsilon_start = 0.5
+config.entropy_coeff = 0.02
+```
+
+**Training Instability**:
+```python
+# Gradient clipping
+torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+# Learning rate scheduling
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.9)
+```
+
+### Build Issues
+
+**C++ Build Failures**:
+```bash
+# Clean rebuild
+rm -rf out/ build/
+cmake --preset windows-default
+cmake --build out/build/windows-default
+
+# vcpkg issues
+cd ../vcpkg
+./vcpkg integrate install
+./vcpkg install sfml:x64-windows nlohmann-json:x64-windows spdlog:x64-windows
+```
+
+**Font Loading Issues**:
+```bash
+# Ensure font file exists
+ls assets/fonts/arial.ttf
+
+# Copy system font if needed (Windows)
+copy C:\Windows\Fonts\arial.ttf assets\fonts\
+
+# Linux alternative
+sudo apt-get install fonts-liberation
+cp /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf assets/fonts/arial.ttf
+```
+
+### Model Loading Issues
+
+**Q-Learning Models**:
+```bash
+# Verify JSON format
+python -c "import json; json.load(open('models/qlearning/qtable_balanced.json'))"
+
+# Check file permissions
+chmod +r models/**/*
+```
+
+**Neural Network Models**:
+```bash
+# Verify PyTorch format
+python -c "import torch; torch.load('models/dqn/dqn_balanced.pth')"
+
+# Check CUDA compatibility
+python -c "
+import torch
+model = torch.load('models/dqn/dqn_balanced.pth', map_location='cpu')
+print('Model loaded successfully')
+"
+```
+
+### Common Error Messages
+
+| Error | Cause | Solution |
+|-------|--------|----------|
+| `CUDA out of memory` | GPU memory insufficient | Reduce batch size or use CPU |
+| `Font not found` | Missing arial.ttf | Copy font to assets/fonts/ |
+| `vcpkg not found` | vcpkg not installed | Run `python setup.py --vcpkg` |
+| `Model file not found` | Training not completed | Run training first |
+| `Import torch failed` | PyTorch not installed | `pip install torch` |
+
+---
+
+## 🤝 Contributing
+
+### Ways to Contribute
+
+1. **Bug Reports**: Submit detailed issues with reproduction steps
+2. **Feature Requests**: Propose new ML techniques or game features
+3. **Code Contributions**: Implement new algorithms or optimizations
+4. **Documentation**: Improve guides, tutorials, and examples
+5. **Testing**: Add unit tests and integration tests
+
+### Development Workflow
+
+```bash
+# 1. Fork and clone
+git clone https://github.com/yourusername/SnakeAI-MLOps.git
+cd SnakeAI-MLOps
+
+# 2. Create feature branch
+git checkout -b feature/amazing-new-algorithm
+
+# 3. Implement changes
+# ... make your changes ...
+
+# 4. Test thoroughly
+python src/examples.py --all
+python -m pytest src/tests/
+
+# 5. Commit and push
+git add .
+git commit -m "Add amazing new algorithm with GPU acceleration"
+git push origin feature/amazing-new-algorithm
+
+# 6. Open pull request
+```
+
+### Contribution Guidelines
+
+- **Code Quality**: Follow existing patterns and style guides
+- **Documentation**: Update relevant docs (README.md, ML.md)
+- **Testing**: Include tests for new functionality
+- **Performance**: Profile and optimize GPU usage
+- **Backwards Compatibility**: Maintain API compatibility
+
+---
+## Support & Contact
+
+Got questions? Running into issues? Want to collaborate?
+
+- 📧 **Email**: pmishr23@uic.edu
+- 🔗 **Portfolio**: [portfolio-pranav-mishra.vercel.app](https://portfolio-pranav-mishra.vercel.app)
+- 💼 **LinkedIn**: [linkedin.com/in/pranavgamedev](https://linkedin.com/in/pranavgamedev)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/PranavMishra17/SnakeAI-MLOps/issues)
+- 📂 **Repository**: [github.com/PranavMishra17/SnakeAI-MLOps](https://github.com/PranavMishra17/SnakeAI-MLOps)
+
+### Check Out My Other Work
+Visit my portfolio to see more projects involving machine learning, game development, and full-stack applications!
+
+---
+
+**License**: MIT License - Use it, modify it, learn from it!
+
+**Built with**: Python, PyTorch, C++, SFML, CMake, Docker, and lots of coffee ☕

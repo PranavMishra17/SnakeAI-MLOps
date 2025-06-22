@@ -4,32 +4,21 @@ project(SnakeAI-MLOps)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Ensure x64 build
-set(CMAKE_GENERATOR_PLATFORM x64)
+# Ensure x64 build on Windows
+if(WIN32)
+    set(CMAKE_GENERATOR_PLATFORM x64)
+endif()
 
 # Required dependencies
 find_package(SFML COMPONENTS System Window Graphics CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
-# Optional LibTorch configuration (for future neural network implementations)
-set(CMAKE_PREFIX_PATH "C:/libtorch")
-set(Torch_DIR "C:/libtorch/share/cmake/Torch")
+# Optional LibTorch configuration (controlled by TORCH_AVAILABLE option)
+option(TORCH_AVAILABLE "Enable LibTorch support for neural network inference" ON)
 
-# Try to find optional dependencies
-find_package(Torch QUIET)
-find_package(CUDAToolkit QUIET)
-
-# Set compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-if(Torch_FOUND)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-    message(STATUS "LibTorch found - neural network support enabled")
-else()
-    message(STATUS "LibTorch not found - continuing without neural network support")
-endif()
-
-add_executable(${PROJECT_NAME}
+# Core source files (always compiled)
+set(CORE_SOURCES
     src/main.cpp
     src/Game.cpp
     src/Snake.cpp
@@ -43,11 +32,38 @@ add_executable(${PROJECT_NAME}
     src/MLAgents.cpp
     src/InputManager.cpp
     src/UnifiedDataCollector.cpp
-    src/TorchInference.cpp
     src/StatsGallery.cpp
     src/Settings.cpp
     src/HowToPlay.cpp
 )
+
+# Conditional LibTorch setup
+if(TORCH_AVAILABLE)
+    # Try to find LibTorch
+    set(CMAKE_PREFIX_PATH "C:/libtorch")
+    set(Torch_DIR "C:/libtorch/share/cmake/Torch")
+    
+    find_package(Torch QUIET)
+    find_package(CUDAToolkit QUIET)
+    
+    if(Torch_FOUND)
+        message(STATUS "LibTorch found - neural network support enabled")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+        list(APPEND CORE_SOURCES src/TorchInference.cpp)
+        set(TORCH_AVAILABLE_ACTUAL ON)
+    else()
+        message(STATUS "LibTorch not found - continuing without neural network support")
+        list(APPEND CORE_SOURCES src/TorchInference.cpp)
+        set(TORCH_AVAILABLE_ACTUAL OFF)
+    endif()
+else()
+    message(STATUS "LibTorch support disabled - building without neural networks")
+    list(APPEND CORE_SOURCES src/TorchInference.cpp)
+    set(TORCH_AVAILABLE_ACTUAL OFF)
+endif()
+
+# Create executable with determined sources
+add_executable(${PROJECT_NAME} ${CORE_SOURCES})
 
 # Link required libraries
 target_link_libraries(${PROJECT_NAME} 
@@ -58,15 +74,15 @@ target_link_libraries(${PROJECT_NAME}
     spdlog::spdlog
 )
 
-# Link optional libraries if available
-if(Torch_FOUND)
-    target_link_libraries(${PROJECT_NAME} ${TORCH_LIBRARIES})
+# Set compile definitions
+if(TORCH_AVAILABLE_ACTUAL AND Torch_FOUND)
     target_compile_definitions(${PROJECT_NAME} PRIVATE TORCH_AVAILABLE)
-endif()
-
-if(CUDAToolkit_FOUND)
-    target_link_libraries(${PROJECT_NAME} CUDA::cudart)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE CUDA_AVAILABLE)
+    target_link_libraries(${PROJECT_NAME} ${TORCH_LIBRARIES})
+    
+    if(CUDAToolkit_FOUND)
+        target_link_libraries(${PROJECT_NAME} CUDA::cudart)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE CUDA_AVAILABLE)
+    endif()
 endif()
 
 # Suppress warnings for MSVC
@@ -78,7 +94,7 @@ if(MSVC)
     )
     
     # Copy LibTorch DLLs if available
-    if(Torch_FOUND)
+    if(TORCH_AVAILABLE_ACTUAL AND Torch_FOUND)
         file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
         if(TORCH_DLLS)
             add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
