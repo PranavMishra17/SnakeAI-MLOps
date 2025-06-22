@@ -12,6 +12,10 @@ Build, train, and compare AI agents that learn to play Snake! This project imple
 
 ![SnakeAI-MLOps System Overview](title.png)
 
+| Trained Agent | Untrained Agent |
+|---------------|-----------------|
+| ![Untrained](assets/untrained.gif) | ![Trained](assets/trained.gif) |
+
 ## What This Project Does
 
 Ever wondered which AI technique would be best at playing Snake? This project answers that question by implementing and comparing four different machine learning approaches:

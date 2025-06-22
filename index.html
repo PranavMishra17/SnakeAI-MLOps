@@ -399,7 +399,66 @@
             margin-top: 60px;
             color: var(--text-dim);
         }
-        
+
+    
+.demo-container {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.demo-item {
+    flex: 0 0 auto;
+    max-width: 400px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.demo-gif {
+    width: 80%;
+    aspect-ratio: 1;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.demo-gif img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.demo-item h3 {
+    margin: 15px 0 10px 0;
+    color: #f0b90b;
+}
+
+.demo-item p {
+    text-align: center;
+    max-width: 350px;
+    line-height: 1.5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    .demo-container {
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
+    }
+    
+    .demo-gif {
+        width: 70%;
+    }
+}
         /* Responsive */
         @media (max-width: 768px) {
             .project-title {
@@ -463,35 +522,30 @@
         <main>
             <!-- AI Demonstration Section -->
             <div class="section" id="demo-section">
-                <div class="section-header" onclick="toggleSection('demo-section')">
-                    <span class="section-title">AI in Action</span>
-                    <span class="section-toggle">▼</span>
-                </div>
-                <div class="section-content">
-                    <p>This project demonstrates the power of reinforcement learning by training AI agents to master the classic Snake game. Watch how trained agents exhibit intelligent navigation patterns compared to random exploration:</p>
-                    <div class="demo-container">
-                        <div class="demo-item">
-                            <div class="demo-placeholder">
-                                <div>
-                                    <div>Trained Agent Gameplay</div>
-                                    <small>trained_snake.gif</small>
-                                </div>
-                            </div>
-                            <h3>Intelligent Decision Making</h3>
-                            <p>Trained agents efficiently navigate towards food while avoiding obstacles, demonstrating learned strategic behavior and spatial awareness.</p>
+            <div class="section-header" onclick="toggleSection('demo-section')">
+                <span class="section-title">AI in Action</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <p>This project demonstrates the power of reinforcement learning by training AI agents to master the classic Snake game. Watch how trained agents exhibit intelligent navigation patterns compared to random exploration:</p>
+                <div class="demo-container">
+                    <div class="demo-item">
+                        <div class="demo-gif">
+                            <img src="assets/trained.gif" alt="Trained Agent Gameplay" loop>
                         </div>
-                        <div class="demo-item">
-                            <div class="demo-placeholder">
-                                <div>
-                                    <div>Untrained Agent Behavior</div>
-                                    <small>untrained_snake.gif</small>
-                                </div>
-                            </div>
-                            <h3>Random Exploration</h3>
-                            <p>Untrained agents move randomly without strategy, frequently colliding with walls or their own body, highlighting the learning achievement.</p>
+                        <h3>Intelligent Decision Making</h3>
+                        <p>Trained agents efficiently navigate towards food while avoiding obstacles, demonstrating learned strategic behavior and spatial awareness.</p>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-gif">
+                            <img src="assets/untrained.gif" alt="Untrained Agent Behavior" loop>
                         </div>
+                        <h3>Random Exploration</h3>
+                        <p>Untrained agents move randomly without strategy, frequently colliding with walls or their own body, highlighting the learning achievement.</p>
                     </div>
                 </div>
+            </div>
+            </div>
             </div>
 
             <!-- Project Overview Section -->
