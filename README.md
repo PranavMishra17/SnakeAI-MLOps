@@ -12,7 +12,7 @@ Build, train, and compare AI agents that learn to play Snake! This project imple
 
 ![SnakeAI-MLOps System Overview](title.png)
 
-| Trained Agent | Untrained Agent |
+| Untrained Agent | Trained Agent |
 |---------------|-----------------|
 | ![Untrained](assets/untrained.gif) | ![Trained](assets/trained.gif) |
 
