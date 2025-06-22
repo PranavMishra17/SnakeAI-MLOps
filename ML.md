@@ -839,49 +839,6 @@ Production ML pipeline features:
 
 ---
 
-## API Reference
-
-### Python Training API
-
-```python
-# Train any technique
-from train_models import train_single_technique
-train_single_technique('ppo', 'balanced', episodes=1500)
-
-# Evaluate models
-from model_evaluator import EnhancedModelEvaluator
-evaluator = EnhancedModelEvaluator()
-results = evaluator.evaluate_model(model_path, model_type, episodes=100)
-
-# Load and use trained models
-import torch
-
-# PPO model loading
-checkpoint = torch.load('models/ppo/ppo_balanced.pth')
-policy_net = SimplePolicyNetwork(8, 64, 4)
-policy_net.load_state_dict(checkpoint['policy_network'])
-
-# DQN model loading
-checkpoint = torch.load('models/dqn/dqn_balanced.pth')
-dqn_net = SimpleDQN(8, 64, 4)
-dqn_net.load_state_dict(checkpoint['q_network'])
-```
-
-### C++ Game API
-
-```cpp
-// Load trained model (Q-Learning only)
-TrainedModelManager manager;
-auto models = manager.getAvailableModels();
-auto agent = AgentFactory::createTrainedAgent(model_name);
-
-// Generate state and get action
-EnhancedState state = StateGenerator::generateState(snake, apple, grid);
-Direction action = agent->getAction(state, false);  // No training
-
-// Update agent (if training)
-agent->updateAgent(state, action, reward, nextState);
-```
 
 ---
 

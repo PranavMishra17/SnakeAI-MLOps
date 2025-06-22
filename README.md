@@ -104,6 +104,11 @@ Here's how the different AI agents performed after training:
 
 ---
 
+## Eval Graph
+![SnakeAI-MLOps System Overview](eval.png)
+
+---
+
 ## 🎯 Features
 
 ### ⚡ GPU Acceleration

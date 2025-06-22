@@ -27,6 +27,16 @@ jobs:
       with:
         vs-version: '17.0'
     
+    # Create required directories BEFORE build
+    - name: Create required directories
+      run: |
+        mkdir -p models
+        mkdir -p assets/fonts
+        mkdir -p data
+        mkdir -p logs
+        echo "Font placeholder" > assets/fonts/arial.ttf
+      shell: bash
+    
     - name: Configure CMake
       run: |
         cmake -B out/build/windows-default `
@@ -42,7 +52,7 @@ jobs:
       run: |
         cmake --build out/build/windows-default --config Release
     
-    - name: Create assets and models
+    - name: Create build assets
       run: |
         mkdir -p out/build/windows-default/Release/assets/fonts
         mkdir -p out/build/windows-default/Release/models
@@ -106,6 +116,15 @@ jobs:
         vcpkgJsonGlob: 'vcpkg.json'
         runVcpkgInstall: true
     
+    # Create required directories BEFORE build
+    - name: Create required directories
+      run: |
+        mkdir -p models
+        mkdir -p assets/fonts
+        mkdir -p data
+        mkdir -p logs
+        echo "Font placeholder for CI" > assets/fonts/arial.ttf
+    
     - name: Configure CMake
       run: |
         cmake -B build \
@@ -120,7 +139,7 @@ jobs:
       run: |
         cmake --build build --config Release -j$(nproc)
     
-    - name: Create required directories
+    - name: Create build assets
       run: |
         mkdir -p build/assets/fonts
         mkdir -p build/models

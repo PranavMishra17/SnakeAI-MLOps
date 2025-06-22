@@ -283,13 +283,14 @@ int TorchInference::predictAction(const std::vector<float>& input) {
     
     // Find action with highest value/probability
     auto maxElement = std::max_element(output.begin(), output.begin() + 4);
-    int action = std::distance(output.begin(), maxElement);
+    int action = static_cast<int>(std::distance(output.begin(), maxElement));
     
     spdlog::debug("TorchInference: predictAction() - selected action: {} (value: {:.4f})", 
                  action, *maxElement);
     
     return action;
 }
+
 
 std::vector<float> TorchInference::predictValues(const std::vector<float>& input) {
     spdlog::debug("TorchInference: predictValues() called");
