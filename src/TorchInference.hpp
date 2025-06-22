@@ -9,8 +9,11 @@
 #include <string>
 #include <memory>
 #include <filesystem>
+#include <random>
+#include <algorithm>
 #include <spdlog/spdlog.h>
 #include "GameState.hpp"
+
 
 class TorchInference {
 protected:

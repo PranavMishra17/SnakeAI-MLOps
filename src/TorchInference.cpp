@@ -585,11 +585,13 @@ Direction PPOInference::getAction(const EnhancedState& state) {
     return result;
 }
 
+// Fix for PPOInference::fallbackAction
 Direction PPOInference::fallbackAction(const EnhancedState& state) {
     spdlog::debug("PPOInference: Using fallback probabilistic action selection");
     
     const auto& basic = state.basic;
-    std::array<float, 4> actionProbs = {0.25f, 0.25f, 0.25f, 0.25f};
+    // Replace std::array with std::vector
+    std::vector<float> actionProbs = {0.25f, 0.25f, 0.25f, 0.25f};
     
     // Reduce probability of dangerous actions
     if (basic.dangerStraight) {
@@ -627,8 +629,8 @@ Direction PPOInference::fallbackAction(const EnhancedState& state) {
     
     // Normalize
     float sum = actionProbs[0] + actionProbs[1] + actionProbs[2] + actionProbs[3];
-    for (auto& prob : actionProbs) {
-        prob /= sum;
+    for (int i = 0; i < 4; ++i) {
+        actionProbs[i] /= sum;
     }
     
     spdlog::debug("PPOInference: Fallback probabilities: [{:.4f}, {:.4f}, {:.4f}, {:.4f}]",
@@ -836,9 +838,10 @@ Direction ActorCriticInference::getAction(const EnhancedState& state) {
     
     float sum = 0.0f;
     
-    for (auto& prob : actionProbs) {
-        prob = std::exp(prob - maxLogit); // Subtract max for numerical stability
-        sum += prob;
+    // Replace range-based for loop with indexed for loop
+    for (size_t i = 0; i < actionProbs.size(); ++i) {
+        actionProbs[i] = std::exp(actionProbs[i] - maxLogit); // Subtract max for numerical stability
+        sum += actionProbs[i];
     }
     
     if (sum <= 0.0f) {
@@ -846,8 +849,9 @@ Direction ActorCriticInference::getAction(const EnhancedState& state) {
         return fallbackAction(state);
     }
     
-    for (auto& prob : actionProbs) {
-        prob /= sum;
+    // Replace range-based for loop with indexed for loop
+    for (size_t i = 0; i < actionProbs.size(); ++i) {
+        actionProbs[i] /= sum;
     }
     
     spdlog::debug("ActorCriticInference: Softmax probabilities: [{:.4f}, {:.4f}, {:.4f}, {:.4f}]",
@@ -915,11 +919,13 @@ float ActorCriticInference::getValue(const EnhancedState& state) {
 }
 
 
+// Fix for ActorCriticInference::fallbackAction
 Direction ActorCriticInference::fallbackAction(const EnhancedState& state) {
     spdlog::debug("ActorCriticInference: Using fallback value-based action selection");
     
     const auto& basic = state.basic;
-    std::array<float, 4> actionValues = {0.5f, 0.5f, 0.5f, 0.5f};
+    // Replace std::array with std::vector
+    std::vector<float> actionValues = {0.5f, 0.5f, 0.5f, 0.5f};
     
     // Penalize dangerous actions
     if (basic.dangerStraight) {
@@ -960,8 +966,8 @@ Direction ActorCriticInference::fallbackAction(const EnhancedState& state) {
     static std::mt19937 gen(rd());
     std::normal_distribution<float> noise(0.0f, 0.1f);
     
-    for (auto& value : actionValues) {
-        value += noise(gen);
+    for (int i = 0; i < 4; ++i) {
+        actionValues[i] += noise(gen);
     }
     
     spdlog::debug("ActorCriticInference: Action values: [{:.4f}, {:.4f}, {:.4f}, {:.4f}]",
