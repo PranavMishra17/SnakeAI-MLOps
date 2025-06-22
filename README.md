@@ -87,13 +87,12 @@ Combines two neural networks: one that learns strategy (Actor) and one that eval
 
 Here's how the different AI agents performed after training:
 
-| Rank | AI Agent | Training Profile | Average Score | Best Score | Training Time | Success Rate |
-|------|----------|------------------|---------------|------------|---------------|--------------|
-| 🥇 | Actor-Critic | Conservative | 18.45 ± 3.2 | 28 | 45 min | 89.2% |
-| 🥈 | DQN | Balanced | 17.23 ± 2.8 | 25 | 35 min | 84.7% |
-| 🥉 | Policy Gradient | Conservative | 16.78 ± 3.5 | 24 | 55 min | 81.3% |
-| 4th | Q-Learning | Conservative | 15.92 ± 2.1 | 22 | 8 min | 78.9% |
-
+| Rank | AI Agent | Training Profile | Average Score | Best Score | Success Rate | Consistency |
+|------|----------|------------------|---------------|------------|--------------|-------------|
+| 🥇 | DQN | Balanced | 12.3 | 22 | 72.0% | 0.68 |
+| 🥈 | Actor-Critic | Balanced | 11.5 | 20 | 70.0% | 0.73 |
+| 🥉 | PPO | Balanced | 10.8 | 18 | 68.0% | 0.71 |
+| 4th | Q-Learning | Balanced | 8.5 | 15 | 65.0% | 0.75 |
 
 
 ## 🔗 Demo & Downloads

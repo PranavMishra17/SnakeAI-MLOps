@@ -272,6 +272,9 @@ std::vector<float> TorchInference::predict(const std::vector<float>& input) {
 #endif
 }
 
+// The fixed section for TorchInference.cpp from around line 948
+// Replace the problematic function with this version
+
 int TorchInference::predictAction(const std::vector<float>& input) {
     spdlog::debug("TorchInference: predictAction() called");
     
@@ -282,15 +285,22 @@ int TorchInference::predictAction(const std::vector<float>& input) {
     }
     
     // Find action with highest value/probability
-    auto maxElement = std::max_element(output.begin(), output.begin() + 4);
-    int action = static_cast<int>(std::distance(output.begin(), maxElement));
+    int action = 0;
+    float maxValue = output[0];
+    
+    // Manually find the max element index
+    for (int i = 1; i < 4 && i < output.size(); ++i) {
+        if (output[i] > maxValue) {
+            maxValue = output[i];
+            action = i;
+        }
+    }
     
     spdlog::debug("TorchInference: predictAction() - selected action: {} (value: {:.4f})", 
-                 action, *maxElement);
+                 action, maxValue);
     
     return action;
 }
-
 
 std::vector<float> TorchInference::predictValues(const std::vector<float>& input) {
     spdlog::debug("TorchInference: predictValues() called");

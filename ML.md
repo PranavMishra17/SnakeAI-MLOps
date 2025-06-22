@@ -622,14 +622,6 @@ for (const auto& model : models) {
 | PPO | ~500 KB | ~200 MB | ~400 MB |
 | Actor-Critic | ~1 MB | ~250 MB | ~500 MB |
 
-### Performance Results (Average Scores) - FIXED
-
-| Profile | Q-Learning | DQN | PPO | Actor-Critic |
-|---------|------------|-----|-----|--------------|
-| Aggressive | 8-12 | 6-10 | 6-10 | 6-10 |
-| Balanced | 10-15 | 8-12 | 8-12 | 8-12 |
-| Conservative | 12-18 | 10-15 | 10-15 | 10-15 |
-
 ---
 
 ## Advanced Features
